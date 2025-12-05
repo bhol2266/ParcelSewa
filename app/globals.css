@@ -1,21 +1,49 @@
 @import "tailwindcss";
 
+/* Light mode */
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  --primary: #111827;
+  --secondary: #4b5563;
+  --muted: #9ca3af;
+  --danger: #ef4444;
+  --success: #10b981;
+
+  /* Add light themeBlue if you want */
+  --themeBlue: #013159;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --color-muted: var(--muted);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+
+  /* IMPORTANT: Register themeBlue here */
+  --color-themeBlue: var(--themeBlue);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
+/* Dark mode */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
+
+    --primary: #f3f4f6;
+    --themeBlue: #013159; /* same color or different */
+    --secondary: #d1d5db;
+    --muted: #9ca3af;
+    --danger: #f87171;
+    --success: #34d399;
   }
 }
 
