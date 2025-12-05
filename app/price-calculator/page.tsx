@@ -11,8 +11,9 @@ export default function PriceCalculator() {
       </div>
 
       {/* Heading */}
-      <h1 className="text-[38px] font-semibold leading-tight text-[#002B5B]">
-        Know your <br /> final cost <br /> before you say <br />
+    <h1 className="w-full text-[8px] md:text-[38px] lg:text-[46px] font-semibold leading-snug text-[#002B5B]">
+        Know your final cost <br />
+        before you say <br />
         <span className="text-orange-500">“yes”.</span>
       </h1>
 
