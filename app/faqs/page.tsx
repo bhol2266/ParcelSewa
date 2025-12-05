@@ -126,7 +126,7 @@ const FAQPage: React.FC = () => {
                 <h3 className="font-medium text-lg text-gray-800 mb-2">
                   {item.question}
                 </h3>
-                <p className="text-gray-600 whitespace-pre-line">{item.answer}</p>
+                <p className="text-secondary text-sm whitespace-pre-line">{item.answer}</p>
               </div>
             ))}
           </div>

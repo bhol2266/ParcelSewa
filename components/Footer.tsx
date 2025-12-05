@@ -39,7 +39,7 @@ const Footer = () => {
                   <Link href="/terms">Terms & Conditions</Link>
                 </li>
                 <li className="hover:text-white transition-colors">
-                  <Link href="/refund">Refund & Return Policy</Link>
+                  <Link href="/returnsPolicy">Refund & Return Policy</Link>
                 </li>
               </ul>
             </div>

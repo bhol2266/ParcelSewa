@@ -11,10 +11,10 @@ const BrandsMarquee: React.FC = () => {
   useEffect(() => {
     if (!containerRef.current) return
 
-    const scrollDistance = containerRef.current.scrollWidth / 2 // half width because we doubled the brands
+    const scrollDistance = containerRef.current.scrollWidth / 2
     animationRef.current = animate(
       containerRef.current,
-      { x: [0, -scrollDistance] },
+      { translate: [`0px`, `-${scrollDistance}px`] },
       {
         duration: 20,
         repeat: Infinity,
@@ -24,7 +24,7 @@ const BrandsMarquee: React.FC = () => {
   }, [])
 
   const handleMouseEnter = () => {
-    animationRef.current?.stop() // pause animation
+    animationRef.current?.stop()
   }
 
   const handleMouseLeave = () => {
@@ -32,7 +32,7 @@ const BrandsMarquee: React.FC = () => {
     const scrollDistance = containerRef.current.scrollWidth / 2
     animationRef.current = animate(
       containerRef.current,
-      { x: [containerRef.current.getBoundingClientRect().x, -scrollDistance] },
+      { translate: [`${containerRef.current.getBoundingClientRect().x}px`, `-${scrollDistance}px`] },
       {
         duration: 20,
         repeat: Infinity,
@@ -41,17 +41,14 @@ const BrandsMarquee: React.FC = () => {
     )
   }
 
-  // Duplicate brands for seamless scrolling
   const doubledBrands = [...brands, ...brands]
 
   return (
     <div className="w-full py-6 overflow-hidden">
-      {/* Heading */}
       <h2 className="text-xl md:text-2xl font-semibold text-center mb-6 text-themeBlue">
         Major Online Shopping Stores
       </h2>
 
-      {/* Marquee Container */}
       <div
         ref={containerRef}
         className="flex gap-6 w-max cursor-pointer"
