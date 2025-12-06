@@ -13,7 +13,7 @@ const stats: StatItem[] = [
 
 const UserRating: React.FC = () => {
   return (
-    <div className="flex  justify-around items-center bg-white dark:bg-gray-900 p-6 rounded-xl border border-neutral-200 shadow gap-4 max-w-[700px]">
+    <div className="flex mb-4  justify-around items-center bg-white dark:bg-gray-900 p-6 rounded-xl border border-neutral-200 shadow gap-4 max-w-[700px]">
       {stats.map((stat, index) => (
         <div key={index} className="flex flex-col items-center text-center">
           <span className="text-lg md:text-2xl font-bold text-themeBlue dark:text-blue-400">

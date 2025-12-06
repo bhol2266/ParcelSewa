@@ -1,4 +1,5 @@
 
+import BottomSection from "@/components/BottomSection";
 import Brands from "@/components/Brands";
 import PricingWorkflow from "@/components/PricingWorkflow";
 import Services from "@/components/Services";
@@ -15,7 +16,7 @@ export default function Home() {
     <div>
 
       <div className="lg:px-6   px-4">
-        <div className="flex justify-center w-full my-4 text-[#2460E9]">
+        <div className="flex lg:justify-start justify-center w-full my-4 text-[#2460E9]">
           <span className="py-2 px-4 bg-[#DDEBFE] rounded-3xl text-sm flex items-center gap-2">
 
             <ReactCountryFlag countryCode="IN" svg style={{ width: "1.5em", height: "1.5em" }} />
@@ -33,7 +34,10 @@ export default function Home() {
         <TopLayerLandingPage />
 
 
+<div className="lg:w-3/5">
+
         <span className="text-themeBlue font-medium ">Paste the product link from Amazon, Flipkart, Myntra or any Indian store. We handle buying, customs and shipping — you pay once in NPR and relax.</span>
+</div>
 
 
         {/* Buttons */}
@@ -73,14 +77,14 @@ export default function Home() {
       <Workflow2 />
 
       <Brands />
+      <Workflow />
 
-      <div className=" ">
 
-        <Workflow />
-
+      <div className="bg-gradient-to-b from-white to-[#EEF1F5]">
         <PricingWorkflow />
-
+        <BottomSection />
       </div>
+
 
 
 
