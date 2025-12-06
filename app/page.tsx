@@ -18,27 +18,29 @@ export default function Home() {
 
       <div className="lg:px-6   px-4 mt-6 lg:mt-12">
 
+        <div className="flex lg:justify-start justify-center w-full my-4 text-[#2460E9]">
+          <span className="py-2 px-4 bg-[#DDEBFE] rounded-3xl text-sm flex items-center gap-2">
+
+            <ReactCountryFlag countryCode="IN" svg style={{ width: "1.5em", height: "1.5em" }} />
+
+            <span>→</span>
+
+            <ReactCountryFlag countryCode="NP" svg style={{ width: "1.5em", height: "1.5em" }} />
+
+            Order from any Indian site, pay in NPR
+          </span>
+
+
+        </div>
+
+
+        <TopLayerLandingPage />
 
         <div className="flex items-center justify-between">
 
 
           <div>
-            <div className="flex lg:justify-start justify-center w-full my-4 text-[#2460E9]">
-              <span className="py-2 px-4 bg-[#DDEBFE] rounded-3xl text-sm flex items-center gap-2">
 
-                <ReactCountryFlag countryCode="IN" svg style={{ width: "1.5em", height: "1.5em" }} />
-
-                <span>→</span>
-
-                <ReactCountryFlag countryCode="NP" svg style={{ width: "1.5em", height: "1.5em" }} />
-
-                Order from any Indian site, pay in NPR
-              </span>
-
-
-            </div>
-
-            <TopLayerLandingPage />
 
 
             <div className="lg:w-4/5">

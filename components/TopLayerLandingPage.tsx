@@ -7,7 +7,7 @@ const TopLayerLandingPage = () => {
     return (
 
         <motion.div
-            className="w-full max-w-4xl font-semibold leading-tight my-6"
+            className="w-full max-w-4xl font-semibold leading-tight mt-6"
             initial="hidden"
             animate="visible"
             variants={{
@@ -36,7 +36,7 @@ const TopLayerLandingPage = () => {
 
             {/* Line 2 */}
             <motion.p
-                className="text-3xl sm:text-4xl mt-2 flex flex-wrap"
+                className="text-3xl sm:text-5xl mt-2 flex flex-wrap"
                 variants={{
                     hidden: { opacity: 0, y: 20 },
                     visible: { opacity: 1, y: 0 },
