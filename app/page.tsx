@@ -16,7 +16,7 @@ export default function Home() {
 
       <div className="lg:px-6   px-4">
         <div className="flex justify-center w-full my-4 text-[#2460E9]">
-          <span className="py-2 px-6 bg-[#DDEBFE] rounded-3xl text-sm flex items-center gap-2">
+          <span className="py-2 px-4 bg-[#DDEBFE] rounded-3xl text-sm flex items-center gap-2">
 
             <ReactCountryFlag countryCode="IN" svg style={{ width: "1.5em", height: "1.5em" }} />
 

@@ -25,7 +25,7 @@ const TopLayerLandingPage = () => {
         >
             {/* Line 1 */}
             <motion.p
-                className="text-4xl sm:text-5xl text-[#002f5c]"
+                className="text-3xl lg:text-5xl text-[#002f5c]"
                 variants={{
                     hidden: { opacity: 0, y: 20 },
                     visible: { opacity: 1, y: 0 },
@@ -36,7 +36,7 @@ const TopLayerLandingPage = () => {
 
             {/* Line 2 */}
             <motion.p
-                className="text-4xl sm:text-5xl mt-2 flex flex-wrap"
+                className="text-3xl sm:text-4xl mt-2 flex flex-wrap"
                 variants={{
                     hidden: { opacity: 0, y: 20 },
                     visible: { opacity: 1, y: 0 },

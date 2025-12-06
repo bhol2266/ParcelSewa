@@ -6,7 +6,7 @@ const brandsimages = ["StoresImages/hd/amazon.png", "StoresImages/hd/flipkart.pn
 export default function Workflow2() {
     return (
 
-        <div className="hidden lg:flex items-center gap-12">
+        <div className="hidden lg:flex items-center gap-12 px-6">
 
             <div>
                 <img width={800} height={800} src="landingPage//box2.png" alt="" />
