@@ -1,6 +1,7 @@
 
 import BottomSection from "@/components/BottomSection";
 import Brands from "@/components/Brands";
+import Faqs from "@/components/Faqs";
 import PricingWorkflow from "@/components/PricingWorkflow";
 import Services from "@/components/Services";
 import TopLayerLandingPage from "@/components/TopLayerLandingPage";
@@ -34,10 +35,10 @@ export default function Home() {
         <TopLayerLandingPage />
 
 
-<div className="lg:w-3/5">
+        <div className="lg:w-3/5">
 
-        <span className="text-themeBlue font-medium ">Paste the product link from Amazon, Flipkart, Myntra or any Indian store. We handle buying, customs and shipping — you pay once in NPR and relax.</span>
-</div>
+          <span className="text-themeBlue font-medium ">Paste the product link from Amazon, Flipkart, Myntra or any Indian store. We handle buying, customs and shipping — you pay once in NPR and relax.</span>
+        </div>
 
 
         {/* Buttons */}
@@ -82,6 +83,7 @@ export default function Home() {
 
       <div className="bg-gradient-to-b from-white to-[#EEF1F5]">
         <PricingWorkflow />
+        <Faqs />
         <BottomSection />
       </div>
 
