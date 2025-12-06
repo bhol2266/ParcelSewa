@@ -17,7 +17,7 @@ const faqData: FAQItem[] = [
     {
         question: "How long does delivery usually take?",
         answer:
-            "Delivery typically takes 7–14 days depending on shipping speed and product availability.",
+            "Delivery typically takes 7–10 days depending on shipping speed and product availability.",
     },
     {
         question: "What if my product is damaged or lost?",
@@ -39,7 +39,7 @@ export default function Faqs() {
     };
 
     return (
-        <section className="w-full px-4 md:px-8 lg:px-20 py-4">
+        <section id="faqs" className="w-full px-4 md:px-8 lg:px-20 py-4">
             <div className="inline-block bg-blue-100 text-blue-600 px-5 py-2 rounded-full text-sm font-medium mb-2">
                 FAQs
             </div>

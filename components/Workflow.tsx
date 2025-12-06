@@ -40,7 +40,7 @@ export default function Workflow() {
   };
 
   return (
-    <div className="bg-[#F7F7F7]">
+    <div id="workflow" className="bg-[#F7F7F7]">
 
       <section className="lg:hidden py-12 max-w-2xl mx-auto lg:px-6   px-4 ">
         {/* Tag */}

@@ -6,7 +6,7 @@ const brandsimages = ["StoresImages/hd/amazon.png", "StoresImages/hd/flipkart.pn
 export default function Workflow2() {
     return (
 
-        <div className="bg-[#F7F7F7]">
+        <div  id="workflow" className="bg-[#F7F7F7]">
 
             <div className="hidden lg:flex items-center gap-12 px-6 lg:px-6   px-4">
 
