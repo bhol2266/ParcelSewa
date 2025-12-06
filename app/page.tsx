@@ -75,7 +75,7 @@ export default function Home() {
             </div>
           </div>
 
-          <img className=" max-w-[500px] xl:max-w-[600px] 2xl:max-w-[700px] lg:flex hidden" src="/landingPage/box4.png" alt="" />
+          <img className=" max-w-[500px] xl:max-w-[600px] 2xl:max-w-[700px] 3xl:max-w-[800px] lg:flex hidden" src="/landingPage/box4.png" alt="" />
 
         </div>
 
