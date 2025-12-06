@@ -18,6 +18,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --shadow-acertinity: 0 3px 10px rgba(0, 0, 0, 0.2);
 
   --color-primary: var(--primary);
   --color-secondary: var(--secondary);
@@ -39,7 +40,8 @@
     --foreground: #ededed;
 
     --primary: #f3f4f6;
-    --themeBlue: #013159; /* same color or different */
+    --themeBlue: #013159;
+    /* same color or different */
     --secondary: #d1d5db;
     --muted: #9ca3af;
     --danger: #f87171;

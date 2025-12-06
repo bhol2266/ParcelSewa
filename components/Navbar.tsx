@@ -3,7 +3,7 @@ import React from 'react'
 
 const Navbar = () => {
   return (
-    <div className='flex items-center justify-between'>
+    <div className='flex items-center justify-between px-4'>
 
       <Link href="/">
       <img src="/logo.png" alt="" className='w-[200px]' />

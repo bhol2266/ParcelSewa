@@ -39,7 +39,7 @@ export default function Workflow() {
   };
 
   return (
-    <section className="py-12 max-w-2xl mx-auto">
+    <section className="lg:hidden py-12 max-w-2xl mx-auto">
       {/* Tag */}
       <div className="inline-block bg-blue-100 text-blue-600 px-6 py-2 rounded-full mb-6">
         How ParcelSewa Works
