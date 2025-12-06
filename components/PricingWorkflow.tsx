@@ -6,7 +6,7 @@ import Image from "next/image";
 const PricingWorkflow = () => {
     return (
 
-        <div className="py-12">
+        <div className="py-12 lg:px-6   px-4">
             {/* Badge */}
             <div className="inline-block bg-blue-100 text-blue-600 px-5 py-2 rounded-full text-sm font-medium">
                 Transparent Pricing

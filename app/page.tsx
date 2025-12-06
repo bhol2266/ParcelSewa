@@ -38,14 +38,16 @@ export default function Home() {
 
         {/* Buttons */}
         <div className="flex items-center justify-between gap-2 my-8 max-w-[600px] sm:gap-12">
-          <button
-            className="bg-themeBlue text-white flex-1 py-3 rounded-[26px] text-sm"
+
+          <Link
+            href="/order"
+            className="bg-themeBlue text-white flex-1 py-3 rounded-[26px] text-sm cursor-pointer inline-flex justify-center items-center"
             style={{
               boxShadow: '0 4px 6px rgba(1, 49, 89, 0.5)' // themeBlue rgba with 50% opacity
             }}
           >
             Create your first order
-          </button>
+          </Link>
 
 
           <Link
@@ -72,7 +74,7 @@ export default function Home() {
 
       <Brands />
 
-      <div className="lg:px-6   px-4">
+      <div className=" ">
 
         <Workflow />
 
