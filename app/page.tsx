@@ -41,7 +41,7 @@ export default function Home() {
             <TopLayerLandingPage />
 
 
-            <div className="lg:w-3/5">
+            <div className="lg:w-4/5">
 
               <span className="text-themeBlue font-medium ">Paste the product link from Amazon, Flipkart, Myntra or any Indian store. We handle buying, customs and shipping — you pay once in NPR and relax.</span>
             </div>
