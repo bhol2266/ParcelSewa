@@ -3,18 +3,10 @@
 import { Fragment } from "react";
 import { Disclosure, Transition } from "@headlessui/react";
 import { FaBars, FaTimes } from "react-icons/fa";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Link } from "next-view-transitions";
 import React, { useState } from "react";
-
-import {
-  easeInOut,
-  motion,
-  useMotionTemplate,
-  useMotionValueEvent,
-  useScroll,
-  useTransform,
-} from "motion/react";
+import { easeInOut, motion, useMotionValueEvent, useScroll } from "motion/react";
 
 const navigation = [
   { name: "Home", href: "/" },
@@ -24,44 +16,32 @@ const navigation = [
 ];
 
 const Navbar = () => {
-
   const { scrollY } = useScroll();
-
   const [scrolled, setScrolled] = useState<boolean>(false);
 
   useMotionValueEvent(scrollY, "change", (latest) => {
-    if (latest > 10) {
-      setScrolled(true);
-    } else {
-      setScrolled(false);
-    }
+    setScrolled(latest > 10);
   });
 
   const pathname = usePathname();
+  const router = useRouter();
 
   return (
-
     <motion.div
       animate={{
         boxShadow: scrolled ? "var(--shadow-acertinity)" : "none",
         width: scrolled ? "90%" : "100%",
-        borderRadius: scrolled ? "26px" : "0px", // 8px = 0.5rem
+        borderRadius: scrolled ? "26px" : "0px",
         y: scrolled ? 10 : 0,
-
       }}
-      transition={{
-        duration: 0.3,
-        ease: easeInOut,
-      }}
+      transition={{ duration: 0.3, ease: easeInOut }}
       className="fixed z-50 inset-x-0 top-0 mx-auto bg-white"
     >
-
-      <Disclosure as="nav" className="">
-        {({ open }) => (
+      <Disclosure as="nav">
+        {({ open, close }) => (
           <>
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between h-16 items-center">
-
                 {/* Logo */}
                 <div className="flex-shrink-0">
                   <Link href="/">
@@ -77,8 +57,9 @@ const Navbar = () => {
                       <Link
                         key={item.name}
                         href={item.href}
-                        className={`px-3 py-2 rounded-md text-sm font-medium ${isCurrent ? "text-white bg-themeBlue" : "text-primary hover:bg-gray-200"
-                          }`}
+                        className={`px-3 py-2 rounded-md text-sm font-medium ${
+                          isCurrent ? "text-white bg-themeBlue" : "text-primary hover:bg-gray-200"
+                        }`}
                       >
                         {item.name}
                       </Link>
@@ -88,18 +69,13 @@ const Navbar = () => {
 
                 {/* Action buttons */}
                 <div className="gap-6 items-center hidden lg:flex">
-                  <Link
-                    href="/login"
-                    className="px-3 py-2 rounded-md text-sm font-medium hover:underline"
-                  >
+                  <Link href="/login" className="px-3 py-2 rounded-md text-sm font-medium hover:underline">
                     Login
                   </Link>
                   <Link
                     href="/order"
                     className="bg-themeBlue text-white flex-1 py-3 rounded-[26px] text-sm cursor-pointer inline-flex justify-center items-center px-6"
-                    style={{
-                      boxShadow: '0 4px 6px rgba(1, 49, 89, 0.5)'
-                    }}
+                    style={{ boxShadow: "0 4px 6px rgba(1, 49, 89, 0.5)" }}
                   >
                     Create your first order
                   </Link>
@@ -128,15 +104,27 @@ const Navbar = () => {
                 <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
                   {navigation.map((item) => {
                     const isCurrent = item.href === pathname && !item.href.startsWith("https://wa");
+
                     return (
-                      <Link
+                      <button
                         key={item.name}
-                        href={item.href}
-                        className={`block px-3 py-2 rounded-md text-base ${isCurrent ? "text-white bg-themeBlue" : "text-secondary hover:bg-gray-200"
-                          }`}
+                        onClick={() => {
+                          close(); // close menu first
+                          setTimeout(() => {
+                            // navigate after menu closes
+                            if (item.href.startsWith("https://")) {
+                              window.location.href = item.href; // external links
+                            } else {
+                              router.push(item.href); // internal links SPA-style
+                            }
+                          }, 200); // match transition duration
+                        }}
+                        className={`block w-full text-left px-3 py-2 rounded-md text-base ${
+                          isCurrent ? "text-white bg-themeBlue" : "text-secondary hover:bg-gray-200"
+                        }`}
                       >
                         {item.name}
-                      </Link>
+                      </button>
                     );
                   })}
                 </div>
@@ -145,9 +133,7 @@ const Navbar = () => {
           </>
         )}
       </Disclosure>
-
     </motion.div>
-
   );
 };
 
