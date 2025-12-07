@@ -7,13 +7,11 @@ import ReactCountryFlag from "react-country-flag";
 
 
 
-
-
 export default function PriceCalculator() {
   const [price, setPrice] = useState("");
   const [weight, setWeight] = useState("");
   const [category, setCategory] = useState("");
-  const [total, setTotal] = useState(null);
+const [total, setTotal] = useState<number | null>(null);
 
   const handleCalculate = () => {
     if (!price || !weight || !category || category === "Choose Product Category") {

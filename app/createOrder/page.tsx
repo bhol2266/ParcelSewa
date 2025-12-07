@@ -6,6 +6,10 @@ import { db } from "@/lib/firebase/firebaseClient";
 import toast, { Toaster } from "react-hot-toast";
 import brands from "@/constants/brands";
 
+type Brand = {
+  name: string;
+};
+
 const CreateOrder: React.FC = () => {
     const [name, setName] = useState("");
     const [countryCode, setCountryCode] = useState("+977");
