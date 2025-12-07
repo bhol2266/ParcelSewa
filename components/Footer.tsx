@@ -8,7 +8,7 @@ const Footer = () => {
     <footer className="bg-gradient-to-r from-[#0A2F4E] to-[#06203A] text-white py-16 px-6">
       <div className="max-w-7xl mx-auto">
         {/* Top Section */}
-<div className="flex flex-col items-center text-center md:items-start md:text-left md:flex-row md:justify-between gap-10">
+        <div className="flex flex-col items-center text-center md:items-start md:text-left md:flex-row md:justify-between gap-10">
           {/* Logo + Description + Address */}
           <div className="max-w-md">
             <img
@@ -70,12 +70,14 @@ const Footer = () => {
         </div>
 
         {/* Bottom Copyright */}
-        <div className="mt-12 border-t border-white/20 pt-6 text-gray-400 text-sm flex flex-col md:flex-row justify-between items-center">
-          <p>© 2025 ParcelSewa. All rights reserved.</p>
-          <p className="mt-2 md:mt-0 text-xs text-gray-500">
-            Designed with ❤️ in Nepal
-          </p>
-        </div>
+        <Link href="/createOrder">
+          <div className="mt-12 border-t border-white/20 pt-6 text-gray-400 text-sm flex flex-col md:flex-row justify-between items-center">
+            <p>© 2025 ParcelSewa. All rights reserved.</p>
+            <p className="mt-2 md:mt-0 text-xs text-gray-500">
+              Designed with ❤️ in Nepal
+            </p>
+          </div>
+        </Link>
       </div>
     </footer>
   );
