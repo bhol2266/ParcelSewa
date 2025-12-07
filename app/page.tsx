@@ -12,6 +12,37 @@ import { Link } from "next-view-transitions";
 import ReactCountryFlag from "react-country-flag";
 
 
+export const metadata = {
+  title: "ParcelSewa | Buy from Indian Online Stores & Get Delivered in Nepal",
+  description:
+    "ParcelSewa lets you shop from Amazon, Flipkart, Myntra, and other Indian online stores from home. Pay in Nepali currency and get your products delivered straight to your doorstep hassle-free.",
+  openGraph: {
+    title: "ParcelSewa | Buy from Indian Online Stores & Get Delivered in Nepal",
+    description:
+      "ParcelSewa lets you shop from Amazon, Flipkart, Myntra, and other Indian online stores from home. Pay in Nepali currency and get your products delivered straight to your doorstep hassle-free.",
+    url: "https://www.parcelsewa.com/",
+    siteName: "ParcelSewa",
+    images: [
+      {
+        url: "https://www.parcelsewa.com/og-image.jpg",
+        width: 1200,
+        height: 630,
+        alt: "ParcelSewa - Shop from India, Delivered in Nepal",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ParcelSewa | Buy from Indian Online Stores & Get Delivered in Nepal",
+    description:
+      "ParcelSewa lets you shop from Amazon, Flipkart, Myntra, and other Indian online stores from home. Pay in Nepali currency and get your products delivered straight to your doorstep hassle-free.",
+    images: ["https://www.parcelsewa.com/og-image.jpg"],
+  },
+};
+
+
 export default function Home() {
   return (
     <div>
