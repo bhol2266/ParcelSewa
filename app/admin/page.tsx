@@ -5,6 +5,7 @@ import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import OrderCard from "./OrderCard";
 import Cookies from "js-cookie";
+import OrdersStats from "./OrdersStats";
 
 interface Order {
     id: string;
@@ -117,7 +118,6 @@ export default function OrdersPage() {
         };
     }, [orders]);
 
-    const formatNumber = (num: number) => num.toLocaleString("en-IN");
 
     if (loading)
         return <p className="p-5 text-center">Loading…</p>;
@@ -130,41 +130,14 @@ export default function OrdersPage() {
 
 
 
-                {/* Stats */}
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
-                    <div className="p-4 bg-white rounded-xl shadow">
-                        <p className="text-sm text-gray-500">Total Orders</p>
-                        <p className="text-2xl font-bold">{formatNumber(stats.totalOrders)}</p>
-                    </div>
-
-                    <div className="p-4 bg-green-100 rounded-xl shadow">
-                        <p className="text-sm text-gray-600">Delivered</p>
-                        <p className="text-2xl font-bold text-green-700">{formatNumber(stats.delivered)}</p>
-                    </div>
-
-                    <div className="p-4 bg-yellow-100 rounded-xl shadow">
-                        <p className="text-sm text-gray-600">Pending</p>
-                        <p className="text-2xl font-bold text-yellow-700">{formatNumber(stats.pending)}</p>
-                    </div>
-
-                    <div className="p-4 bg-blue-100 rounded-xl shadow">
-                        <p className="text-sm text-gray-600">Total Revenue</p>
-                        <p className="text-xl font-bold text-blue-700">Rs. {formatNumber(stats.totalRevenue)}</p>
-                    </div>
-
-                    <div className="p-4 bg-red-100 rounded-xl shadow">
-                        <p className="text-sm text-gray-600">Remaining Payment</p>
-                        <p className="text-xl font-bold text-red-700">Rs. {formatNumber(stats.remainingPayment)}</p>
-                    </div>
-
-                    <div className="p-4 bg-purple-100 rounded-xl shadow">
-                        <p className="text-sm text-gray-600">Estimated Profit</p>
-                        <p className={`text-xl font-bold ${stats.estimatedProfit < 0 ? "text-red-600" : "text-purple-700"}`}>
-                            Rs. {formatNumber(stats.estimatedProfit)}
-                        </p>
-                    </div>
-                </div>
-
+                <OrdersStats
+                    totalOrders={stats.totalOrders}
+                    delivered={stats.delivered}
+                    pending={stats.pending}
+                    totalRevenue={stats.totalRevenue}
+                    remainingPayment={stats.remainingPayment}
+                    estimatedProfit={stats.estimatedProfit}
+                />
                 {/* Search Bar */}
                 <div className="relative mb-6">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">🔍</span>
