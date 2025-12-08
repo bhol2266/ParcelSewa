@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useRef } from "react";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import OrderCard from "./OrderCard";
+import Cookies from "js-cookie";
 
 interface Order {
     id: string;
@@ -16,8 +17,10 @@ export default function OrdersPage() {
     const [search, setSearch] = useState("");
     const [accessGranted, setAccessGranted] = useState(false);
     const [passwordInput, setPasswordInput] = useState("");
-
     const passwordInputRef = useRef<HTMLInputElement>(null);
+
+    const PASSWORD = "5555";
+    const COOKIE_NAME = "admin_access";
 
     // Fetch orders
     const fetchOrders = async () => {
@@ -37,14 +40,26 @@ export default function OrdersPage() {
         fetchOrders();
     }, []);
 
-    // Automatically focus input and open keyboard
-
+    // Check cookie on load
+    useEffect(() => {
+        const cookie = Cookies.get(COOKIE_NAME);
+        if (cookie === PASSWORD) {
+            setAccessGranted(true);
+        } else {
+            // Focus input after slight delay to open keyboard on mobile
+            setTimeout(() => {
+                passwordInputRef.current?.focus();
+            }, 300);
+        }
+    }, []);
 
     // Check password
     useEffect(() => {
-        if (passwordInput === "5555") {
+        if (passwordInput === PASSWORD) {
             setAccessGranted(true);
             setPasswordInput("");
+            // Save cookie for 5 days
+            Cookies.set(COOKIE_NAME, PASSWORD, { expires: 5, path: "/" });
         }
     }, [passwordInput]);
 
