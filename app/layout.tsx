@@ -4,6 +4,8 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { ViewTransitions } from 'next-view-transitions'
+import Script from "next/script";
+
 
 const inter = Inter({
   subsets: ["latin"],
@@ -54,10 +56,25 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+
+  const GA_MEASUREMENT_ID = "G-0GMBZ1L7JR"; // put GA ID in .env
+
   return (
     <ViewTransitions>
 
       <html lang="en">
+
+        <Script
+          strategy="afterInteractive"
+          src="https://www.googletagmanager.com/gtag/js?id=G-0GMBZ1L7JR"
+        />
+
+        <Script id="gtm-script" strategy="afterInteractive">
+          {` window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-0GMBZ1L7JR');`}
+        </Script>
         <body
           className={`${inter.className}  antialiased`}
         >
