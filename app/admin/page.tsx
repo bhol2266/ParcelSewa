@@ -14,6 +14,9 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [accessGranted, setAccessGranted] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const adminPassword = "5555";
 
   const fetchOrders = async () => {
     setLoading(true);
@@ -36,9 +39,17 @@ export default function OrdersPage() {
     fetchOrders();
   }, []);
 
-  // -------------------------
-  // 🔎 Filtered Orders
-  // -------------------------
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordInput === adminPassword) {
+      setAccessGranted(true);
+    } else {
+      alert("Incorrect password!");
+      setPasswordInput("");
+    }
+  };
+
+  // Filtered Orders
   const filteredOrders = useMemo(() => {
     return orders.filter((o) => {
       const nameMatch = o.name?.toLowerCase().includes(search.toLowerCase());
@@ -47,38 +58,28 @@ export default function OrdersPage() {
     });
   }, [search, orders]);
 
-  // -------------------------
-  // 🔥 Stats Calculation
-  // -------------------------
+  // Stats Calculation
   const stats = useMemo(() => {
     const totalOrders = orders.length;
-
     const deliveredOrders = orders.filter(
       (o) => o.deliveryStatus?.toLowerCase() === "delivered"
     );
-
     const pendingOrders = orders.filter(
       (o) => o.deliveryStatus?.toLowerCase() !== "delivered"
     );
-
     const deliveredRevenue = deliveredOrders.reduce(
       (sum, o) => sum + (o.totalAmount || 0),
       0
     );
-
     const advanceFromPending = pendingOrders.reduce(
       (sum, o) => sum + (o.advancePayment || 0),
       0
     );
-
     const totalRevenue = deliveredRevenue + advanceFromPending;
-
     const remainingPayment = pendingOrders.reduce(
       (sum, o) => sum + ((o.totalAmount || 0) - (o.advancePayment || 0)),
       0
     );
-
-    // Estimated Profit = sum(commission% of totalAmount) - (totalOrders * 300)
     const estimatedProfit = orders.reduce((sum, o) => {
       const commissionPercent = parseFloat(o.commission?.replace("%", "") || "0") / 100;
       return sum + ((o.totalAmount || 0) * commissionPercent);
@@ -94,8 +95,33 @@ export default function OrdersPage() {
     };
   }, [orders]);
 
-  // Number formatting helper
   const formatNumber = (num: number) => num.toLocaleString("en-IN");
+
+  if (!accessGranted) {
+    // Password Modal
+    return (
+      <div className="fixed inset-0 flex items-center justify-center bg-black/60 z-50">
+        <div className="bg-white p-8 rounded-xl shadow-lg w-80 text-center">
+          <h2 className="text-2xl font-bold mb-4">Admin Access</h2>
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <input
+              type="password"
+              placeholder="Enter Password"
+              value={passwordInput}
+              onChange={(e) => setPasswordInput(e.target.value)}
+              className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+            <button
+              type="submit"
+              className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition"
+            >
+              Submit
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) return <p className="p-5 text-center">Loading…</p>;
 
@@ -103,7 +129,7 @@ export default function OrdersPage() {
     <div className="p-6">
       <h1 className="text-3xl font-bold mb-6">All Orders</h1>
 
-      {/* 🔍 Search Bar */}
+      {/* Search Bar */}
       <div className="relative mb-6">
         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">🔍</span>
         <input
@@ -116,9 +142,7 @@ export default function OrdersPage() {
         />
       </div>
 
-      {/* ============================================= */}
-      {/* 🔥 Stats Row */}
-      {/* ============================================= */}
+      {/* Stats Row */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4 mb-8">
         <div className="p-4 bg-white rounded-xl shadow">
           <p className="text-sm text-gray-500">Total Orders</p>
@@ -127,39 +151,27 @@ export default function OrdersPage() {
 
         <div className="p-4 bg-green-100 rounded-xl shadow">
           <p className="text-sm text-gray-600">Delivered</p>
-          <p className="text-2xl font-bold text-green-700">
-            {formatNumber(stats.delivered)}
-          </p>
+          <p className="text-2xl font-bold text-green-700">{formatNumber(stats.delivered)}</p>
         </div>
 
         <div className="p-4 bg-yellow-100 rounded-xl shadow">
           <p className="text-sm text-gray-600">Pending</p>
-          <p className="text-2xl font-bold text-yellow-700">
-            {formatNumber(stats.pending)}
-          </p>
+          <p className="text-2xl font-bold text-yellow-700">{formatNumber(stats.pending)}</p>
         </div>
 
         <div className="p-4 bg-blue-100 rounded-xl shadow">
           <p className="text-sm text-gray-600">Total Revenue</p>
-          <p className="text-xl font-bold text-blue-700">
-            Rs. {formatNumber(stats.totalRevenue)}
-          </p>
+          <p className="text-xl font-bold text-blue-700">Rs. {formatNumber(stats.totalRevenue)}</p>
         </div>
 
         <div className="p-4 bg-red-100 rounded-xl shadow">
           <p className="text-sm text-gray-600">Remaining Payment</p>
-          <p className="text-xl font-bold text-red-700">
-            Rs. {formatNumber(stats.remainingPayment)}
-          </p>
+          <p className="text-xl font-bold text-red-700">Rs. {formatNumber(stats.remainingPayment)}</p>
         </div>
 
         <div className="p-4 bg-purple-100 rounded-xl shadow">
           <p className="text-sm text-gray-600">Estimated Profit</p>
-          <p
-            className={`text-xl font-bold ${
-              stats.estimatedProfit < 0 ? "text-red-600" : "text-purple-700"
-            }`}
-          >
+          <p className={`text-xl font-bold ${stats.estimatedProfit < 0 ? "text-red-600" : "text-purple-700"}`}>
             Rs. {formatNumber(stats.estimatedProfit)}
           </p>
         </div>
@@ -172,9 +184,7 @@ export default function OrdersPage() {
             <OrderCard key={order.id} order={order} refresh={fetchOrders} />
           ))
         ) : (
-          <p className="text-center col-span-full text-gray-500 mt-10">
-            No orders found.
-          </p>
+          <p className="text-center col-span-full text-gray-500 mt-10">No orders found.</p>
         )}
       </div>
     </div>
