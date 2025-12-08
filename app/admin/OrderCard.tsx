@@ -15,21 +15,17 @@ export default function OrderCard({ order, refresh }: OrderProps) {
 
   const isDelivered = order.deliveryStatus?.toLowerCase() === "delivered";
 
-  // Remaining Amount
   const remaining = (order.totalAmount || 0) - (order.advancePayment || 0);
 
-  // Format date to "24 March 2025"
   const formatDate = (ts: any) => {
     const date = ts.toDate();
-    const options: Intl.DateTimeFormatOptions = {
+    return date.toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "long",
       year: "numeric",
-    };
-    return date.toLocaleDateString("en-GB", options); // 24 March 2025
+    });
   };
 
-  // Format time
   const formatTime = (ts: any) => {
     const date = ts.toDate();
     return date.toLocaleTimeString("en-US", {
@@ -38,7 +34,6 @@ export default function OrderCard({ order, refresh }: OrderProps) {
     });
   };
 
-  // Copy Address Handler
   const handleCopy = () => {
     const text = `${order.name}\nMobile: ${order.mobile.replace("+977","")}\n ${order.address}`;
     navigator.clipboard.writeText(text);
@@ -47,44 +42,69 @@ export default function OrderCard({ order, refresh }: OrderProps) {
   return (
     <div
       className={`rounded-xl p-5 shadow-md border transition-all 
-        ${isDelivered ? "border-red-400 bg-red-50" : "border-green-400 bg-green-50"}
-      `}
+      ${isDelivered ? "border-red-400 bg-red-50" : "border-green-400 bg-green-50"}
+    `}
     >
-      {/* Header: Name + Status */}
+      {/* Header */}
       <div className="flex justify-between items-center mb-3">
         <h2 className="font-semibold text-xl text-gray-800">{order.name}</h2>
 
         <span
           className={`px-3 py-1 text-sm rounded-full font-semibold 
-            ${isDelivered ? "bg-red-500 text-white" : "bg-green-500 text-white"}
-          `}
+          ${isDelivered ? "bg-red-500 text-white" : "bg-green-500 text-white"}`}
         >
           {order.deliveryStatus}
         </span>
       </div>
 
-      {/* Editing Mode */}
+      {/* EDIT MODE */}
       {isEditing ? (
         <div className="space-y-3">
-
+          {/* Name */}
           <input
             className="w-full border p-2 rounded-md"
             defaultValue={order.name}
             onChange={(e) => setEditData({ ...editData, name: e.target.value })}
           />
 
+          {/* Mobile */}
           <input
             className="w-full border p-2 rounded-md"
             defaultValue={order.mobile}
             onChange={(e) => setEditData({ ...editData, mobile: e.target.value })}
           />
 
+          {/* Address */}
           <input
             className="w-full border p-2 rounded-md"
             defaultValue={order.address}
             onChange={(e) => setEditData({ ...editData, address: e.target.value })}
           />
 
+          {/* Store Name */}
+          <input
+            className="w-full border p-2 rounded-md"
+            defaultValue={order.storeName}
+            onChange={(e) => setEditData({ ...editData, storeName: e.target.value })}
+          />
+
+          {/* Commission */}
+          <select
+            className="w-full border p-2 rounded-md"
+            defaultValue={order.commission}
+            onChange={(e) =>
+              setEditData({ ...editData, commission: e.target.value })
+            }
+          >
+            <option>15%</option>
+            <option>20%</option>
+            <option>25%</option>
+            <option>30%</option>
+            <option>35%</option>
+            <option>40%</option>
+          </select>
+
+          {/* Delivery Status */}
           <select
             className="w-full border p-2 rounded-md"
             defaultValue={order.deliveryStatus}
@@ -98,6 +118,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
             <option>Delivered</option>
           </select>
 
+          {/* Notes */}
           <textarea
             className="w-full border p-2 rounded-md"
             defaultValue={order.notes}
@@ -105,12 +126,12 @@ export default function OrderCard({ order, refresh }: OrderProps) {
             onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
           />
 
-          {/* SAVE + CANCEL */}
+          {/* Save / Cancel */}
           <div className="flex gap-3 pt-2">
             <button
-              className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition"
+              className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
               onClick={async () => {
-                await updateDoc(doc(db, "orders", order.id), editData);
+                await updateDoc(doc(db, "Confirm Orders", order.id), editData);
                 setIsEditing(false);
                 refresh();
               }}
@@ -119,7 +140,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
             </button>
 
             <button
-              className="flex-1 bg-gray-300 py-2 rounded-md hover:bg-gray-400 transition"
+              className="flex-1 bg-gray-300 py-2 rounded-md hover:bg-gray-400"
               onClick={() => setIsEditing(false)}
             >
               Cancel
@@ -127,16 +148,15 @@ export default function OrderCard({ order, refresh }: OrderProps) {
           </div>
         </div>
       ) : (
-        // VIEW Mode
+        // VIEW MODE
         <div className="space-y-2 text-gray-700">
-
           <div className="flex justify-between">
             <p><b>Store:</b> {order.storeName}</p>
             <p><b>Commission:</b> {order.commission}</p>
           </div>
 
           <button
-            className="w-full text-left bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 transition"
+            className="w-full text-left bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700"
             onClick={() =>
               window.open(`https://wa.me/${order.mobile.replace("+", "")}`, "_blank")
             }
@@ -146,10 +166,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
 
           <p><b>Address:</b> {order.address}</p>
 
-          <p>
-            <b>Total Amount:</b>{" "}
-            <span className="text-black font-semibold">Rs. {order.totalAmount}</span>
-          </p>
+          <p><b>Total Amount:</b> Rs. {order.totalAmount}</p>
 
           <p><b>Advance Paid:</b> Rs. {order.advancePayment}</p>
 
@@ -160,12 +177,8 @@ export default function OrderCard({ order, refresh }: OrderProps) {
           <p><b>Ordered Date:</b> {formatDate(order.orderedDate)}</p>
           <p><b>Time:</b> {formatTime(order.orderedDate)}</p>
 
-          {/* PRODUCT LINK SECTION */}
           <details className="bg-white rounded-md p-3 border cursor-pointer">
-            <summary className="font-semibold text-blue-600 select-none">
-              View Products
-            </summary>
-
+            <summary className="font-semibold text-blue-600">View Products</summary>
             <div className="mt-2 space-y-1">
               {order.productUrls?.map((url: string, i: number) => (
                 <a
@@ -180,17 +193,16 @@ export default function OrderCard({ order, refresh }: OrderProps) {
             </div>
           </details>
 
-          {/* ACTION BUTTONS */}
           <div className="flex gap-3 mt-3">
             <button
-              className="flex-1 py-2 rounded-md bg-black text-white font-semibold hover:bg-gray-800 transition"
+              className="flex-1 py-2 rounded-md bg-black text-white font-semibold hover:bg-gray-800"
               onClick={() => setIsEditing(true)}
             >
               ✏️ Edit Order
             </button>
 
             <button
-              className="flex-1 py-2 rounded-md bg-yellow-500 text-white font-semibold hover:bg-yellow-600 transition"
+              className="flex-1 py-2 rounded-md bg-yellow-500 text-white font-semibold hover:bg-yellow-600"
               onClick={handleCopy}
             >
               📋 Copy Address
