@@ -132,6 +132,20 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             Delivered
                         </span>
                     </label>
+                    {/* Delivered By */}
+                    {editData.deliveryStatus && (
+                        <div>
+                            <span>Delivery by</span>
+                            <select
+                                className="w-full border p-2 rounded-md"
+                                value={editData.deliveredBy || "Ankush"}
+                                onChange={(e) => setEditData({ ...editData, deliveredBy: e.target.value })}
+                            >
+                                <option value="Ankush">Ankush</option>
+                                <option value="Bhola">Bhola</option>
+                            </select>
+                        </div>
+                    )}
 
 
                     {/* Save / Cancel */}

@@ -114,6 +114,9 @@ export default function OrdersPage() {
         const deliveredOrders = orders.filter((o) => o.deliveryStatus === true);
 
         const pendingOrders = orders.filter((o) => o.deliveryStatus !== true);
+        const deleiveryByAnkush = orders.filter((o) => o.deliveryStatus == true && o.deliveredBy == "Ankush");
+
+        
 
 
         const deliveredRevenue = deliveredOrders.reduce(
@@ -153,7 +156,7 @@ export default function OrdersPage() {
 
 
 
-        const totalFivePercent = deliveredOrders.reduce((sum, o) => {
+        const totalFivePercent = deleiveryByAnkush.reduce((sum, o) => {
             // Convert commission string to decimal
             const commissionPercent = parseFloat(o.commission?.replace("%", "") || "0") / 100;
 
