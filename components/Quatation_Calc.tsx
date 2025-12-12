@@ -26,7 +26,7 @@ const PriceCalculator: React.FC = () => {
         // Create styled text with emojis
        const textToCopy = `
 🇮🇳 INR ${amount.toLocaleString()} x ${conversionRate} = ${nprConverted.toLocaleString()} NPR 🇳🇵
-🇳🇵 NPR ${nprConverted.toLocaleString()} + ${commissionRate}% = ${nprConverted.toLocaleString()} + ${commissionAmount.toLocaleString()} = ${total.toLocaleString()} NPR
+ NPR ${nprConverted.toLocaleString()} + ${commissionRate}% = ${nprConverted.toLocaleString()} + ${commissionAmount.toLocaleString()} = ${total.toLocaleString()} NPR
 🏷️ Product + Nepali Custom + Service charge
     `.trim();
 
