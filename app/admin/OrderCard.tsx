@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { updateDoc, doc } from "firebase/firestore";
+import { updateDoc, doc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 
 interface OrderProps {
@@ -13,7 +13,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState(order);
 
-    const isDelivered = order.deliveryStatus?.toLowerCase() === "delivered";
+    const isDelivered = order.deliveryStatus
 
     const remaining = (order.totalAmount || 0) - (order.advancePayment || 0);
 
@@ -53,7 +53,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                     className={`px-3 py-1 text-sm rounded-full font-semibold 
           ${isDelivered ? "bg-red-500 text-white" : "bg-green-500 text-white"}`}
                 >
-                    {order.deliveryStatus}
+                    {isDelivered ? "Delivered" : "Pending"}
                 </span>
             </div>
 
@@ -105,33 +105,49 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                     </select>
 
                     {/* Delivery Status */}
-                    <select
-                        className="w-full border p-2 rounded-md"
-                        defaultValue={order.deliveryStatus}
-                        onChange={(e) =>
-                            setEditData({ ...editData, deliveryStatus: e.target.value })
-                        }
-                    >
-                        <option>Yet to reach border</option>
-                        <option>At border</option>
-                        <option>In Transit</option>
-                        <option>Delivered</option>
-                    </select>
+                    <label className="flex items-center cursor-pointer mb-3">
+                        {/* Hidden Checkbox */}
+                        <input
+                            type="checkbox"
+                            checked={editData.deliveryStatus || false}
+                            onChange={(e) =>
+                                setEditData({
+                                    ...editData,
+                                    deliveryStatus: e.target.checked,
+                                })
+                            }
+                            className="sr-only"
+                        />
+                        {/* Custom Toggle */}
+                        <div
+                            className={`w-14 h-8 rounded-full transition-colors duration-300 ${editData.deliveryStatus ? "bg-green-500" : "bg-gray-300"
+                                }`}
+                        >
+                            <div
+                                className={`w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 mt-1 ${editData.deliveryStatus ? "translate-x-6" : "translate-x-1"
+                                    }`}
+                            />
+                        </div>
+                        <span className="ml-3 text-lg font-medium text-gray-700">
+                            Delivered
+                        </span>
+                    </label>
 
-                    {/* Notes */}
-                    <textarea
-                        className="w-full border p-2 rounded-md"
-                        defaultValue={order.notes}
-                        rows={2}
-                        onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
-                    />
 
                     {/* Save / Cancel */}
                     <div className="flex gap-3 pt-2">
                         <button
                             className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
                             onClick={async () => {
-                                await updateDoc(doc(db, "Confirm Orders", order.id), editData);
+                                // Prepare data to save
+                                const dataToSave = { ...editData };
+
+                                // If deliveryStatus is true and deliveryDate not set, add current Firestore timestamp
+                                if (editData.deliveryStatus) {
+                                    dataToSave.deliveryDate = Timestamp.now();
+                                }
+
+                                await updateDoc(doc(db, "Confirm Orders", order.id), dataToSave);
                                 setIsEditing(false);
                                 refresh();
                             }}
@@ -172,12 +188,15 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                     <p><b>Advance Paid:</b> Rs. {order.advancePayment}</p>
 
                     {!isDelivered && (
-                        <p className="text-blue-700 font-semibold">
+                        <p className="text-red-700 font-semibold text-lg">
                             <b>Remaining Payment:</b> Rs. {remaining}
                         </p>
                     )}
                     <p><b>Ordered Date:</b> {formatDate(order.orderedDate)}</p>
-                    <p><b>Time:</b> {formatTime(order.orderedDate)}</p>
+                    {order.deliveryStatus &&
+                        <p><b>Delivered Date:</b> {formatDate(order.deliveryDate)}</p>
+                    }
+                    {/* <p><b>Time:</b> {formatTime(order.orderedDate)}</p> */}
 
                     <details className="bg-white rounded-md p-3 border cursor-pointer">
                         <summary className="font-semibold text-blue-600">View Products</summary>

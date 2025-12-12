@@ -7,7 +7,7 @@ import toast, { Toaster } from "react-hot-toast";
 import brands from "@/constants/brands";
 
 type Brand = {
-  name: string;
+    name: string;
 };
 
 const CreateOrder: React.FC = () => {
@@ -23,7 +23,7 @@ const CreateOrder: React.FC = () => {
     const [totalAmount, setTotalAmount] = useState(""); // store as string
     const [advancePayment, setAdvancePayment] = useState(""); // store as string
 
-    const [deliveryStatus, setDeliveryStatus] = useState("Yet to reach border");
+    const [deliveryStatus, setDeliveryStatus] = useState(false);
     const [productUrls, setProductUrls] = useState([""]);
     const [loading, setLoading] = useState(false);
 
@@ -85,10 +85,7 @@ const CreateOrder: React.FC = () => {
 
 
 
-        if (!deliveryStatus.trim()) {
-            toast.error("Delivery status is required.");
-            return;
-        }
+
 
         if (!address.trim()) {
             toast.error("Customer Address is required.");
@@ -138,7 +135,7 @@ const CreateOrder: React.FC = () => {
             setCourierCharge("Included");
             setTotalAmount("");
             setAdvancePayment("");
-            setDeliveryStatus("Yet to reach border");
+            setDeliveryStatus(false);
             setProductUrls([""]);
         } catch (error) {
             console.log("Error creating order:", error);
@@ -278,16 +275,15 @@ const CreateOrder: React.FC = () => {
                 </select>
 
                 {/* Delivery Status */}
-                <label className="block text-sm font-medium text-gray-700 mb-1">Product Delivery Status</label>
-                <select
-                    value={deliveryStatus}
-                    onChange={(e) => setDeliveryStatus(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                >
-                    {["Yet to reach border", "Border crossed", "Delivered"].map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                    ))}
-                </select>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-3">
+                    <input
+                        type="checkbox"
+                        checked={deliveryStatus}
+                        onChange={(e) => setDeliveryStatus(e.target.checked)}
+                        className="w-4 h-4"
+                    />
+                    Delivered?
+                </label>
 
                 {/* Notes */}
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
