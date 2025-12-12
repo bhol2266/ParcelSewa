@@ -2,16 +2,30 @@
 
 import React, { useState } from "react";
 import ReactCountryFlag from "react-country-flag";
+import Cookies from "js-cookie";
+import { useEffect } from "react";
+import Quatation_Calc from "./Quatation_Calc";
 
 
 
+const COOKIE_NAME = "admin_access";
 
 
 export default function PriceCalculator() {
   const [price, setPrice] = useState("");
   const [weight, setWeight] = useState("");
   const [category, setCategory] = useState("");
-const [total, setTotal] = useState<number | null>(null);
+  const [total, setTotal] = useState<number | null>(null);
+
+  const [accessGranted, setAccessGranted] = useState(false);
+
+
+  useEffect(() => {
+    const cookie = Cookies.get(COOKIE_NAME);
+    if (cookie === "5555") {
+      setAccessGranted(true);
+    }
+  }, []);
 
   const handleCalculate = () => {
     if (!price || !weight || !category || category === "Choose Product Category") {
@@ -42,7 +56,7 @@ const [total, setTotal] = useState<number | null>(null);
     <div className="w-full mx-auto px-4 py-8 md:flex justify-evenly gap-8">
 
 
-   
+
       <div className="w-full mx-auto max-w-[500px] lg:max-w-[700px]">
         {/* Badge */}
         <div className="inline-block bg-blue-100 text-blue-700 px-5 py-1.5 rounded-full text-sm font-medium mb-4">
@@ -58,6 +72,9 @@ const [total, setTotal] = useState<number | null>(null);
           Our calculator uses live FX rates, category-based customs rules and your delivery location to estimate your final price.
         </p>
 
+        {accessGranted &&
+          <Quatation_Calc />
+        }
         {/* Result Box */}
         {total !== null && (
           <div className="mx-auto  max-w-[500px] mt-6 p-5 rounded-xl shadow-acertinity bg-white border border-gray-200">
