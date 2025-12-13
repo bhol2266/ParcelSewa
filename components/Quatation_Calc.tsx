@@ -17,23 +17,27 @@ const PriceCalculator: React.FC = () => {
         const amount = parseFloat(amountINR);
         if (isNaN(amount)) return; // prevent calculation if empty or invalid
 
-        const nprConverted = amount * conversionRate;
-        const commissionAmount = (nprConverted * commissionRate) / 100;
+        const nprConverted = Math.round(amount * conversionRate);
+        const commissionAmount = Math.round((nprConverted * commissionRate) / 100);
         const total = nprConverted + commissionAmount;
 
         setResult({ nprConverted, commissionAmount, total });
 
-        // Create styled text with emojis
-       const textToCopy = `
-🇮🇳 INR ${amount.toLocaleString()} x ${conversionRate} = ${nprConverted.toLocaleString()} NPR 🇳🇵
- NPR ${nprConverted.toLocaleString()} + ${commissionRate}% = ${nprConverted.toLocaleString()} + ${commissionAmount.toLocaleString()} = ${total.toLocaleString()} NPR
+        // Create styled text with emojis (no decimals)
+        const textToCopy = `
+🇮🇳 INR ${Math.round(amount).toLocaleString()} x ${conversionRate} = ${nprConverted.toLocaleString()} NPR 🇳🇵
+NPR ${nprConverted.toLocaleString()} + ${commissionRate}% = ${nprConverted.toLocaleString()} + ${commissionAmount.toLocaleString()}
+
+**TOTAL = ${total.toLocaleString()} NPR**
+
 🏷️ Product + Nepali Custom + Service charge
-    `.trim();
+`.trim();
+
 
         // Copy to clipboard
-        navigator.clipboard.writeText(textToCopy)
-       
+        navigator.clipboard.writeText(textToCopy);
     };
+
 
     return (
         <div className="max-w-md mx-auto p-4 border rounded shadow">
