@@ -99,9 +99,13 @@ export default function OrdersPage() {
                 break;
             case "delivered":
                 filtered = filtered
-                    .filter((o) => o.deliveryStatus === true)
-                    .sort((a, b) => b.orderedDate.toMillis() - a.orderedDate.toMillis());
+                    .filter((o) => o.deliveryStatus === true && o.deliveryDate)
+                    .sort(
+                        (a, b) =>
+                            b.deliveryDate.toMillis() - a.deliveryDate.toMillis()
+                    );
                 break;
+
         }
 
         return filtered;
@@ -116,7 +120,9 @@ export default function OrdersPage() {
         const pendingOrders = orders.filter((o) => o.deliveryStatus !== true);
         const deleiveryByAnkush = orders.filter((o) => o.deliveryStatus == true && o.deliveredBy == "Ankush");
 
+        console.log(deleiveryByAnkush);
         
+
 
 
         const deliveredRevenue = deliveredOrders.reduce(

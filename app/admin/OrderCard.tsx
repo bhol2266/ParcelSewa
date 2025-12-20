@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { updateDoc, doc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 
@@ -12,6 +12,13 @@ interface OrderProps {
 export default function OrderCard({ order, refresh }: OrderProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState(order);
+
+    useEffect(() => {
+        setEditData(order);
+
+    }, [order])
+
+
 
     const isDelivered = order.deliveryStatus
 
@@ -39,6 +46,8 @@ export default function OrderCard({ order, refresh }: OrderProps) {
         navigator.clipboard.writeText(text);
     };
 
+
+
     return (
         <div
             className={`rounded-xl p-5 shadow-md border transition-all 
@@ -60,53 +69,94 @@ export default function OrderCard({ order, refresh }: OrderProps) {
             {/* EDIT MODE */}
             {isEditing ? (
                 <div className="space-y-3">
+
                     {/* Name */}
                     <input
                         className="w-full border p-2 rounded-md"
-                        defaultValue={order.name}
+                        value={editData.name || ""}
                         onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                        placeholder="Customer Name"
                     />
 
                     {/* Mobile */}
                     <input
                         className="w-full border p-2 rounded-md"
-                        defaultValue={order.mobile}
+                        value={editData.mobile || ""}
                         onChange={(e) => setEditData({ ...editData, mobile: e.target.value })}
+                        placeholder="Mobile Number"
                     />
 
                     {/* Address */}
                     <input
                         className="w-full border p-2 rounded-md"
-                        defaultValue={order.address}
+                        value={editData.address || ""}
                         onChange={(e) => setEditData({ ...editData, address: e.target.value })}
+                        placeholder="Address"
                     />
 
                     {/* Store Name */}
                     <input
                         className="w-full border p-2 rounded-md"
-                        defaultValue={order.storeName}
+                        value={editData.storeName || ""}
                         onChange={(e) => setEditData({ ...editData, storeName: e.target.value })}
+                        placeholder="Store Name"
                     />
 
                     {/* Commission */}
                     <select
                         className="w-full border p-2 rounded-md"
-                        defaultValue={order.commission}
-                        onChange={(e) =>
-                            setEditData({ ...editData, commission: e.target.value })
-                        }
+                        value={editData.commission || ""}
+                        onChange={(e) => setEditData({ ...editData, commission: e.target.value })}
                     >
-                        <option>15%</option>
-                        <option>20%</option>
-                        <option>25%</option>
-                        <option>30%</option>
-                        <option>35%</option>
-                        <option>40%</option>
+                        <option value="15%">15%</option>
+                        <option value="20%">20%</option>
+                        <option value="25%">25%</option>
+                        <option value="30%">30%</option>
+                        <option value="35%">35%</option>
+                        <option value="40%">40%</option>
                     </select>
 
-                    {/* Delivery Status */}
-                    <label className="flex items-center cursor-pointer mb-3">
-                        {/* Hidden Checkbox */}
+                    {/* Total Amount */}
+                    <input
+                        type="number"
+                        className="w-full border p-2 rounded-md"
+                        value={editData.totalAmount || ""}
+                        onChange={(e) =>
+                            setEditData({ ...editData, totalAmount: Number(e.target.value) })
+                        }
+                        placeholder="Total Amount"
+                    />
+
+                    {/* Advance Payment */}
+                    <input
+                        type="number"
+                        className="w-full border p-2 rounded-md"
+                        value={editData.advancePayment || ""}
+                        onChange={(e) =>
+                            setEditData({ ...editData, advancePayment: Number(e.target.value) })
+                        }
+                        placeholder="Advance Payment"
+                    />
+
+                    {/* Ordered Date */}
+                    <input
+                        type="date"
+                        className="w-full border p-2 rounded-md"
+                        value={
+                            editData.orderedDate
+                                ? editData.orderedDate.toDate().toISOString().split("T")[0]
+                                : ""
+                        }
+                        onChange={(e) =>
+                            setEditData({
+                                ...editData,
+                                orderedDate: Timestamp.fromDate(new Date(e.target.value)),
+                            })
+                        }
+                    />
+
+                    {/* Delivery Status Toggle */}
+                    <label className="flex items-center cursor-pointer">
                         <input
                             type="checkbox"
                             checked={editData.deliveryStatus || false}
@@ -118,50 +168,71 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             }
                             className="sr-only"
                         />
-                        {/* Custom Toggle */}
+
                         <div
-                            className={`w-14 h-8 rounded-full transition-colors duration-300 ${editData.deliveryStatus ? "bg-green-500" : "bg-gray-300"
+                            className={`w-14 h-8 rounded-full transition-colors ${editData.deliveryStatus ? "bg-green-500" : "bg-gray-300"
                                 }`}
                         >
                             <div
-                                className={`w-6 h-6 bg-white rounded-full shadow-md transform transition-transform duration-300 mt-1 ${editData.deliveryStatus ? "translate-x-6" : "translate-x-1"
+                                className={`w-6 h-6 bg-white rounded-full shadow-md transform transition-transform mt-1 ${editData.deliveryStatus ? "translate-x-6" : "translate-x-1"
                                     }`}
                             />
                         </div>
-                        <span className="ml-3 text-lg font-medium text-gray-700">
-                            Delivered
-                        </span>
+
+                        <span className="ml-3 font-medium">Delivered</span>
                     </label>
+
                     {/* Delivered By */}
                     {editData.deliveryStatus && (
-                        <div>
-                            <span>Delivery by</span>
-                            <select
-                                className="w-full border p-2 rounded-md"
-                                value={editData.deliveredBy || "Ankush"}
-                                onChange={(e) => setEditData({ ...editData, deliveredBy: e.target.value })}
-                            >
-                                <option value="Ankush">Ankush</option>
-                                <option value="Bhola">Bhola</option>
-                            </select>
-                        </div>
+                        <select
+                            className="w-full border p-2 rounded-md"
+                            value={editData.deliveredBy || ""}
+                            onChange={(e) =>
+                                setEditData({ ...editData, deliveredBy: e.target.value })
+                            }
+                        >
+                            <option value="">Select Delivery Person</option>
+                            <option value="Ankush">Ankush</option>
+                            <option value="Bhola">Bhola</option>
+                        </select>
                     )}
 
+                    {/* Product URLs */}
+                    <div className="space-y-2">
+                        <p className="font-semibold">Product URLs</p>
+                        {editData.productUrls?.map((url: string, i: number) => (
+                            <input
+                                key={i}
+                                className="w-full border p-2 rounded-md"
+                                value={url}
+                                onChange={(e) => {
+                                    const updated = [...editData.productUrls];
+                                    updated[i] = e.target.value;
+                                    setEditData({ ...editData, productUrls: updated });
+                                }}
+                                placeholder={`Product ${i + 1}`}
+                            />
+                        ))}
+                    </div>
 
                     {/* Save / Cancel */}
                     <div className="flex gap-3 pt-2">
                         <button
                             className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
                             onClick={async () => {
-                                // Prepare data to save
-                                const dataToSave = { ...editData };
+                                const dataToSave = {
+                                    ...editData,
+                                    deliveredBy: editData.deliveryStatus ? editData.deliveredBy || "" : "",
+                                };
 
-                                // If deliveryStatus is true and deliveryDate not set, add current Firestore timestamp
-                                if (editData.deliveryStatus) {
+                                if (editData.deliveryStatus && !editData.deliveryDate) {
                                     dataToSave.deliveryDate = Timestamp.now();
                                 }
 
-                                await updateDoc(doc(db, "Confirm Orders", order.id), dataToSave);
+                                await updateDoc(
+                                    doc(db, "Confirm Orders", order.id),
+                                    dataToSave
+                                );
                                 setIsEditing(false);
                                 refresh();
                             }}
@@ -171,7 +242,10 @@ export default function OrderCard({ order, refresh }: OrderProps) {
 
                         <button
                             className="flex-1 bg-gray-300 py-2 rounded-md hover:bg-gray-400"
-                            onClick={() => setIsEditing(false)}
+                            onClick={() => {
+                                setEditData(order);
+                                setIsEditing(false);
+                            }}
                         >
                             Cancel
                         </button>
