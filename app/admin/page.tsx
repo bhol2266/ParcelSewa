@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase/firebaseClient";
 import OrderCard from "./OrderCard";
 import Cookies from "js-cookie";
 import OrdersStats from "./OrdersStats";
+import ClickableTiles from "@/components/ClickableTiles";
 
 interface Order {
     id: string;
@@ -121,7 +122,7 @@ export default function OrdersPage() {
         const deleiveryByAnkush = orders.filter((o) => o.deliveryStatus == true && o.deliveredBy == "Ankush");
 
         console.log(deleiveryByAnkush);
-        
+
 
 
 
@@ -216,6 +217,8 @@ export default function OrdersPage() {
 
     return (
         <div className="relative min-h-screen">
+
+            <ClickableTiles />
             {/* Page content (blurred when modal active) */}
             <div className={`p-6 ${!accessGranted ? "filter blur-md" : ""}`}>
                 <h1 className="text-3xl font-bold mb-6">All Orders</h1>

@@ -1,13 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
-import { collection, addDoc, Timestamp } from "firebase/firestore";
+import React, { useEffect, useState } from "react";
+import { collection, addDoc, getDocs, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import toast, { Toaster } from "react-hot-toast";
 import brands from "@/constants/brands";
 
 type Brand = {
     name: string;
+};
+
+type Order = {
+    id: string;
+    name: string;
+    mobile?: string;
+    address?: string;
 };
 
 const CreateOrder: React.FC = () => {
@@ -145,6 +152,142 @@ const CreateOrder: React.FC = () => {
         }
     };
 
+
+
+    /* -------- AUTOCOMPLETE STATE -------- */
+    const [allOrders, setAllOrders] = useState<Order[]>([]);
+    const [nameSuggestions, setNameSuggestions] = useState<Order[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+
+    const [mobileSuggestions, setMobileSuggestions] = useState<Order[]>([]);
+    const [showMobileSuggestions, setShowMobileSuggestions] = useState(false);
+
+
+    const [nameHighlightedIndex, setNameHighlightedIndex] = useState(-1);
+    const [mobileHighlightedIndex, setMobileHighlightedIndex] = useState(-1);
+
+    /* ---------------- LOAD ALL ORDERS ONCE ---------------- */
+
+    useEffect(() => {
+        const loadOrders = async () => {
+            try {
+                const snap = await getDocs(collection(db, "Confirm Orders"));
+
+                const orders = snap.docs.slice(0, 5000).map((d) => ({
+                    id: d.id,
+                    name: d.data().name,
+                    mobile: d.data().mobile,
+                    address: d.data().address,
+                })) as Order[];
+
+                setAllOrders(orders);
+            } catch (err) {
+                console.error("Failed to load orders:", err);
+            }
+        };
+
+        loadOrders();
+    }, []);
+
+
+    const handleNameChange = (value: string) => {
+        setName(value);
+
+        if (!value.trim()) {
+            setNameSuggestions([]);
+            setShowSuggestions(false);
+            return;
+        }
+
+        const filtered = allOrders
+            .filter((o) =>
+                o.name?.toLowerCase().includes(value.toLowerCase())
+            )
+            .slice(0, 5);
+
+        setNameSuggestions(filtered);
+        setShowSuggestions(true);
+    };
+
+    const handleMobileChange = (value: string) => {
+        // user types only digits, max 10
+        const digits = value.replace(/\D/g, "").slice(0, 10);
+        setMobileNumber(digits);
+
+        // only show suggestions after 4 digits
+        if (digits.length < 4) {
+            setMobileSuggestions([]);
+            setShowMobileSuggestions(false);
+            return;
+        }
+
+        const filtered = allOrders
+            .filter((o) =>
+                o.mobile?.startsWith(`+977${digits}`)
+            )
+            .slice(0, 5);
+
+        setMobileSuggestions(filtered);
+        setShowMobileSuggestions(true);
+    };
+
+    const handleNameKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (!showSuggestions) return;
+
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setNameHighlightedIndex((prev) =>
+                prev < nameSuggestions.length - 1 ? prev + 1 : 0
+            );
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setNameHighlightedIndex((prev) =>
+                prev > 0 ? prev - 1 : nameSuggestions.length - 1
+            );
+        } else if (e.key === "Enter") {
+            e.preventDefault();
+            if (nameHighlightedIndex >= 0) {
+                const selected = nameSuggestions[nameHighlightedIndex];
+                setName(selected.name);
+                setAddress(selected.address || "");
+                if (selected.mobile?.startsWith("+")) {
+                    setCountryCode(selected.mobile.slice(0, 4));
+                    setMobileNumber(selected.mobile.slice(4));
+                }
+                setShowSuggestions(false);
+                setNameHighlightedIndex(-1);
+            }
+        }
+    };
+
+    const handleMobileKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (!showMobileSuggestions) return;
+
+        if (e.key === "ArrowDown") {
+            e.preventDefault();
+            setMobileHighlightedIndex((prev) =>
+                prev < mobileSuggestions.length - 1 ? prev + 1 : 0
+            );
+        } else if (e.key === "ArrowUp") {
+            e.preventDefault();
+            setMobileHighlightedIndex((prev) =>
+                prev > 0 ? prev - 1 : mobileSuggestions.length - 1
+            );
+        } else if (e.key === "Enter") {
+            e.preventDefault();
+            if (mobileHighlightedIndex >= 0) {
+                const selected = mobileSuggestions[mobileHighlightedIndex];
+                setName(selected.name || "");
+                setAddress(selected.address || "");
+                setMobileNumber(selected.mobile?.slice(4) || "");
+                setShowMobileSuggestions(false);
+                setMobileHighlightedIndex(-1);
+            }
+        }
+    };
+
+
+
     return (
         <section className="w-full px-6 py-4 flex justify-center">
             <Toaster position="top-center" />
@@ -154,13 +297,46 @@ const CreateOrder: React.FC = () => {
 
                 {/* Customer Name */}
                 <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
-                <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="John Doe"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                />
+                <div className="relative mb-3">
+                    <input
+                        value={name}
+                        onChange={(e) => handleNameChange(e.target.value)}
+                        onBlur={() =>
+                            setTimeout(() => setShowSuggestions(false), 150)
+                        }
+                        onKeyDown={handleNameKeyDown} // <-- here
+
+                        className="w-full border rounded-lg px-3 py-2"
+                        placeholder="John Doe"
+                    />
+
+                    {showSuggestions && nameSuggestions.length > 0 && (
+                        <ul className="absolute z-20 w-full bg-white border border-neutral-200 rounded-lg shadow mt-1">
+                            {nameSuggestions.map((o) => (
+                                <li
+                                    key={o.id}
+                                    onClick={() => {
+                                        setName(o.name);
+
+                                        if (o.mobile?.startsWith("+")) {
+                                            setCountryCode(o.mobile.slice(0, 4));
+                                            setMobileNumber(o.mobile.slice(4));
+                                        }
+
+                                        setAddress(o.address || "");
+                                        setShowSuggestions(false);
+                                    }}
+                                    className={`px-3 py-2 cursor-pointer hover:bg-gray-100 ${nameSuggestions.indexOf(o) === nameHighlightedIndex ? "bg-blue-100" : ""
+                                        }`}                                >
+                                    <div className="font-medium">{o.name}</div>
+                                    <div className="text-xs text-gray-500">
+                                        {o.mobile} • {o.address}
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
 
                 {/* Mobile */}
                 <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number *</label>
@@ -171,16 +347,45 @@ const CreateOrder: React.FC = () => {
                         onChange={(e) => setCountryCode(e.target.value)}
                         className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                     />
-                    <input
-                        type="tel"
-                        value={mobileNumber}
-                        onChange={(e) => {
-                            const num = e.target.value.replace(/\D/g, "");
-                            if (num.length <= 10) setMobileNumber(num);
-                        }}
-                        placeholder="XXXXXXXXXX"
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
+                    <div className="relative flex-1">
+                        <input
+                            type="tel"
+                            value={mobileNumber}
+                            onChange={(e) => handleMobileChange(e.target.value)}
+                            onFocus={() =>
+                                mobileSuggestions.length && setShowMobileSuggestions(true)
+                            }
+                            onBlur={() =>
+                                setTimeout(() => setShowMobileSuggestions(false), 150)
+                            }
+                            onKeyDown={handleMobileKeyDown} // <-- here
+
+                            placeholder="9812345678"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
+
+                        {showMobileSuggestions && mobileSuggestions.length > 0 && (
+                            <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow mt-1 max-h-48 overflow-auto">
+                                {mobileSuggestions.map((order) => (
+                                    <li
+                                        key={order.id}
+                                        onClick={() => {
+                                            setName(order.name || "");
+                                            setAddress(order.address || "");
+                                            setMobileNumber(order.mobile?.slice(4) || ""); // remove +977
+                                            setShowMobileSuggestions(false);
+                                        }}
+                                        className={`px-3 py-2 cursor-pointer hover:bg-blue-50 text-sm ${mobileSuggestions.indexOf(order) === mobileHighlightedIndex ? "bg-blue-100" : ""
+                                            }`}                                    >
+                                        <div className="font-medium">{order.mobile}</div>
+                                        <div className="text-xs text-gray-500">
+                                            {order.name} • {order.address}
+                                        </div>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
                 </div>
 
                 {/* Address */}
