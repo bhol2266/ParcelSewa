@@ -9,7 +9,7 @@ interface OrderProps {
     refresh: () => void;
 }
 
-export default function OrderCard({ order, refresh }: OrderProps) {
+export default function OrderCardAnkush({ order, refresh }: OrderProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState(order);
 
@@ -256,7 +256,6 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                 <div className="space-y-2 text-gray-700">
                     <div className="flex justify-between">
                         <p><b>Store:</b> {order.storeName}</p>
-                        <p><b>Commission:</b> {order.commission}</p>
                     </div>
 
                     <button
@@ -270,16 +269,12 @@ export default function OrderCard({ order, refresh }: OrderProps) {
 
                     <p><b>Address:</b> {order.address}</p>
 
-                    <p><b>Total Amount:</b> Rs. {order.totalAmount}</p>
+                    {/* <p><b>Bill Amount:</b> Rs. {order.totalAmount}</p> */}
 
 
                     <p><b>Advance Paid:</b> Rs. {order.advancePayment}</p>
 
-                    {!isDelivered && (
-                        <p className="text-red-700 font-semibold text-lg">
-                            <b>Remaining Payment:</b> Rs. {remaining}
-                        </p>
-                    )}
+                  
                     <p><b>Ordered Date:</b> {formatDate(order.orderedDate)}</p>
                     {order.deliveryStatus &&
                         <p><b>Delivered Date:</b> {formatDate(order.deliveryDate)}</p>
