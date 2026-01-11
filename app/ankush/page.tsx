@@ -36,7 +36,7 @@ export default function Ankush() {
         const q = query(
             collection(db, "Confirm Orders"),
             orderBy("orderedDate", "desc"),
-            limit(50)
+            limit(150)
         );
 
         const snap = await getDocs(q);
