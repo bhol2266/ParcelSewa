@@ -119,9 +119,47 @@ export default function Ankush() {
         const deliveredOrders = orders.filter((o) => o.deliveryStatus === true);
 
         const pendingOrders = orders.filter((o) => o.deliveryStatus !== true);
-        const deleiveryByAnkush = orders.filter((o) => o.deliveryStatus == true && o.deliveredBy == "Ankush");
 
-        console.log(deleiveryByAnkush);
+
+        const now = new Date();
+        const currentMonth = now.getMonth(); // 0–11
+        const currentYear = now.getFullYear();
+
+        const deleiveryByAnkush = orders.filter((o) => {
+            if (!o.deliveryStatus) return false;
+            if (o.deliveredBy !== "Ankush") return false;
+            if (!o.deliveryDate?.seconds) return false;
+
+            const deliveryDate = new Date(o.deliveryDate.seconds * 1000);
+
+            return (
+                deliveryDate.getMonth() === currentMonth &&
+                deliveryDate.getFullYear() === currentYear
+            );
+        });
+
+
+
+        // Calculate last month safely
+        const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const lastMonth = lastMonthDate.getMonth();
+        const lastMonthYear = lastMonthDate.getFullYear();
+
+        const deleiveryByAnkushLastMonth = orders.filter((o) => {
+            if (!o.deliveryStatus) return false;
+            if (o.deliveredBy !== "Ankush") return false;
+            if (!o.deliveryDate?.seconds) return false;
+
+            const deliveryDate = new Date(o.deliveryDate.seconds * 1000);
+
+            return (
+                deliveryDate.getMonth() === lastMonth &&
+                deliveryDate.getFullYear() === lastMonthYear
+            );
+        });
+
+
+
 
 
 
@@ -180,6 +218,23 @@ export default function Ankush() {
         }, 0);
 
 
+        const totalFivePercent_LastMonth = deleiveryByAnkushLastMonth.reduce((sum, o) => {
+            // Convert commission string to decimal
+            const commissionPercent = parseFloat(o.commission?.replace("%", "") || "0") / 100;
+
+            // Skip orders with 0% commission
+            if (commissionPercent === 0) return sum;
+
+            // Calculate principal amount (before commission)
+            const x = (o.totalAmount || 0) / (1 + commissionPercent);
+
+            // 5% of principal
+            const fivePercent = x * 0.05;
+
+            return sum + fivePercent;
+        }, 0);
+
+
         const estimatedProfit = orders.reduce((sum, o) => {
             // Convert commission string to decimal
             const commissionPercent = parseFloat(o.commission?.replace("%", "") || "0") / 100;
@@ -207,6 +262,7 @@ export default function Ankush() {
             remainingPayment,
             estimatedProfit,
             totalFivePercent,
+            totalFivePercent_LastMonth,
             Profit
         };
     }, [orders]);
@@ -233,6 +289,7 @@ export default function Ankush() {
                     remainingPayment={stats.remainingPayment}
                     estimatedProfit={stats.estimatedProfit}
                     borderCommission={stats.totalFivePercent}
+                    borderCommissionLastMonth={stats.totalFivePercent_LastMonth}
                     Profit={stats.Profit}
 
                 />
