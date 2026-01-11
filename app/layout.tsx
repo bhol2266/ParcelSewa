@@ -3,7 +3,6 @@ import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { ViewTransitions } from 'next-view-transitions'
 import Script from "next/script";
 
 
@@ -60,7 +59,6 @@ export default function RootLayout({
   const GA_MEASUREMENT_ID = "G-0GMBZ1L7JR"; // put GA ID in .env
 
   return (
-    <ViewTransitions>
 
       <html lang="en">
 
@@ -87,7 +85,6 @@ export default function RootLayout({
           <Footer />
         </body>
       </html>
-    </ViewTransitions>
 
   );
 }

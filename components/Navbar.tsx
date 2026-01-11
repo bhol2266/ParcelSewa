@@ -4,7 +4,7 @@ import { Fragment } from "react";
 import { Disclosure, Transition } from "@headlessui/react";
 import { FaBars, FaTimes } from "react-icons/fa";
 import { usePathname, useRouter } from "next/navigation";
-import { Link } from "next-view-transitions";
+import Link from "next/link";
 import React, { useState } from "react";
 import { easeInOut, motion, useMotionValueEvent, useScroll } from "motion/react";
 

@@ -139,21 +139,47 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                     />
 
                     {/* Ordered Date */}
-                    <input
-                        type="date"
-                        className="w-full border p-2 rounded-md"
-                        value={
-                            editData.orderedDate
-                                ? editData.orderedDate.toDate().toISOString().split("T")[0]
-                                : ""
-                        }
-                        onChange={(e) =>
-                            setEditData({
-                                ...editData,
-                                orderedDate: Timestamp.fromDate(new Date(e.target.value)),
-                            })
-                        }
-                    />
+                    <div className="flex items-center justify-center space-x-4">
+
+                        <span className="text-nowrap">Ordered Date</span>
+                        <input
+                            type="date"
+                            className="w-full border p-2 rounded-md"
+                            value={
+                                editData.orderedDate
+                                    ? editData.orderedDate.toDate().toISOString().split("T")[0]
+                                    : ""
+                            }
+                            onChange={(e) =>
+                                setEditData({
+                                    ...editData,
+                                    orderedDate: Timestamp.fromDate(new Date(e.target.value)),
+                                })
+                            }
+                        />                   
+                         </div>
+
+
+                    {/* Delivered Date */}
+                    <div className="flex items-center justify-center space-x-4">
+
+                        <span className="text-nowrap">Delivered Date</span>
+                        <input
+                            type="date"
+                            className="w-full border p-2 rounded-md"
+                            value={
+                                editData.deliveryDate
+                                    ? editData.deliveryDate.toDate().toISOString().split("T")[0]
+                                    : ""
+                            }
+                            onChange={(e) =>
+                                setEditData({
+                                    ...editData,
+                                    deliveryDate: Timestamp.fromDate(new Date(e.target.value)),
+                                })
+                            }
+                        />
+                    </div>
 
                     {/* Delivery Status Toggle */}
                     <label className="flex items-center cursor-pointer">

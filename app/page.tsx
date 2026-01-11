@@ -8,9 +8,8 @@ import TopLayerLandingPage from "@/components/TopLayerLandingPage";
 import UserRating from "@/components/UserRating";
 import Workflow from "@/components/Workflow";
 import Workflow2 from "@/components/Workflow2";
-import { Link } from "next-view-transitions";
 import ReactCountryFlag from "react-country-flag";
-
+import Link from "next/link";
 
 export const metadata = {
   title: "ParcelSewa | Buy from Indian Online Stores & Get Delivered in Nepal",
