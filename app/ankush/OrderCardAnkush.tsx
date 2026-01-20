@@ -19,6 +19,8 @@ export default function OrderCardAnkush({ order, refresh }: OrderProps) {
     }, [order])
 
 
+    console.log(order.productUrls);
+
 
     const isDelivered = order.deliveryStatus
 
@@ -274,7 +276,7 @@ export default function OrderCardAnkush({ order, refresh }: OrderProps) {
 
                     <p><b>Advance Paid:</b> Rs. {order.advancePayment}</p>
 
-                  
+
                     <p><b>Ordered Date:</b> {formatDate(order.orderedDate)}</p>
                     {order.deliveryStatus &&
                         <p><b>Delivered Date:</b> {formatDate(order.deliveryDate)}</p>
@@ -285,16 +287,28 @@ export default function OrderCardAnkush({ order, refresh }: OrderProps) {
                     <p><b>Delivered By:</b>  {order.deliveredBy}</p>
 
                     <details className="bg-white rounded-md p-3 border cursor-pointer">
-                        <summary className="font-semibold text-blue-600">View Products</summary>
-                        <div className="mt-2 space-y-1">
+                        <summary className="font-semibold text-blue-600">
+                            View Products
+                        </summary>
+
+                        <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                             {order.productUrls?.map((url: string, i: number) => (
                                 <a
                                     key={i}
                                     href={url}
                                     target="_blank"
-                                    className="block text-sm underline text-blue-500"
+                                    rel="noopener noreferrer"
+                                    className="group block"
                                 >
-                                    Product {i + 1}
+                                    <div className="relative w-full aspect-square overflow-hidden rounded-md border bg-gray-100">
+                                        <img
+                                            src={url}
+                                            alt={`Product ${i + 1}`}
+                                            loading="lazy"               // ✅ Lazy loading
+                                            decoding="async"             // ✅ Non-blocking decode
+                                            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                        />
+                                    </div>
                                 </a>
                             ))}
                         </div>

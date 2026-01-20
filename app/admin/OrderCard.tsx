@@ -156,8 +156,8 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                     orderedDate: Timestamp.fromDate(new Date(e.target.value)),
                                 })
                             }
-                        />                   
-                         </div>
+                        />
+                    </div>
 
 
                     {/* Delivered Date */}
@@ -225,21 +225,52 @@ export default function OrderCard({ order, refresh }: OrderProps) {
 
                     {/* Product URLs */}
                     <div className="space-y-2">
-                        <p className="font-semibold">Product URLs</p>
+                        <div className="flex justify-between items-center">
+                            <p className="font-semibold">Product URLs</p>
+
+                            <button
+                                type="button"
+                                className="text-sm px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700"
+                                onClick={() =>
+                                    setEditData({
+                                        ...editData,
+                                        productUrls: [...(editData.productUrls || []), ""],
+                                    })
+                                }
+                            >
+                                + Add URL
+                            </button>
+                        </div>
+
                         {editData.productUrls?.map((url: string, i: number) => (
-                            <input
-                                key={i}
-                                className="w-full border p-2 rounded-md"
-                                value={url}
-                                onChange={(e) => {
-                                    const updated = [...editData.productUrls];
-                                    updated[i] = e.target.value;
-                                    setEditData({ ...editData, productUrls: updated });
-                                }}
-                                placeholder={`Product ${i + 1}`}
-                            />
+                            <div key={i} className="flex gap-2">
+                                <input
+                                    className="flex-1 border p-2 rounded-md"
+                                    value={url}
+                                    onChange={(e) => {
+                                        const updated = [...editData.productUrls];
+                                        updated[i] = e.target.value;
+                                        setEditData({ ...editData, productUrls: updated });
+                                    }}
+                                    placeholder={`Product ${i + 1}`}
+                                />
+
+                                <button
+                                    type="button"
+                                    className="px-3 bg-red-500 text-white rounded-md hover:bg-red-600"
+                                    onClick={() => {
+                                        const updated = editData.productUrls.filter(
+                                            (_: string, index: number) => index !== i
+                                        );
+                                        setEditData({ ...editData, productUrls: updated });
+                                    }}
+                                >
+                                    ✕
+                                </button>
+                            </div>
                         ))}
                     </div>
+
 
                     {/* Save / Cancel */}
                     <div className="flex gap-3 pt-2">
@@ -316,20 +347,34 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                     <p><b>Delivered By:</b>  {order.deliveredBy}</p>
 
                     <details className="bg-white rounded-md p-3 border cursor-pointer">
-                        <summary className="font-semibold text-blue-600">View Products</summary>
-                        <div className="mt-2 space-y-1">
+                        <summary className="font-semibold text-blue-600">
+                            View Products
+                        </summary>
+
+                        <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                             {order.productUrls?.map((url: string, i: number) => (
                                 <a
                                     key={i}
                                     href={url}
                                     target="_blank"
-                                    className="block text-sm underline text-blue-500"
+                                    rel="noopener noreferrer"
+                                    className="group block"
                                 >
-                                    Product {i + 1}
+                                    <div className="relative w-full aspect-square overflow-hidden rounded-md border bg-gray-100">
+                                        <img
+                                            src={url}
+                                            alt={`Product ${i + 1}`}
+                                            loading="lazy"               // ✅ Lazy loading
+                                            decoding="async"             // ✅ Non-blocking decode
+                                            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                        />
+                                    </div>
                                 </a>
                             ))}
                         </div>
                     </details>
+
+
 
                     <div className="flex gap-3 mt-3">
                         <button
