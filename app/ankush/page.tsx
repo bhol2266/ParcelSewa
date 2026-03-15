@@ -202,36 +202,34 @@ export default function Ankush() {
 
 
         const totalFivePercent = deleiveryByAnkush.reduce((sum, o) => {
-            // Convert commission string to decimal
-            const commissionPercent = parseFloat(o.commission?.replace("%", "") || "0") / 100;
+            const commission = o.commission || "";
 
-            // Skip orders with 0% commission
+            // Flat rate orders
+            if (commission === "Flat NPR 600") return sum + 70;
+            if (commission === "Flat NPR 700") return sum + 110;
+
+            // Percentage-based orders
+            const commissionPercent = parseFloat(commission.replace("%", "") || "0") / 100;
             if (commissionPercent === 0) return sum;
 
-            // Calculate principal amount (before commission)
             const x = (o.totalAmount || 0) / (1 + commissionPercent);
-
-            // 5% of principal
-            const fivePercent = x * 0.05;
-
-            return sum + fivePercent;
+            return sum + x * 0.05;
         }, 0);
 
 
         const totalFivePercent_LastMonth = deleiveryByAnkushLastMonth.reduce((sum, o) => {
-            // Convert commission string to decimal
-            const commissionPercent = parseFloat(o.commission?.replace("%", "") || "0") / 100;
+            const commission = o.commission || "";
 
-            // Skip orders with 0% commission
+            // Flat rate orders
+            if (commission === "Flat NPR 600") return sum + 70;
+            if (commission === "Flat NPR 700") return sum + 110;
+
+            // Percentage-based orders
+            const commissionPercent = parseFloat(commission.replace("%", "") || "0") / 100;
             if (commissionPercent === 0) return sum;
 
-            // Calculate principal amount (before commission)
             const x = (o.totalAmount || 0) / (1 + commissionPercent);
-
-            // 5% of principal
-            const fivePercent = x * 0.05;
-
-            return sum + fivePercent;
+            return sum + x * 0.05;
         }, 0);
 
 

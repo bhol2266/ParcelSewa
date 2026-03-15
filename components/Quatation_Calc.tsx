@@ -3,8 +3,9 @@
 import React, { useState } from "react";
 
 const FLAT_BELOW_1500_NPR = 600;
+const FLAT_BELOW_1500_NPR_700 = 700;
 
-type CommissionOption = number | "below_1500";
+type CommissionOption = number | "below_1500" | "below_1500_700";
 
 const PriceCalculator: React.FC = () => {
     const [amountINR, setAmountINR] = useState<string>("");
@@ -13,29 +14,42 @@ const PriceCalculator: React.FC = () => {
         nprConverted: number;
         commissionAmount: number;
         total: number;
-        isFlatRate: boolean;
+        flatRateType: "none" | "600" | "700";
     } | null>(null);
 
-    const conversionRate = 1.6; // INR to NPR multiplier
+    const conversionRate = 1.6;
 
     const handleCalculate = () => {
         const amount = parseFloat(amountINR);
         if (isNaN(amount)) return;
 
         const nprConverted = Math.round(amount * conversionRate);
-        const isFlatRate = commissionRate === "below_1500";
-
         let commissionAmount: number;
         let total: number;
         let textToCopy: string;
+        let flatRateType: "none" | "600" | "700" = "none";
 
-        if (isFlatRate) {
+        if (commissionRate === "below_1500") {
+            flatRateType = "600";
             commissionAmount = FLAT_BELOW_1500_NPR;
             total = nprConverted + commissionAmount;
 
             textToCopy = `
 🇮🇳 INR ${Math.round(amount).toLocaleString()} x ${conversionRate} = ${nprConverted.toLocaleString()} NPR 🇳🇵
 Below order 1500 charge will be flat 600 + courier charge
+
+**TOTAL = ${total.toLocaleString()} NPR** + courier charge
+
+🏷️ Product + Nepali Custom + Service charge
+`.trim();
+        } else if (commissionRate === "below_1500_700") {
+            flatRateType = "700";
+            commissionAmount = FLAT_BELOW_1500_NPR_700;
+            total = nprConverted + commissionAmount;
+
+            textToCopy = `
+🇮🇳 INR ${Math.round(amount).toLocaleString()} x ${conversionRate} = ${nprConverted.toLocaleString()} NPR 🇳🇵
+Below order 1500 charge will be flat 700 + courier charge
 
 **TOTAL = ${total.toLocaleString()} NPR** + courier charge
 
@@ -56,7 +70,7 @@ NPR ${nprConverted.toLocaleString()} + ${rate}% = ${nprConverted.toLocaleString(
 `.trim();
         }
 
-        setResult({ nprConverted, commissionAmount, total, isFlatRate });
+        setResult({ nprConverted, commissionAmount, total, flatRateType });
         navigator.clipboard.writeText(textToCopy);
     };
 
@@ -71,6 +85,7 @@ NPR ${nprConverted.toLocaleString()} + ${rate}% = ${nprConverted.toLocaleString(
         { label: "40%", value: 40 },
         { label: "50%", value: 50 },
         { label: "Below order IC 1500 (Flat NPR 600)", value: "below_1500" },
+        { label: "Below order IC 1500 (Flat NPR 700)", value: "below_1500_700" },
     ];
 
     return (
@@ -94,7 +109,11 @@ NPR ${nprConverted.toLocaleString()} + ${rate}% = ${nprConverted.toLocaleString(
                     value={commissionRate}
                     onChange={(e) => {
                         const val = e.target.value;
-                        setCommissionRate(val === "below_1500" ? "below_1500" : parseInt(val));
+                        if (val === "below_1500" || val === "below_1500_700") {
+                            setCommissionRate(val);
+                        } else {
+                            setCommissionRate(parseInt(val));
+                        }
                     }}
                     className="w-full border px-3 py-2 rounded"
                 >
@@ -120,7 +139,7 @@ NPR ${nprConverted.toLocaleString()} + ${rate}% = ${nprConverted.toLocaleString(
                         {result.nprConverted.toLocaleString()} NPR
                     </p>
 
-                    {result.isFlatRate ? (
+                    {result.flatRateType !== "none" ? (
                         <>
                             <p className="mt-1">
                                 Below order 1500 — flat charge:{" "}
@@ -131,7 +150,7 @@ NPR ${nprConverted.toLocaleString()} + ${rate}% = ${nprConverted.toLocaleString(
                                 <strong>{result.total.toLocaleString()} NPR</strong>
                             </p>
                             <p className="mt-2 text-sm text-gray-500 italic">
-                                Below order 1500 charge will be flat 600 + courier charge
+                                Below order 1500 charge will be flat {result.commissionAmount} + courier charge
                             </p>
                         </>
                     ) : (

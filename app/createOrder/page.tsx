@@ -435,7 +435,7 @@ const CreateOrder: React.FC = () => {
                     onChange={(e) => setCommission(e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 >
-                    {["15%", "20%", "25%", "30%", "35%"].map((c) => (
+                    {["5%", "10%", "15%", "20%", "25%", "30%", "35%", "40%", "45%", "50%", "Flat NPR 600", "Flat NPR 700"].map((c) => (
                         <option key={c} value={c}>{c}</option>
                     ))}
                 </select>
