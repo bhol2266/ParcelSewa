@@ -4,13 +4,6 @@ import React, { useState } from "react";
 import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import toast, { Toaster } from "react-hot-toast";
-import Head from "next/head";
-
-
-
-
-
-
 
 const OrderRequestComponent: React.FC = () => {
   const [productUrl, setProductUrl] = useState("");
@@ -36,8 +29,6 @@ const OrderRequestComponent: React.FC = () => {
       return;
     }
 
-
-
     if (mobile.trim().length < 14) {
       toast.error("Mobile number is required.");
       return;
@@ -46,15 +37,36 @@ const OrderRequestComponent: React.FC = () => {
     try {
       setLoading(true);
 
-      await addDoc(collection(db, "Order Request"), {
+      const orderData = {
         productUrl,
         quantity,
         mobile,
         deliveryLocation,
-        notes, // optional
+        notes,
         selectedDate: Timestamp.now(),
         createdAt: Timestamp.now(),
+      };
+
+      // 1. Save to Firestore
+      await addDoc(collection(db, "Order Request"), orderData);
+
+      // 2. Send email notification
+      const emailRes = await fetch("/api/send-order-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productUrl,
+          quantity,
+          mobile,
+          deliveryLocation,
+          notes,
+        }),
       });
+
+      if (!emailRes.ok) {
+        // Non-blocking: log but don't fail the whole submission
+        console.warn("Order saved, but email notification failed.");
+      }
 
       toast.success("Order Request Submitted Successfully!");
 
@@ -74,13 +86,10 @@ const OrderRequestComponent: React.FC = () => {
 
   return (
     <section className="w-full px-6 py-4 flex justify-center">
-    
-
-
       <Toaster position="top-center" />
 
       <div className="w-full justify-evenly lg:flex">
-        <div className="max-w-[600px] 2xl:max-w-[800px] ">
+        <div className="max-w-[600px] 2xl:max-w-[800px]">
           <h2 className="mt-3 text-3xl lg:text-5xl font-bold leading-snug text-[#002f5c] w-full">
             Paste any <span className="text-[#f48b28]">Indian product</span>
             <br />
@@ -89,14 +98,13 @@ const OrderRequestComponent: React.FC = () => {
 
           <p className="mt-4 text-[#0a2540] text-sm md:text-base leading-relaxed">
             Copy the URL from Amazon, Flipkart, Myntra, Ajio or any other
-            Indian store. Add quantity and delivery location. We’ll review and send you a final
-            quote in NPR.
+            Indian store. Add quantity and delivery location. We'll review and
+            send you a final quote in NPR.
           </p>
         </div>
 
         {/* FORM */}
         <div className="mt-6 border border-gray-300 rounded-2xl p-4 shadow-sm">
-
           {/* Product URL */}
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Product URL (from Indian website) *
@@ -171,7 +179,8 @@ const OrderRequestComponent: React.FC = () => {
           </button>
 
           <p className="text-center text-gray-500 text-xs mt-2">
-            We’ll send a quotation link to your email and dashboard within a few hours.
+            We'll send a quotation link to your email and dashboard within a
+            few hours.
           </p>
         </div>
       </div>
