@@ -33,6 +33,10 @@ export async function POST(req: NextRequest) {
       timeStyle: "short",
     });
 
+    // Strip non-numeric characters for the WhatsApp link (keep + for country code)
+    const whatsappNumber = mobile.replace(/[\s\-\(\)]/g, "");
+    const whatsappUrl = `https://wa.me/${whatsappNumber.startsWith("+") ? whatsappNumber.slice(1) : whatsappNumber}`;
+
     const mailOptions = {
       from: `"Order Request System" <${SMTP_USER}>`,
       to: RECIPIENT_EMAIL,
@@ -99,6 +103,12 @@ export async function POST(req: NextRequest) {
                           </td>
                           <td style="padding:12px 16px;background:#f8fafc;border-bottom:1px solid #e5e7eb;">
                             <span style="font-size:14px;color:#111827;">${mobile}</span>
+                            &nbsp;
+                            <a href="${whatsappUrl}"
+                               target="_blank"
+                               style="display:inline-flex;align-items:center;gap:4px;margin-left:8px;padding:4px 10px;background:#25d366;color:#ffffff;font-size:12px;font-weight:600;text-decoration:none;border-radius:4px;vertical-align:middle;">
+                              💬 Open WhatsApp
+                            </a>
                           </td>
                         </tr>
 
