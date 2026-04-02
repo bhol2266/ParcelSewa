@@ -15,6 +15,14 @@ interface Order {
 
 type SortOption = "latest" | "oldest" | "pending" | "delivered";
 
+// Safe commission parser — handles string "10%", number 10, null, undefined
+const parseCommission = (commission: any): number => {
+    if (commission === null || commission === undefined) return 0;
+    if (typeof commission === "number") return isNaN(commission) ? 0 : commission / 100;
+    const parsed = parseFloat(String(commission).replace("%", "").trim());
+    return isNaN(parsed) ? 0 : parsed / 100;
+};
+
 export default function OrdersPage() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
@@ -32,7 +40,6 @@ export default function OrdersPage() {
     const fetchOrders = async () => {
         setLoading(true);
 
-        // Create a query: order by orderedDate descending, limit 50
         const q = query(
             collection(db, "Confirm Orders"),
             orderBy("orderedDate", "desc"),
@@ -60,7 +67,6 @@ export default function OrdersPage() {
         if (cookie === PASSWORD) {
             setAccessGranted(true);
         } else {
-            // Focus input after slight delay to open keyboard on mobile
             setTimeout(() => {
                 passwordInputRef.current?.focus();
             }, 300);
@@ -72,7 +78,6 @@ export default function OrdersPage() {
         if (passwordInput === PASSWORD) {
             setAccessGranted(true);
             setPasswordInput("");
-            // Save cookie for 5 days
             Cookies.set(COOKIE_NAME, PASSWORD, { expires: 5, path: "/" });
         }
     }, [passwordInput]);
@@ -106,7 +111,6 @@ export default function OrdersPage() {
                             b.deliveryDate.toMillis() - a.deliveryDate.toMillis()
                     );
                 break;
-
         }
 
         return filtered;
@@ -117,12 +121,10 @@ export default function OrdersPage() {
         const totalOrders = orders.length;
 
         const deliveredOrders = orders.filter((o) => o.deliveryStatus === true);
-
         const pendingOrders = orders.filter((o) => o.deliveryStatus !== true);
 
-
         const now = new Date();
-        const currentMonth = now.getMonth(); // 0–11
+        const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
 
         const deleiveryByAnkush = orders.filter((o) => {
@@ -137,8 +139,6 @@ export default function OrdersPage() {
                 deliveryDate.getFullYear() === currentYear
             );
         });
-
-
 
         // Calculate last month safely
         const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -158,12 +158,6 @@ export default function OrdersPage() {
             );
         });
 
-
-
-
-
-
-
         const deliveredRevenue = deliveredOrders.reduce(
             (sum, o) => sum + (o.totalAmount || 0),
             0
@@ -181,10 +175,8 @@ export default function OrdersPage() {
             0
         );
 
-
         const Profit = deliveredOrders.reduce((sum, o) => {
-            // Convert commission string to decimal
-            const commissionPercent = parseFloat(o.commission?.replace("%", "") || "0") / 100;
+            const commissionPercent = parseCommission(o.commission);
 
             // Skip orders with 0% commission
             if (commissionPercent === 0) return sum;
@@ -192,67 +184,56 @@ export default function OrdersPage() {
             // Calculate principal amount (before commission)
             const x = (o.totalAmount || 0) / (1 + commissionPercent);
 
-
             // Profit = adjusted commission (subtract 5%)
             const profit = x * (commissionPercent - 0.05);
 
             return sum + profit;
-        }, 0) - deliveredOrders.filter(o => parseFloat(o.commission?.replace("%", "") || "0") !== 0).length * 100;
-
-
+        }, 0) - deliveredOrders.filter(o => parseCommission(o.commission) !== 0).length * 100;
 
         const totalFivePercent = deleiveryByAnkush.reduce((sum, o) => {
-            // Convert commission string to decimal
-            const commissionPercent = parseFloat(o.commission?.replace("%", "") || "0") / 100;
+            const commission = o.commission || "";
 
-            // Skip orders with 0% commission
+            // Flat rate orders
+            if (commission === "Flat NPR 600") return sum + 70;
+            if (commission === "Flat NPR 700") return sum + 110;
+
+            // Percentage-based orders
+            const commissionPercent = parseCommission(commission);
             if (commissionPercent === 0) return sum;
 
-            // Calculate principal amount (before commission)
             const x = (o.totalAmount || 0) / (1 + commissionPercent);
-
-            // 5% of principal
-            const fivePercent = x * 0.05;
-
-            return sum + fivePercent;
+            return sum + x * 0.05;
         }, 0);
-
 
         const totalFivePercent_LastMonth = deleiveryByAnkushLastMonth.reduce((sum, o) => {
-            // Convert commission string to decimal
-            const commissionPercent = parseFloat(o.commission?.replace("%", "") || "0") / 100;
+            const commission = o.commission || "";
 
-            // Skip orders with 0% commission
+            // Flat rate orders
+            if (commission === "Flat NPR 600") return sum + 70;
+            if (commission === "Flat NPR 700") return sum + 110;
+
+            // Percentage-based orders
+            const commissionPercent = parseCommission(commission);
             if (commissionPercent === 0) return sum;
 
-            // Calculate principal amount (before commission)
             const x = (o.totalAmount || 0) / (1 + commissionPercent);
-
-            // 5% of principal
-            const fivePercent = x * 0.05;
-
-            return sum + fivePercent;
+            return sum + x * 0.05;
         }, 0);
 
-
         const estimatedProfit = orders.reduce((sum, o) => {
-            // Convert commission string to decimal
-            const commissionPercent = parseFloat(o.commission?.replace("%", "") || "0") / 100;
+            const commissionPercent = parseCommission(o.commission);
 
             // Skip orders with 0% commission
             if (commissionPercent === 0) return sum;
 
             // Calculate principal amount (before commission)
             const x = (o.totalAmount || 0) / (1 + commissionPercent);
-
 
             // Profit = adjusted commission (subtract 5%)
             const profit = x * (commissionPercent - 0.05);
 
             return sum + profit;
-        }, 0) - deliveredOrders.filter(o => parseFloat(o.commission?.replace("%", "") || "0") !== 0).length * 100;
-
-
+        }, 0) - deliveredOrders.filter(o => parseCommission(o.commission) !== 0).length * 100;
 
         return {
             totalOrders,
@@ -279,8 +260,6 @@ export default function OrdersPage() {
             <div className={`p-6 ${!accessGranted ? "filter blur-md" : ""}`}>
                 <h1 className="text-3xl font-bold mb-6">All Orders</h1>
 
-
-
                 <OrdersStats
                     totalOrders={stats.totalOrders}
                     delivered={stats.delivered}
@@ -291,8 +270,8 @@ export default function OrdersPage() {
                     borderCommission={stats.totalFivePercent}
                     borderCommissionLastMonth={stats.totalFivePercent_LastMonth}
                     Profit={stats.Profit}
-
                 />
+
                 {/* Search Bar */}
                 <div className="relative mb-6">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">🔍</span>
