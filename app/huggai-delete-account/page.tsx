@@ -10,13 +10,26 @@ function AccountDeletionForm() {
   const [reason, setReason] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleSubmit = async () => {
     if (!name.trim() || !email.trim()) return;
     setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setLoading(false);
-    setSubmitted(true);
+    setError("");
+    try {
+      const res = await fetch("/api/delete-account", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), email: email.trim(), reason: reason.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Something went wrong.");
+      setSubmitted(true);
+    } catch (err: any) {
+      setError(err.message || "Failed to submit. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (submitted) {
@@ -107,6 +120,12 @@ function AccountDeletionForm() {
           </>
         )}
       </button>
+
+      {error && (
+        <p className="text-xs font-bold text-rose-600 bg-rose-50 border-2 border-rose-200 rounded-xl px-4 py-3 text-center">
+          {error}
+        </p>
+      )}
 
       <p className="text-xs font-semibold text-gray-500 text-center">
         This request is submitted to <strong>UK Developers</strong> for <strong>HuggAI – AI Video Maker</strong>. We will respond within 30 days.
