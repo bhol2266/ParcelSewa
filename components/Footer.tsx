@@ -1,9 +1,16 @@
+"use client";
+
 import React from "react";
 import { MapPinIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 
 const Footer = () => {
+  const pathname = usePathname();
+
+  if (pathname === "/huggai-delete-account") return null;
+
   return (
     <footer className="bg-gradient-to-r from-[#0A2F4E] to-[#06203A] text-white py-16 px-6">
       <div className="max-w-7xl mx-auto">

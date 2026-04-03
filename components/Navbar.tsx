@@ -26,6 +26,8 @@ const Navbar = () => {
   const pathname = usePathname();
   const router = useRouter();
 
+  if (pathname === "/huggai-delete-account") return null;
+
   return (
     <motion.div
       animate={{
