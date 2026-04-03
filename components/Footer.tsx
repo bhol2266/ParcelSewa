@@ -9,7 +9,7 @@ import { usePathname } from "next/navigation";
 const Footer = () => {
   const pathname = usePathname();
 
-  if (pathname === "/huggai-delete-account") return null;
+  if (pathname === "/huggai-delete-account" || pathname === "/huggai-privacy-policy") return null;
 
   return (
     <footer className="bg-gradient-to-r from-[#0A2F4E] to-[#06203A] text-white py-16 px-6">
