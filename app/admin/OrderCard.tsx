@@ -101,11 +101,11 @@ export default function OrderCard({ order, refresh }: OrderProps) {
 
     return (
         <>
-            <div className={`rounded-xl p-5 shadow-md border transition-all ${cardStyle}`}>
+            <div className={`rounded-xl p-5 shadow-md border transition-all overflow-hidden ${cardStyle}`}>
                 {/* Header */}
-                <div className="flex justify-between items-center mb-3">
-                    <h2 className="font-semibold text-xl text-gray-800">{order.name}</h2>
-                    <span className={`px-3 py-1 text-sm rounded-full font-semibold ${badgeStyle}`}>
+                <div className="flex justify-between items-center mb-3 gap-2 min-w-0">
+                    <h2 className="font-semibold text-xl text-gray-800 truncate min-w-0">{order.name}</h2>
+                    <span className={`px-3 py-1 text-sm rounded-full font-semibold shrink-0 ${badgeStyle}`}>
                         {badgeLabel}
                     </span>
                 </div>
@@ -168,7 +168,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             placeholder="Advance Payment"
                         />
                         <div className="flex items-center justify-center space-x-4">
-                            <span className="text-nowrap">Ordered Date</span>
+                            <span className="whitespace-nowrap text-sm">Ordered Date</span>
                             <input
                                 type="date"
                                 className="w-full border p-2 rounded-md"
@@ -186,7 +186,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             />
                         </div>
                         <div className="flex items-center justify-center space-x-4">
-                            <span className="text-nowrap">Delivered Date</span>
+                            <span className="whitespace-nowrap text-sm">Delivered Date</span>
                             <input
                                 type="date"
                                 className="w-full border p-2 rounded-md"
@@ -365,13 +365,13 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                 ) : (
                     // VIEW MODE
                     <div className="space-y-2 text-gray-700">
-                        <div className="flex justify-between">
-                            <p><b>Store:</b> {order.storeName}</p>
-                            <p><b>Commission:</b> {order.commission}</p>
+                        <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
+                            <p className="min-w-0 break-words"><b>Store:</b> {order.storeName}</p>
+                            <p className="shrink-0"><b>Commission:</b> {order.commission}</p>
                         </div>
 
                         <button
-                            className="w-full text-left bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700"
+                            className="w-full text-left bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 truncate"
                             onClick={() =>
                                 window.open(`https://wa.me/${order.mobile.replace("+", "")}`, "_blank")
                             }
@@ -379,7 +379,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             📞 WhatsApp: {order.mobile}
                         </button>
 
-                        <p><b>Address:</b> {order.address}</p>
+                        <p className="break-words"><b>Address:</b> {order.address}</p>
                         <p><b>Total Amount:</b> Rs. {order.totalAmount}</p>
                         <p><b>Advance Paid:</b> Rs. {order.advancePayment}</p>
 
