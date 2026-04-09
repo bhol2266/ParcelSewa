@@ -118,16 +118,19 @@ export default function OrdersPage() {
 
     // Stats calculation
     const stats = useMemo(() => {
-        const totalOrders = orders.length;
+        // Exclude cancelled orders from all stats
+        const activeOrders = orders.filter((o) => o.deliveryStatus !== "cancelled");
 
-        const deliveredOrders = orders.filter((o) => o.deliveryStatus === true);
-        const pendingOrders = orders.filter((o) => o.deliveryStatus !== true);
+        const totalOrders = activeOrders.length;
+
+        const deliveredOrders = activeOrders.filter((o) => o.deliveryStatus === true);
+        const pendingOrders = activeOrders.filter((o) => o.deliveryStatus !== true);
 
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
 
-        const deleiveryByAnkush = orders.filter((o) => {
+        const deleiveryByAnkush = activeOrders.filter((o) => {
             if (!o.deliveryStatus) return false;
             if (o.deliveredBy !== "Ankush") return false;
             if (!o.deliveryDate?.seconds) return false;
@@ -145,7 +148,7 @@ export default function OrdersPage() {
         const lastMonth = lastMonthDate.getMonth();
         const lastMonthYear = lastMonthDate.getFullYear();
 
-        const deleiveryByAnkushLastMonth = orders.filter((o) => {
+        const deleiveryByAnkushLastMonth = activeOrders.filter((o) => {
             if (!o.deliveryStatus) return false;
             if (o.deliveredBy !== "Ankush") return false;
             if (!o.deliveryDate?.seconds) return false;
@@ -220,7 +223,7 @@ export default function OrdersPage() {
             return sum + x * 0.05;
         }, 0);
 
-        const estimatedProfit = orders.reduce((sum, o) => {
+        const estimatedProfit = activeOrders.reduce((sum, o) => {
             const commissionPercent = parseCommission(o.commission);
 
             // Skip orders with 0% commission
