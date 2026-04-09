@@ -207,7 +207,7 @@ export default function Ankush() {
 
             // Flat rate orders
             if (commission === "Flat NPR 600") return sum + 70;
-            if (commission === "Flat NPR 700") return sum + 110;
+            if (commission === "Flat NPR 700") return sum + 100;
 
             // Percentage-based orders
             const commissionPercent = parseFloat(commission.replace("%", "") || "0") / 100;
@@ -223,7 +223,7 @@ export default function Ankush() {
 
             // Flat rate orders
             if (commission === "Flat NPR 600") return sum + 70;
-            if (commission === "Flat NPR 700") return sum + 110;
+            if (commission === "Flat NPR 700") return sum + 100;
 
             // Percentage-based orders
             const commissionPercent = parseFloat(commission.replace("%", "") || "0") / 100;
