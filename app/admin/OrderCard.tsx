@@ -11,6 +11,16 @@ interface OrderProps {
 
 const DELETE_PASSWORD = "5555";
 
+// Reusable labeled field wrapper for edit mode
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+    <div className="space-y-1">
+        <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            {label}
+        </label>
+        {children}
+    </div>
+);
+
 export default function OrderCard({ order, refresh }: OrderProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState(order);
@@ -113,62 +123,83 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                 {/* EDIT MODE */}
                 {isEditing ? (
                     <div className="space-y-3">
-                        <input
-                            className="w-full border p-2 rounded-md"
-                            value={editData.name || ""}
-                            onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-                            placeholder="Customer Name"
-                        />
-                        <input
-                            className="w-full border p-2 rounded-md"
-                            value={editData.mobile || ""}
-                            onChange={(e) => setEditData({ ...editData, mobile: e.target.value })}
-                            placeholder="Mobile Number"
-                        />
-                        <input
-                            className="w-full border p-2 rounded-md"
-                            value={editData.address || ""}
-                            onChange={(e) => setEditData({ ...editData, address: e.target.value })}
-                            placeholder="Address"
-                        />
-                        <input
-                            className="w-full border p-2 rounded-md"
-                            value={editData.storeName || ""}
-                            onChange={(e) => setEditData({ ...editData, storeName: e.target.value })}
-                            placeholder="Store Name"
-                        />
-                        <select
-                            className="w-full border p-2 rounded-md"
-                            value={editData.commission || ""}
-                            onChange={(e) => setEditData({ ...editData, commission: e.target.value })}
-                        >
-                            <option value="15%">15%</option>
-                            <option value="20%">20%</option>
-                            <option value="25%">25%</option>
-                            <option value="30%">30%</option>
-                            <option value="35%">35%</option>
-                            <option value="40%">40%</option>
-                        </select>
-                        <input
-                            type="number"
-                            className="w-full border p-2 rounded-md"
-                            value={editData.totalAmount || ""}
-                            onChange={(e) =>
-                                setEditData({ ...editData, totalAmount: Number(e.target.value) })
-                            }
-                            placeholder="Total Amount"
-                        />
-                        <input
-                            type="number"
-                            className="w-full border p-2 rounded-md"
-                            value={editData.advancePayment || ""}
-                            onChange={(e) =>
-                                setEditData({ ...editData, advancePayment: Number(e.target.value) })
-                            }
-                            placeholder="Advance Payment"
-                        />
-                        <div className="flex items-center justify-center space-x-4">
-                            <span className="whitespace-nowrap text-sm">Ordered Date</span>
+
+                        <Field label="Customer Name">
+                            <input
+                                className="w-full border p-2 rounded-md"
+                                value={editData.name || ""}
+                                onChange={(e) => setEditData({ ...editData, name: e.target.value })}
+                                placeholder="Customer Name"
+                            />
+                        </Field>
+
+                        <Field label="Mobile Number">
+                            <input
+                                className="w-full border p-2 rounded-md"
+                                value={editData.mobile || ""}
+                                onChange={(e) => setEditData({ ...editData, mobile: e.target.value })}
+                                placeholder="Mobile Number"
+                            />
+                        </Field>
+
+                        <Field label="Address">
+                            <input
+                                className="w-full border p-2 rounded-md"
+                                value={editData.address || ""}
+                                onChange={(e) => setEditData({ ...editData, address: e.target.value })}
+                                placeholder="Address"
+                            />
+                        </Field>
+
+                        <Field label="Store Name">
+                            <input
+                                className="w-full border p-2 rounded-md"
+                                value={editData.storeName || ""}
+                                onChange={(e) => setEditData({ ...editData, storeName: e.target.value })}
+                                placeholder="Store Name"
+                            />
+                        </Field>
+
+                        <Field label="Commission">
+                            <select
+                                className="w-full border p-2 rounded-md"
+                                value={editData.commission || ""}
+                                onChange={(e) => setEditData({ ...editData, commission: e.target.value })}
+                            >
+                                <option value="15%">15%</option>
+                                <option value="20%">20%</option>
+                                <option value="25%">25%</option>
+                                <option value="30%">30%</option>
+                                <option value="35%">35%</option>
+                                <option value="40%">40%</option>
+                            </select>
+                        </Field>
+
+                        <Field label="Total Amount (Rs.)">
+                            <input
+                                type="number"
+                                className="w-full border p-2 rounded-md"
+                                value={editData.totalAmount || ""}
+                                onChange={(e) =>
+                                    setEditData({ ...editData, totalAmount: Number(e.target.value) })
+                                }
+                                placeholder="Total Amount"
+                            />
+                        </Field>
+
+                        <Field label="Advance Payment (Rs.)">
+                            <input
+                                type="number"
+                                className="w-full border p-2 rounded-md"
+                                value={editData.advancePayment || ""}
+                                onChange={(e) =>
+                                    setEditData({ ...editData, advancePayment: Number(e.target.value) })
+                                }
+                                placeholder="Advance Payment"
+                            />
+                        </Field>
+
+                        <Field label="Ordered Date">
                             <input
                                 type="date"
                                 className="w-full border p-2 rounded-md"
@@ -184,9 +215,9 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                     })
                                 }
                             />
-                        </div>
-                        <div className="flex items-center justify-center space-x-4">
-                            <span className="whitespace-nowrap text-sm">Delivered Date</span>
+                        </Field>
+
+                        <Field label="Delivered Date">
                             <input
                                 type="date"
                                 className="w-full border p-2 rounded-md"
@@ -202,57 +233,61 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                     })
                                 }
                             />
-                        </div>
+                        </Field>
 
                         {/* Delivery Status Toggle */}
-                        <label className="flex items-center cursor-pointer">
-                            <div className="relative">
-                                <input
-                                    type="checkbox"
-                                    className="sr-only"
-                                    checked={editData.deliveryStatus === true}
-                                    onChange={(e) =>
-                                        setEditData({
-                                            ...editData,
-                                            deliveryStatus: e.target.checked,
-                                            deliveredBy: e.target.checked ? (editData.deliveredBy || "Ankush") : editData.deliveredBy,
-                                        })
-                                    }
-                                />
-                                <div
-                                    className={`w-12 h-6 rounded-full transition-colors ${
-                                        editData.deliveryStatus === true ? "bg-green-500" : "bg-gray-300"
-                                    }`}
-                                />
-                                <div
-                                    className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
-                                        editData.deliveryStatus === true ? "translate-x-7" : "translate-x-1"
-                                    }`}
-                                />
-                            </div>
-                            <span className="ml-3 font-medium text-gray-700">
-                                {editData.deliveryStatus === true ? "Delivered" : "Pending"}
-                            </span>
-                        </label>
+                        <Field label="Delivery Status">
+                            <label className="flex items-center cursor-pointer">
+                                <div className="relative">
+                                    <input
+                                        type="checkbox"
+                                        className="sr-only"
+                                        checked={editData.deliveryStatus === true}
+                                        onChange={(e) =>
+                                            setEditData({
+                                                ...editData,
+                                                deliveryStatus: e.target.checked,
+                                                deliveredBy: e.target.checked ? (editData.deliveredBy || "Ankush") : editData.deliveredBy,
+                                            })
+                                        }
+                                    />
+                                    <div
+                                        className={`w-12 h-6 rounded-full transition-colors ${
+                                            editData.deliveryStatus === true ? "bg-green-500" : "bg-gray-300"
+                                        }`}
+                                    />
+                                    <div
+                                        className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${
+                                            editData.deliveryStatus === true ? "translate-x-7" : "translate-x-1"
+                                        }`}
+                                    />
+                                </div>
+                                <span className="ml-3 font-medium text-gray-700">
+                                    {editData.deliveryStatus === true ? "Delivered" : "Pending"}
+                                </span>
+                            </label>
+                        </Field>
 
                         {editData.deliveryStatus === true && (
-                            <select
-                                className="w-full border p-2 rounded-md"
-                                value={editData.deliveredBy || ""}
-                                onChange={(e) =>
-                                    setEditData({ ...editData, deliveredBy: e.target.value })
-                                }
-                            >
-                                <option value="">Select Delivery Person</option>
-                                <option value="Ankush">Ankush</option>
-                                <option value="Bhola">Bhola</option>
-                            </select>
+                            <Field label="Delivered By">
+                                <select
+                                    className="w-full border p-2 rounded-md"
+                                    value={editData.deliveredBy || ""}
+                                    onChange={(e) =>
+                                        setEditData({ ...editData, deliveredBy: e.target.value })
+                                    }
+                                >
+                                    <option value="">Select Delivery Person</option>
+                                    <option value="Ankush">Ankush</option>
+                                    <option value="Bhola">Bhola</option>
+                                </select>
+                            </Field>
                         )}
 
                         {/* Product URLs */}
                         <div className="space-y-2">
                             <div className="flex justify-between items-center">
-                                <p className="font-semibold">Product URLs</p>
+                                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Product URLs</p>
                                 <button
                                     type="button"
                                     className="text-sm px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700"
@@ -276,7 +311,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                             updated[i] = e.target.value;
                                             setEditData({ ...editData, productUrls: updated });
                                         }}
-                                        placeholder={`Product ${i + 1}`}
+                                        placeholder={`Product URL ${i + 1}`}
                                     />
                                     <button
                                         type="button"

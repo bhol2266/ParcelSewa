@@ -6,16 +6,23 @@ interface StatsProps {
     totalOrders: number;
     delivered: number;
     pending: number;
+
+    // Total Revenue — current & last month
     totalRevenue: number;
+    totalRevenueLastMonth: number;
+
     remainingPayment: number;
+
+    // Estimated Profit — current & last month
     estimatedProfit: number;
+    estimatedProfitLastMonth: number;
+
     borderCommission: number;
     borderCommissionLastMonth: number;
-    Profit: number;
-}
 
-interface FormatNumberProps {
-    num: number;
+    // Profit — current & last month
+    Profit: number;
+    ProfitLastMonth: number;
 }
 
 const formatNumber = (num: number) => Math.round(num).toLocaleString("en-IN");
@@ -25,17 +32,17 @@ const OrdersStats: React.FC<StatsProps> = ({
     delivered,
     pending,
     totalRevenue,
+    totalRevenueLastMonth,
     remainingPayment,
     estimatedProfit,
+    estimatedProfitLastMonth,
     borderCommission,
     borderCommissionLastMonth,
-    Profit
+    Profit,
+    ProfitLastMonth,
 }) => {
-
     const now = new Date();
-
     const currentMonth = now.toLocaleString("en-US", { month: "long" });
-
     const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonth = lastMonthDate.toLocaleString("en-US", { month: "long" });
 
@@ -60,57 +67,71 @@ const OrdersStats: React.FC<StatsProps> = ({
                 <p className="text-2xl font-bold text-yellow-950">{formatNumber(pending)}</p>
             </div>
 
-            {/* Total Revenue */}
-            <div className="p-4 bg-blue-200 rounded-xl shadow">
-                <p className="text-sm text-blue-900">Total Revenue</p>
-                <p className="text-xl font-bold text-blue-950">Rs. {formatNumber(totalRevenue)}</p>
-            </div>
-
             {/* Remaining Payment */}
             <div className="p-4 bg-red-200 rounded-xl shadow">
                 <p className="text-sm text-red-900">Remaining Payment</p>
                 <p className="text-xl font-bold text-red-950">Rs. {formatNumber(remainingPayment)}</p>
             </div>
 
-            {/* Profit */}
-            <div className={`p-4 rounded-xl shadow ${Profit < 0 ? "bg-red-300" : "bg-purple-200"}`}>
-                <p className={`text-sm font-semibold ${Profit < 0 ? "text-red-900" : "text-purple-900"}`}>Profit</p>
-                <p className={`text-xl font-bold ${Profit < 0 ? "text-red-950" : "text-purple-950"}`}>
-                    Rs. {formatNumber(Profit)}
-                </p>
-            </div>
-
-            {/* Estimated Profit */}
-            <div className={`p-4 rounded-xl shadow ${estimatedProfit < 0 ? "bg-red-300" : "bg-teal-200"}`}>
-                <p className={`text-sm font-semibold ${estimatedProfit < 0 ? "text-red-900" : "text-teal-900"}`}>Estimated Profit</p>
-                <p className={`text-xl font-bold ${estimatedProfit < 0 ? "text-red-950" : "text-teal-950"}`}>
-                    Rs. {formatNumber(estimatedProfit)}
-                </p>
-            </div>
-
-            {/* Border Commission - Current Month */}
-            <div className="p-4 bg-orange-200 rounded-xl shadow">
-                <p className="text-sm font-semibold text-orange-900">
-                    Border Commission
-                </p>
-
+            {/* Total Revenue — month-wise */}
+            <div className="p-4 bg-blue-200 rounded-xl shadow">
+                <p className="text-sm font-semibold text-blue-900">Total Revenue</p>
                 <div className="mt-1 space-y-1">
-                    <div className="flex justify-between text-lg font-bold text-orange-900">
+                    <div className="flex justify-between text-lg font-bold text-blue-900">
                         <span>{currentMonth}</span>
-                        <span className="font-semibold">
-                            Rs. {formatNumber(borderCommission)}
-                        </span>
+                        <span className="font-semibold">Rs. {formatNumber(totalRevenue)}</span>
                     </div>
-
-                    <div className="flex justify-between text-sm  text-orange-900">
+                    <div className="flex justify-between text-sm text-blue-900">
                         <span>{lastMonth}</span>
-                        <span>
-                            Rs. {formatNumber(borderCommissionLastMonth)}
-                        </span>
+                        <span>Rs. {formatNumber(totalRevenueLastMonth)}</span>
                     </div>
                 </div>
             </div>
 
+            {/* Profit — month-wise */}
+            <div className={`p-4 rounded-xl shadow ${Profit < 0 ? "bg-red-300" : "bg-purple-200"}`}>
+                <p className={`text-sm font-semibold ${Profit < 0 ? "text-red-900" : "text-purple-900"}`}>Profit</p>
+                <div className="mt-1 space-y-1">
+                    <div className={`flex justify-between text-lg font-bold ${Profit < 0 ? "text-red-950" : "text-purple-900"}`}>
+                        <span>{currentMonth}</span>
+                        <span className="font-semibold">Rs. {formatNumber(Profit)}</span>
+                    </div>
+                    <div className={`flex justify-between text-sm ${ProfitLastMonth < 0 ? "text-red-950" : Profit < 0 ? "text-red-900" : "text-purple-900"}`}>
+                        <span>{lastMonth}</span>
+                        <span>Rs. {formatNumber(ProfitLastMonth)}</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Estimated Profit — month-wise */}
+            <div className={`p-4 rounded-xl shadow ${estimatedProfit < 0 ? "bg-red-300" : "bg-teal-200"}`}>
+                <p className={`text-sm font-semibold ${estimatedProfit < 0 ? "text-red-900" : "text-teal-900"}`}>Estimated Profit</p>
+                <div className="mt-1 space-y-1">
+                    <div className={`flex justify-between text-lg font-bold ${estimatedProfit < 0 ? "text-red-950" : "text-teal-900"}`}>
+                        <span>{currentMonth}</span>
+                        <span className="font-semibold">Rs. {formatNumber(estimatedProfit)}</span>
+                    </div>
+                    <div className={`flex justify-between text-sm ${estimatedProfitLastMonth < 0 ? "text-red-950" : estimatedProfit < 0 ? "text-red-900" : "text-teal-900"}`}>
+                        <span>{lastMonth}</span>
+                        <span>Rs. {formatNumber(estimatedProfitLastMonth)}</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Border Commission — month-wise */}
+            <div className="p-4 bg-orange-200 rounded-xl shadow">
+                <p className="text-sm font-semibold text-orange-900">Border Commission</p>
+                <div className="mt-1 space-y-1">
+                    <div className="flex justify-between text-lg font-bold text-orange-900">
+                        <span>{currentMonth}</span>
+                        <span className="font-semibold">Rs. {formatNumber(borderCommission)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm text-orange-900">
+                        <span>{lastMonth}</span>
+                        <span>Rs. {formatNumber(borderCommissionLastMonth)}</span>
+                    </div>
+                </div>
+            </div>
 
         </div>
     );

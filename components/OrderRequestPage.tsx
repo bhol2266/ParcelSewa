@@ -5,6 +5,9 @@ import { collection, addDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import toast, { Toaster } from "react-hot-toast";
 
+// ✅ Replace with your WhatsApp business number (with country code, no + or spaces)
+const WHATSAPP_NUMBER = "9779817254118";
+
 const OrderRequestComponent: React.FC = () => {
   const [productUrl, setProductUrl] = useState("");
   const [quantity, setQuantity] = useState(1);
@@ -50,23 +53,21 @@ const OrderRequestComponent: React.FC = () => {
       // 1. Save to Firestore
       await addDoc(collection(db, "Order Request"), orderData);
 
-      // 2. Send email notification
-      const emailRes = await fetch("/api/send-order-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productUrl,
-          quantity,
-          mobile,
-          deliveryLocation,
-          notes,
-        }),
-      });
+      // 2. Send order details via WhatsApp
+      const message = [
+        `🛒 *New Order Request*`,
+        ``,
+        `🔗 *Product URL:* ${productUrl}`,
+        `📦 *Quantity:* ${quantity}`,
+        `📍 *Delivery Location:* ${deliveryLocation}`,
+        `📞 *Customer WhatsApp:* ${mobile}`,
+        notes ? `📝 *Notes:* ${notes}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
 
-      if (!emailRes.ok) {
-        // Non-blocking: log but don't fail the whole submission
-        console.warn("Order saved, but email notification failed.");
-      }
+      const whatsappUrl = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, "_blank");
 
       toast.success("Order Request Submitted Successfully!");
 
@@ -179,8 +180,7 @@ const OrderRequestComponent: React.FC = () => {
           </button>
 
           <p className="text-center text-gray-500 text-xs mt-2">
-            We'll send a quotation link to your email and dashboard within a
-            few hours.
+            After submitting, WhatsApp will open with the order details pre-filled.
           </p>
         </div>
       </div>
