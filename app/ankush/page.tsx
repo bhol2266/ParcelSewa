@@ -114,18 +114,19 @@ export default function Ankush() {
 
     // Stats calculation
     const stats = useMemo(() => {
-        const totalOrders = orders.length;
+        // Exclude cancelled orders from all stats
+        const activeOrders = orders.filter((o) => o.deliveryStatus !== "cancelled");
 
-        const deliveredOrders = orders.filter((o) => o.deliveryStatus === true);
+        const totalOrders = activeOrders.length;
 
-        const pendingOrders = orders.filter((o) => o.deliveryStatus !== true);
-
+        const deliveredOrders = activeOrders.filter((o) => o.deliveryStatus === true);
+        const pendingOrders = activeOrders.filter((o) => o.deliveryStatus !== true);
 
         const now = new Date();
-        const currentMonth = now.getMonth(); // 0–11
+        const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
 
-        const deleiveryByAnkush = orders.filter((o) => {
+        const deleiveryByAnkush = activeOrders.filter((o) => {
             if (!o.deliveryStatus) return false;
             if (o.deliveredBy !== "Ankush") return false;
             if (!o.deliveryDate?.seconds) return false;
@@ -145,7 +146,7 @@ export default function Ankush() {
         const lastMonth = lastMonthDate.getMonth();
         const lastMonthYear = lastMonthDate.getFullYear();
 
-        const deleiveryByAnkushLastMonth = orders.filter((o) => {
+        const deleiveryByAnkushLastMonth = activeOrders.filter((o) => {
             if (!o.deliveryStatus) return false;
             if (o.deliveredBy !== "Ankush") return false;
             if (!o.deliveryDate?.seconds) return false;
@@ -233,7 +234,7 @@ export default function Ankush() {
         }, 0);
 
 
-        const estimatedProfit = orders.reduce((sum, o) => {
+        const estimatedProfit = activeOrders.reduce((sum, o) => {
             // Convert commission string to decimal
             const commissionPercent = parseFloat(o.commission?.replace("%", "") || "0") / 100;
 
