@@ -32,7 +32,6 @@ export default function OrdersPage() {
     const passwordInputRef = useRef<HTMLInputElement>(null);
     const [sortOption, setSortOption] = useState<SortOption>("pending");
 
-
     const PASSWORD = "5555";
     const COOKIE_NAME = "admin_access";
 
@@ -82,8 +81,6 @@ export default function OrdersPage() {
         }
     }, [passwordInput]);
 
-
-
     const filteredOrders = useMemo(() => {
         let filtered = orders.filter((o) => {
             const nameMatch = o.name?.toLowerCase().includes(search.toLowerCase());
@@ -130,38 +127,20 @@ export default function OrdersPage() {
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
 
-        const deleiveryByAnkush = activeOrders.filter((o) => {
-            if (!o.deliveryStatus) return false;
-            if (o.deliveredBy !== "Ankush") return false;
-            if (!o.deliveryDate?.seconds) return false;
-
-            const deliveryDate = new Date(o.deliveryDate.seconds * 1000);
-
-            return (
-                deliveryDate.getMonth() === currentMonth &&
-                deliveryDate.getFullYear() === currentYear
-            );
-        });
-
         // Calculate last month safely
         const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const lastMonth = lastMonthDate.getMonth();
         const lastMonthYear = lastMonthDate.getFullYear();
 
-        const deleiveryByAnkushLastMonth = activeOrders.filter((o) => {
-            if (!o.deliveryStatus) return false;
-            if (o.deliveredBy !== "Ankush") return false;
+        // ── Current month delivered orders (scoped by deliveryDate) ──
+        const deliveredOrdersThisMonth = activeOrders.filter((o) => {
+            if (o.deliveryStatus !== true) return false;
             if (!o.deliveryDate?.seconds) return false;
-
-            const deliveryDate = new Date(o.deliveryDate.seconds * 1000);
-
-            return (
-                deliveryDate.getMonth() === lastMonth &&
-                deliveryDate.getFullYear() === lastMonthYear
-            );
+            const d = new Date(o.deliveryDate.seconds * 1000);
+            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
         });
 
-        // Last month delivered orders for month-wise stats
+        // ── Last month delivered orders (scoped by deliveryDate) ──
         const deliveredOrdersLastMonth = activeOrders.filter((o) => {
             if (o.deliveryStatus !== true) return false;
             if (!o.deliveryDate?.seconds) return false;
@@ -169,7 +148,32 @@ export default function OrdersPage() {
             return d.getMonth() === lastMonth && d.getFullYear() === lastMonthYear;
         });
 
-        const deliveredRevenue = deliveredOrders.reduce(
+        // ── Border commission: Ankush deliveries this month ──
+        const deliveryByAnkushThisMonth = activeOrders.filter((o) => {
+            if (!o.deliveryStatus) return false;
+            if (o.deliveredBy !== "Ankush") return false;
+            if (!o.deliveryDate?.seconds) return false;
+            const deliveryDate = new Date(o.deliveryDate.seconds * 1000);
+            return (
+                deliveryDate.getMonth() === currentMonth &&
+                deliveryDate.getFullYear() === currentYear
+            );
+        });
+
+        // ── Border commission: Ankush deliveries last month ──
+        const deliveryByAnkushLastMonth = activeOrders.filter((o) => {
+            if (!o.deliveryStatus) return false;
+            if (o.deliveredBy !== "Ankush") return false;
+            if (!o.deliveryDate?.seconds) return false;
+            const deliveryDate = new Date(o.deliveryDate.seconds * 1000);
+            return (
+                deliveryDate.getMonth() === lastMonth &&
+                deliveryDate.getFullYear() === lastMonthYear
+            );
+        });
+
+        // ── Total Revenue: this month delivered + advance from all pending ──
+        const deliveredRevenueThisMonth = deliveredOrdersThisMonth.reduce(
             (sum, o) => sum + (o.totalAmount || 0),
             0
         );
@@ -179,34 +183,37 @@ export default function OrdersPage() {
             0
         );
 
-        const totalRevenue = deliveredRevenue + advanceFromPending;
+        const totalRevenue = deliveredRevenueThisMonth + advanceFromPending;
 
+        // ── Total Revenue last month ──
         const totalRevenueLastMonth = deliveredOrdersLastMonth.reduce(
             (sum, o) => sum + (o.totalAmount || 0),
             0
         );
 
+        // ── Remaining Payment: all pending orders ──
         const remainingPayment = pendingOrders.reduce(
             (sum, o) => sum + ((o.totalAmount || 0) - (o.advancePayment || 0)),
             0
         );
 
+        // ── Profit: based on delivered orders in the month ──
         const calcProfit = (list: Order[]) =>
             list.reduce((sum, o) => {
                 const commissionPercent = parseCommission(o.commission);
                 if (commissionPercent === 0) return sum;
                 const x = (o.totalAmount || 0) / (1 + commissionPercent);
                 return sum + x * (commissionPercent - 0.05);
-            }, 0) - list.filter(o => parseCommission(o.commission) !== 0).length * 100;
+            }, 0) - list.filter((o) => parseCommission(o.commission) !== 0).length * 100;
 
-        const Profit = calcProfit(deliveredOrders);
+        const Profit = calcProfit(deliveredOrdersThisMonth);       // FIX: was deliveredOrders (all-time)
         const ProfitLastMonth = calcProfit(deliveredOrdersLastMonth);
 
+        // ── Border Commission ──
         const calcBorderCommission = (deliveredList: Order[]) =>
             deliveredList.reduce((sum, o) => {
                 const commission = o.commission || "";
 
-                // Flat rate orders — 7% of principal (total - flat fee)
                 if (commission === "Flat NPR 600") {
                     const principal = (o.totalAmount || 0) - 600;
                     return sum + principal * 0.07;
@@ -216,7 +223,6 @@ export default function OrdersPage() {
                     return sum + principal * 0.07;
                 }
 
-                // Percentage-based orders
                 const commissionPercent = parseCommission(commission);
                 if (commissionPercent === 0) return sum;
 
@@ -224,20 +230,28 @@ export default function OrdersPage() {
                 return sum + x * 0.07;
             }, 0);
 
-        const totalFivePercent = calcBorderCommission(deleiveryByAnkush);
-        const totalFivePercent_LastMonth = calcBorderCommission(deleiveryByAnkushLastMonth);
+        const totalFivePercent = calcBorderCommission(deliveryByAnkushThisMonth);
+        const totalFivePercent_LastMonth = calcBorderCommission(deliveryByAnkushLastMonth);
 
+        // ── Estimated Profit: all active orders this month (ordered this month) ──
         const calcEstimatedProfit = (allList: Order[], delvList: Order[]) =>
             allList.reduce((sum, o) => {
                 const commissionPercent = parseCommission(o.commission);
                 if (commissionPercent === 0) return sum;
                 const x = (o.totalAmount || 0) / (1 + commissionPercent);
                 return sum + x * (commissionPercent - 0.05);
-            }, 0) - delvList.filter(o => parseCommission(o.commission) !== 0).length * 100;
+            }, 0) - delvList.filter((o) => parseCommission(o.commission) !== 0).length * 100;
 
-        const estimatedProfit = calcEstimatedProfit(activeOrders, deliveredOrders);
+        // Current month: orders placed this month (pending + delivered this month)
+        const activeOrdersThisMonth = activeOrders.filter((o) => {
+            if (!o.orderedDate?.seconds) return false;
+            const d = new Date(o.orderedDate.seconds * 1000);
+            return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+        });
 
-        // For last month estimated profit: only last month active orders vs last month delivered
+        const estimatedProfit = calcEstimatedProfit(activeOrdersThisMonth, deliveredOrdersThisMonth); // FIX: was all activeOrders
+
+        // Last month: orders placed last month
         const activeOrdersLastMonth = activeOrders.filter((o) => {
             if (!o.orderedDate?.seconds) return false;
             const d = new Date(o.orderedDate.seconds * 1000);
@@ -257,10 +271,9 @@ export default function OrdersPage() {
             totalFivePercent,
             totalFivePercent_LastMonth,
             Profit,
-            ProfitLastMonth
+            ProfitLastMonth,
         };
     }, [orders]);
-
 
     if (loading)
         return <p className="p-5 text-center">Loading…</p>;
