@@ -202,36 +202,30 @@ export default function Ankush() {
 
 
 
-        const totalFivePercent = deleiveryByAnkush.reduce((sum, o) => {
-            const commission = o.commission || "";
+        const calcBorderCommission = (deliveredList: Order[]) =>
+            deliveredList.reduce((sum, o) => {
+                const commission = o.commission || "";
 
-            // Flat rate orders
-            if (commission === "Flat NPR 600") return sum + 70;
-            if (commission === "Flat NPR 700") return sum + 100;
+                // Flat rate orders — 7% of principal (total - flat fee)
+                if (commission === "Flat NPR 600") {
+                    const principal = (o.totalAmount || 0) - 600;
+                    return sum + principal * 0.07;
+                }
+                if (commission === "Flat NPR 700") {
+                    const principal = (o.totalAmount || 0) - 700;
+                    return sum + principal * 0.07;
+                }
 
-            // Percentage-based orders
-            const commissionPercent = parseFloat(commission.replace("%", "") || "0") / 100;
-            if (commissionPercent === 0) return sum;
+                // Percentage-based orders
+                const commissionPercent = parseFloat(commission.replace("%", "") || "0") / 100;
+                if (commissionPercent === 0) return sum;
 
-            const x = (o.totalAmount || 0) / (1 + commissionPercent);
-            return sum + x * 0.05;
-        }, 0);
+                const x = (o.totalAmount || 0) / (1 + commissionPercent);
+                return sum + x * 0.07;
+            }, 0);
 
-
-        const totalFivePercent_LastMonth = deleiveryByAnkushLastMonth.reduce((sum, o) => {
-            const commission = o.commission || "";
-
-            // Flat rate orders
-            if (commission === "Flat NPR 600") return sum + 70;
-            if (commission === "Flat NPR 700") return sum + 100;
-
-            // Percentage-based orders
-            const commissionPercent = parseFloat(commission.replace("%", "") || "0") / 100;
-            if (commissionPercent === 0) return sum;
-
-            const x = (o.totalAmount || 0) / (1 + commissionPercent);
-            return sum + x * 0.05;
-        }, 0);
+        const totalFivePercent = calcBorderCommission(deleiveryByAnkush);
+        const totalFivePercent_LastMonth = calcBorderCommission(deleiveryByAnkushLastMonth);
 
 
         const estimatedProfit = activeOrders.reduce((sum, o) => {

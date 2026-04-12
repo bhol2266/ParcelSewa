@@ -327,28 +327,8 @@ export default function OrderCardAnkush({ order, refresh }: OrderProps) {
 
                             if (commission === "Flat NPR 700") {
                                 priceWithoutCommission = total - 700;
-                                return (
-                                    <>
-                                        <p className="text-blue-700 font-semibold">
-                                            <b>Price (w/o Commission):</b> Rs. {Math.round(priceWithoutCommission).toLocaleString("en-IN")}
-                                        </p>
-                                        <p className="text-green-700 font-semibold">
-                                            <b>Commission (5%):</b> Rs. {(100).toLocaleString("en-IN")}
-                                        </p>
-                                    </>
-                                );
                             } else if (commission === "Flat NPR 600") {
                                 priceWithoutCommission = total - 600;
-                                return (
-                                    <>
-                                        <p className="text-blue-700 font-semibold">
-                                            <b>Price (w/o Commission):</b> Rs. {Math.round(priceWithoutCommission).toLocaleString("en-IN")}
-                                        </p>
-                                        <p className="text-green-700 font-semibold">
-                                            <b>Commission (5%):</b> Rs. {(70).toLocaleString("en-IN")}
-                                        </p>
-                                    </>
-                                );
                             } else {
                                 const rate = parseFloat(commission.replace("%", "").trim());
                                 if (!isNaN(rate) && rate > 0) {
@@ -364,7 +344,7 @@ export default function OrderCardAnkush({ order, refresh }: OrderProps) {
                                         <b>Price (w/o Commission):</b> Rs. {Math.round(priceWithoutCommission).toLocaleString("en-IN")}
                                     </p>
                                     <p className="text-green-700 font-semibold">
-                                        <b>Commission (5%):</b> Rs. {Math.round(priceWithoutCommission * 0.05).toLocaleString("en-IN")}
+                                        <b>Commission (7%):</b> Rs. {Math.round(priceWithoutCommission * 0.07).toLocaleString("en-IN")}
                                     </p>
                                 </>
                             );

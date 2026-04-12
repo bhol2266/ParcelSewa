@@ -68,7 +68,7 @@ const OrdersStatsAnkush: React.FC<StatsProps> = ({
             {/* Border Commission - Current Month */}
             <div className="p-4 bg-orange-200 rounded-xl shadow">
                 <p className="text-sm font-semibold text-orange-900">
-                    Border Commission
+                    Border Commission (7%)
                 </p>
 
                 <div className="mt-1 space-y-1">
