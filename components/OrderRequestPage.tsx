@@ -6,7 +6,7 @@ import { db } from "@/lib/firebase/firebaseClient";
 import toast, { Toaster } from "react-hot-toast";
 
 // ✅ Replace with your WhatsApp business number (with country code, no + or spaces)
-const WHATSAPP_NUMBER = "9779817254118";
+const WHATSAPP_NUMBER = "9779713889720";
 
 const OrderRequestComponent: React.FC = () => {
   const [productUrl, setProductUrl] = useState("");
