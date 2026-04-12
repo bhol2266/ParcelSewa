@@ -14,10 +14,6 @@ interface StatsProps {
     Profit: number;
 }
 
-interface FormatNumberProps {
-    num: number;
-}
-
 const formatNumber = (num: number) => Math.round(num).toLocaleString("en-IN");
 
 const OrdersStatsAnkush: React.FC<StatsProps> = ({
@@ -32,11 +28,8 @@ const OrdersStatsAnkush: React.FC<StatsProps> = ({
     Profit
 }) => {
 
-
     const now = new Date();
-
     const currentMonth = now.toLocaleString("en-US", { month: "long" });
-
     const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const lastMonth = lastMonthDate.toLocaleString("en-US", { month: "long" });
 
@@ -61,14 +54,10 @@ const OrdersStatsAnkush: React.FC<StatsProps> = ({
                 <p className="text-2xl font-bold text-yellow-950">{formatNumber(pending)}</p>
             </div>
 
-
-
-
-
             {/* Border Commission - Current Month */}
             <div className="p-4 bg-orange-200 rounded-xl shadow">
                 <p className="text-sm font-semibold text-orange-900">
-                    Border Commission (7%)
+                    Border Commission <span className="text-xs">(7%)</span>
                 </p>
 
                 <div className="mt-1 space-y-1">
@@ -79,7 +68,7 @@ const OrdersStatsAnkush: React.FC<StatsProps> = ({
                         </span>
                     </div>
 
-                    <div className="flex justify-between text-sm  text-orange-900">
+                    <div className="flex justify-between text-sm text-orange-900">
                         <span>{lastMonth}</span>
                         <span>
                             Rs. {formatNumber(borderCommissionLastMonth)}

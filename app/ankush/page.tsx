@@ -24,7 +24,6 @@ export default function Ankush() {
     const passwordInputRef = useRef<HTMLInputElement>(null);
     const [sortOption, setSortOption] = useState<SortOption>("pending");
 
-
     const PASSWORD = "5555";
     const COOKIE_NAME = "admin_access";
 
@@ -32,7 +31,6 @@ export default function Ankush() {
     const fetchOrders = async () => {
         setLoading(true);
 
-        // Create a query: order by orderedDate descending, limit 50
         const q = query(
             collection(db, "Confirm Orders"),
             orderBy("orderedDate", "desc"),
@@ -60,7 +58,6 @@ export default function Ankush() {
         if (cookie === PASSWORD) {
             setAccessGranted(true);
         } else {
-            // Focus input after slight delay to open keyboard on mobile
             setTimeout(() => {
                 passwordInputRef.current?.focus();
             }, 300);
@@ -72,12 +69,9 @@ export default function Ankush() {
         if (passwordInput === PASSWORD) {
             setAccessGranted(true);
             setPasswordInput("");
-            // Save cookie for 5 days
             Cookies.set(COOKIE_NAME, PASSWORD, { expires: 5, path: "/" });
         }
     }, [passwordInput]);
-
-
 
     const filteredOrders = useMemo(() => {
         let filtered = orders.filter((o) => {
@@ -106,7 +100,6 @@ export default function Ankush() {
                             b.deliveryDate.toMillis() - a.deliveryDate.toMillis()
                     );
                 break;
-
         }
 
         return filtered;
@@ -114,7 +107,6 @@ export default function Ankush() {
 
     // Stats calculation
     const stats = useMemo(() => {
-        // Exclude cancelled orders from all stats
         const activeOrders = orders.filter((o) => o.deliveryStatus !== "cancelled");
 
         const totalOrders = activeOrders.length;
@@ -139,9 +131,6 @@ export default function Ankush() {
             );
         });
 
-
-
-        // Calculate last month safely
         const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         const lastMonth = lastMonthDate.getMonth();
         const lastMonthYear = lastMonthDate.getFullYear();
@@ -158,12 +147,6 @@ export default function Ankush() {
                 deliveryDate.getFullYear() === lastMonthYear
             );
         });
-
-
-
-
-
-
 
         const deliveredRevenue = deliveredOrders.reduce(
             (sum, o) => sum + (o.totalAmount || 0),
@@ -182,70 +165,44 @@ export default function Ankush() {
             0
         );
 
-
         const Profit = deliveredOrders.reduce((sum, o) => {
-            // Convert commission string to decimal
             const commissionPercent = parseFloat(o.commission?.replace("%", "") || "0") / 100;
-
-            // Skip orders with 0% commission
             if (commissionPercent === 0) return sum;
-
-            // Calculate principal amount (before commission)
             const x = (o.totalAmount || 0) / (1 + commissionPercent);
-
-
-            // Profit = adjusted commission (subtract 5%)
             const profit = x * (commissionPercent - 0.05);
-
             return sum + profit;
         }, 0) - deliveredOrders.filter(o => parseFloat(o.commission?.replace("%", "") || "0") !== 0).length * 100;
 
-
-
-        const calcBorderCommission = (deliveredList: Order[]) =>
+        const calcBorderCommission = (deliveredList: Order[], rate: number) =>
             deliveredList.reduce((sum, o) => {
                 const commission = o.commission || "";
 
-                // Flat rate orders — 7% of principal (total - flat fee)
                 if (commission === "Flat NPR 600") {
                     const principal = (o.totalAmount || 0) - 600;
-                    return sum + principal * 0.07;
+                    return sum + principal * rate;
                 }
                 if (commission === "Flat NPR 700") {
                     const principal = (o.totalAmount || 0) - 700;
-                    return sum + principal * 0.07;
+                    return sum + principal * rate;
                 }
 
-                // Percentage-based orders
                 const commissionPercent = parseFloat(commission.replace("%", "") || "0") / 100;
                 if (commissionPercent === 0) return sum;
 
                 const x = (o.totalAmount || 0) / (1 + commissionPercent);
-                return sum + x * 0.07;
+                return sum + x * rate;
             }, 0);
 
-        const totalFivePercent = calcBorderCommission(deleiveryByAnkush);
-        const totalFivePercent_LastMonth = calcBorderCommission(deleiveryByAnkushLastMonth);
-
+        const totalFivePercent = calcBorderCommission(deleiveryByAnkush, 0.07);
+        const totalFivePercent_LastMonth = calcBorderCommission(deleiveryByAnkushLastMonth, 0.05);
 
         const estimatedProfit = activeOrders.reduce((sum, o) => {
-            // Convert commission string to decimal
             const commissionPercent = parseFloat(o.commission?.replace("%", "") || "0") / 100;
-
-            // Skip orders with 0% commission
             if (commissionPercent === 0) return sum;
-
-            // Calculate principal amount (before commission)
             const x = (o.totalAmount || 0) / (1 + commissionPercent);
-
-
-            // Profit = adjusted commission (subtract 5%)
             const profit = x * (commissionPercent - 0.05);
-
             return sum + profit;
         }, 0) - deliveredOrders.filter(o => parseFloat(o.commission?.replace("%", "") || "0") !== 0).length * 100;
-
-
 
         return {
             totalOrders,
@@ -260,7 +217,6 @@ export default function Ankush() {
         };
     }, [orders]);
 
-
     if (loading)
         return <p className="p-5 text-center">Loading…</p>;
 
@@ -268,11 +224,8 @@ export default function Ankush() {
         <div className="relative min-h-screen">
 
             <ClickableTiles />
-            {/* Page content (blurred when modal active) */}
             <div className={`p-6 ${!accessGranted ? "filter blur-md" : ""}`}>
                 <h1 className="text-3xl font-bold mb-6">All Orders</h1>
-
-
 
                 <OrdersStatsAnkush
                     totalOrders={stats.totalOrders}
@@ -284,8 +237,8 @@ export default function Ankush() {
                     borderCommission={stats.totalFivePercent}
                     borderCommissionLastMonth={stats.totalFivePercent_LastMonth}
                     Profit={stats.Profit}
-
                 />
+
                 {/* Search Bar */}
                 <div className="relative mb-6">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">🔍</span>
