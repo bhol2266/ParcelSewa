@@ -47,7 +47,7 @@ const returnsPolicy = [
   {
     title: "Contact Us",
     content:
-      "For any questions, return/refund requests or support, contact us at:\n- Email: ukdevelopers007@gmail.com\n- Phone / WhatsApp: +977-9817254118\n- Live Chat: On our website",
+      "For any questions, return/refund requests or support, contact us at:\n- Email: ukdevelopers007@gmail.com\n- Phone / WhatsApp: +977-9713889720\n- Live Chat: On our website",
   },
   {
     title: "Notes",

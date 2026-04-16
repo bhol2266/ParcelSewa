@@ -12,7 +12,7 @@ const navigation = [
   { name: "Home", href: "/" },
   { name: "Price-Calculator", href: "/price-calculator" },
   { name: "FAQs", href: "/faqs" },
-  { name: "WhatsApp Support", href: "https://wa.me/9779817254118" },
+  { name: "WhatsApp Support", href: "https://wa.me/9779713889720" },
 ];
 
 const Navbar = () => {
@@ -59,9 +59,8 @@ const Navbar = () => {
                       <Link
                         key={item.name}
                         href={item.href}
-                        className={`px-3 py-2 rounded-md text-sm font-medium ${
-                          isCurrent ? "text-white bg-themeBlue" : "text-primary hover:bg-gray-200"
-                        }`}
+                        className={`px-3 py-2 rounded-md text-sm font-medium ${isCurrent ? "text-white bg-themeBlue" : "text-primary hover:bg-gray-200"
+                          }`}
                       >
                         {item.name}
                       </Link>
@@ -121,9 +120,8 @@ const Navbar = () => {
                             }
                           }, 200); // match transition duration
                         }}
-                        className={`block w-full text-left px-3 py-2 rounded-md text-base ${
-                          isCurrent ? "text-white bg-themeBlue" : "text-secondary hover:bg-gray-200"
-                        }`}
+                        className={`block w-full text-left px-3 py-2 rounded-md text-base ${isCurrent ? "text-white bg-themeBlue" : "text-secondary hover:bg-gray-200"
+                          }`}
                       >
                         {item.name}
                       </button>

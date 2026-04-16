@@ -26,7 +26,7 @@ const BottomSection: React.FC = () => {
             {/* Buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
                 <a
-                    href="https://wa.me/9779817254118" // Replace with your WhatsApp number
+                    href="https://wa.me/9779713889720" // Replace with your WhatsApp number
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#1ebe5d] text-white font-semibold rounded-full py-3 px-6 text-sm sm:text-base transition"
