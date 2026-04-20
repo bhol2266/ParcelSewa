@@ -24,22 +24,21 @@ const CreateOrder: React.FC = () => {
     const [notes, setNotes] = useState("");
     const [address, setAddress] = useState("");
     const [storeName, setStoreName] = useState("Amazon");
-    const [quantity, setQuantity] = useState(1);
     const [commission, setCommission] = useState("20%");
     const [courierCharge, setCourierCharge] = useState("Included");
     const [totalAmount, setTotalAmount] = useState(""); // store as string
     const [advancePayment, setAdvancePayment] = useState(""); // store as string
 
     const [deliveryStatus, setDeliveryStatus] = useState(false);
-    const [productUrls, setProductUrls] = useState([""]);
+    const [productItems, setProductItems] = useState([{ url: "", quantity: "1" }]);
     const [loading, setLoading] = useState(false);
 
-    const handleAddUrl = () => setProductUrls([...productUrls, ""]);
+    const handleAddItem = () => setProductItems([...productItems, { url: "", quantity: "1" }]);
 
-    const handleUrlChange = (index: number, value: string) => {
-        const urls = [...productUrls];
-        urls[index] = value;
-        setProductUrls(urls);
+    const handleItemChange = (index: number, field: "url" | "quantity", value: string) => {
+        const items = [...productItems];
+        items[index] = { ...items[index], [field]: value };
+        setProductItems(items);
     };
 
     const handleSubmit = async () => {
@@ -62,11 +61,6 @@ const CreateOrder: React.FC = () => {
         // Validate Store Name
         if (!storeName.trim()) {
             toast.error("Store name is required.");
-            return;
-        }
-
-        if (!quantity || quantity < 1) {
-            toast.error("Quantity must be at least 1.");
             return;
         }
 
@@ -99,7 +93,7 @@ const CreateOrder: React.FC = () => {
             return;
         }
 
-        if (productUrls.some((url) => !url.trim())) {
+        if (productItems.some((item) => !item.url.trim())) {
             toast.error("All product URLs must be filled.");
             return;
         }
@@ -117,14 +111,14 @@ const CreateOrder: React.FC = () => {
                 notes,
                 address,
                 storeName,
-                quantity,
                 orderedDate: Timestamp.now(),
                 commission,
                 courierCharge,
                 totalAmount: totalAmountNum,
                 advancePayment: advancePaymentNum,
                 deliveryStatus,
-                productUrls,
+                productUrls: productItems.map((item) => item.url),
+                productItems,
                 createdAt: Timestamp.now(),
             });
 
@@ -137,13 +131,12 @@ const CreateOrder: React.FC = () => {
             setNotes("");
             setAddress("");
             setStoreName("");
-            setQuantity(1);
             setCommission("15%");
             setCourierCharge("Included");
             setTotalAmount("");
             setAdvancePayment("");
             setDeliveryStatus(false);
-            setProductUrls([""]);
+            setProductItems([{ url: "", quantity: "1" }]);
         } catch (error) {
             console.log("Error creating order:", error);
             toast.error("Something went wrong! Try again.");
@@ -398,34 +391,21 @@ const CreateOrder: React.FC = () => {
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none"
                 />
 
-                {/* Store Name + Quantity in same row */}
-                <div className="flex gap-4 mb-3">
-                    <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Store Name *</label>
-                        <input
-                            list="store-options"
-                            value={storeName}
-                            onChange={(e) => setStoreName(e.target.value)}
-                            placeholder="Type or select a store"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                        <datalist id="store-options">
-                            {brands.map((b: Brand) => (
-                                <option key={b.name} value={b.name} />
-                            ))}
-                        </datalist>
-                    </div>
-
-                    <div className="w-32">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
-                        <input
-                            type="number"
-                            value={quantity}
-                            min={1}
-                            onChange={(e) => setQuantity(Number(e.target.value))}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                        />
-                    </div>
+                {/* Store Name */}
+                <div className="mb-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Store Name *</label>
+                    <input
+                        list="store-options"
+                        value={storeName}
+                        onChange={(e) => setStoreName(e.target.value)}
+                        placeholder="Type or select a store"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    />
+                    <datalist id="store-options">
+                        {brands.map((b: Brand) => (
+                            <option key={b.name} value={b.name} />
+                        ))}
+                    </datalist>
                 </div>
 
                 {/* Commission */}
@@ -503,21 +483,30 @@ const CreateOrder: React.FC = () => {
 
 
                 {/* Product URLs */}
-                <label className="block text-sm font-medium text-gray-700 mb-1">Product URLs</label>
-                {productUrls.map((url, index) => (
-                    <div key={index} className="flex mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Product Image Links</label>
+                {productItems.map((item, index) => (
+                    <div key={index} className="flex gap-2 mb-2 items-center">
                         <input
                             type="text"
-                            value={url}
-                            onChange={(e) => handleUrlChange(index, e.target.value)}
+                            value={item.url}
+                            onChange={(e) => handleItemChange(index, "url", e.target.value)}
                             placeholder="https://www.amazon.in/…"
                             className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                         />
+                        <div className="flex flex-col items-center">
+                            <span className="text-xs text-gray-500 mb-0.5">Qty</span>
+                            <input
+                                type="text"
+                                value={item.quantity}
+                                onChange={(e) => handleItemChange(index, "quantity", e.target.value)}
+                                className="w-14 border border-gray-300 rounded-lg px-2 py-2 text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none"
+                            />
+                        </div>
                     </div>
                 ))}
                 <button
                     type="button"
-                    onClick={handleAddUrl}
+                    onClick={handleAddItem}
                     className="mb-4 text-blue-600 hover:underline text-sm"
                 >
                     + Add more URL

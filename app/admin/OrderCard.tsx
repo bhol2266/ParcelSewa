@@ -295,38 +295,56 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                         setEditData({
                                             ...editData,
                                             productUrls: [...(editData.productUrls || []), ""],
+                                            productItems: [...(editData.productItems || []), { url: "", quantity: "1" }],
                                         })
                                     }
                                 >
                                     + Add URL
                                 </button>
                             </div>
-                            {editData.productUrls?.map((url: string, i: number) => (
-                                <div key={i} className="flex gap-2">
-                                    <input
-                                        className="flex-1 border p-2 rounded-md"
-                                        value={url}
-                                        onChange={(e) => {
-                                            const updated = [...editData.productUrls];
-                                            updated[i] = e.target.value;
-                                            setEditData({ ...editData, productUrls: updated });
-                                        }}
-                                        placeholder={`Product URL ${i + 1}`}
-                                    />
-                                    <button
-                                        type="button"
-                                        className="px-3 bg-red-500 text-white rounded-md hover:bg-red-600"
-                                        onClick={() => {
-                                            const updated = editData.productUrls.filter(
-                                                (_: string, index: number) => index !== i
-                                            );
-                                            setEditData({ ...editData, productUrls: updated });
-                                        }}
-                                    >
-                                        ✕
-                                    </button>
-                                </div>
-                            ))}
+                            {editData.productUrls?.map((url: string, i: number) => {
+                                const qty = editData.productItems?.[i]?.quantity ?? "1";
+                                return (
+                                    <div key={i} className="flex gap-2 items-center">
+                                        <input
+                                            className="flex-1 border p-2 rounded-md"
+                                            value={url}
+                                            onChange={(e) => {
+                                                const updatedUrls = [...editData.productUrls];
+                                                updatedUrls[i] = e.target.value;
+                                                const updatedItems = [...(editData.productItems || editData.productUrls.map((u: string, idx: number) => ({ url: u, quantity: editData.productItems?.[idx]?.quantity ?? "1" })))];
+                                                updatedItems[i] = { ...updatedItems[i], url: e.target.value };
+                                                setEditData({ ...editData, productUrls: updatedUrls, productItems: updatedItems });
+                                            }}
+                                            placeholder={`Product URL ${i + 1}`}
+                                        />
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-xs text-gray-500 mb-0.5">Qty</span>
+                                            <input
+                                                type="text"
+                                                className="w-14 border p-2 rounded-md text-center text-sm"
+                                                value={qty}
+                                                onChange={(e) => {
+                                                    const updatedItems = [...(editData.productItems || editData.productUrls.map((u: string, idx: number) => ({ url: u, quantity: editData.productItems?.[idx]?.quantity ?? "1" })))];
+                                                    updatedItems[i] = { ...updatedItems[i], quantity: e.target.value };
+                                                    setEditData({ ...editData, productItems: updatedItems });
+                                                }}
+                                            />
+                                        </div>
+                                        <button
+                                            type="button"
+                                            className="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+                                            onClick={() => {
+                                                const updatedUrls = editData.productUrls.filter((_: string, index: number) => index !== i);
+                                                const updatedItems = (editData.productItems || []).filter((_: any, index: number) => index !== i);
+                                                setEditData({ ...editData, productUrls: updatedUrls, productItems: updatedItems });
+                                            }}
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+                                );
+                            })}
                         </div>
 
                         {/* Save / Cancel Edit */}
@@ -433,25 +451,33 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                         <details className="bg-white rounded-md p-3 border cursor-pointer">
                             <summary className="font-semibold text-blue-600">View Products</summary>
                             <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                                {order.productUrls?.map((url: string, i: number) => (
-                                    <a
-                                        key={i}
-                                        href={url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="group block"
-                                    >
-                                        <div className="relative w-full aspect-square overflow-hidden rounded-md border bg-gray-100">
-                                            <img
-                                                src={url}
-                                                alt={`Product ${i + 1}`}
-                                                loading="lazy"
-                                                decoding="async"
-                                                className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                                            />
-                                        </div>
-                                    </a>
-                                ))}
+                                {order.productUrls?.map((url: string, i: number) => {
+                                    const qty = order.productItems?.[i]?.quantity ?? null;
+                                    return (
+                                        <a
+                                            key={i}
+                                            href={url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="group block"
+                                        >
+                                            <div className="relative w-full aspect-square overflow-hidden rounded-md border bg-gray-100">
+                                                <img
+                                                    src={url}
+                                                    alt={`Product ${i + 1}`}
+                                                    loading="lazy"
+                                                    decoding="async"
+                                                    className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                                />
+                                                {qty && (
+                                                    <span className="absolute bottom-1 right-1 bg-black/70 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                                                        ×{qty}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </a>
+                                    );
+                                })}
                             </div>
                         </details>
 
