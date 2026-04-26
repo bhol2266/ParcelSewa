@@ -347,6 +347,16 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             })}
                         </div>
 
+                        <Field label="Notes">
+                            <textarea
+                                className="w-full border p-2 rounded-md resize-none"
+                                rows={3}
+                                value={editData.notes || ""}
+                                onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
+                                placeholder="Add any notes about this order…"
+                            />
+                        </Field>
+
                         {/* Save / Cancel Edit */}
                         <div className="flex gap-3 pt-2">
                             <button
@@ -447,6 +457,13 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             <p><b>Delivered Date:</b> {formatDate(order.deliveryDate)}</p>
                         )}
                         <p><b>Delivered By:</b> {order.deliveredBy}</p>
+
+                        {order.notes && order.notes.trim() !== "" && (
+                            <div className="bg-yellow-50 border border-yellow-300 rounded-md px-3 py-2">
+                                <p className="text-xs font-semibold text-yellow-700 uppercase tracking-wide mb-1">📝 Notes</p>
+                                <p className="text-sm text-yellow-900 whitespace-pre-wrap">{order.notes}</p>
+                            </div>
+                        )}
 
                         <details className="bg-white rounded-md p-3 border cursor-pointer">
                             <summary className="font-semibold text-blue-600">View Products</summary>
