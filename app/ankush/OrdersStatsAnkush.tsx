@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React from "react";
 
 interface Order {
     id: string;
@@ -8,137 +8,72 @@ interface Order {
 }
 
 interface StatsProps {
-    totalOrders: number;
-    delivered: number;
-    pending: number;
-    orders: Order[];
+    // Month selector (controlled from page.tsx)
+    selectedMonth: string;                                          // "month-year" e.g. "3-2025"
+    availableMonths: { month: number; year: number; label: string }[];
+    onMonthChange: (value: string) => void;
+    monthOrdersLoading: boolean;
+
+    // Orders placed in the selected month (by orderedDate) — for count stats
+    monthStatOrders: Order[];
+    // Orders delivered in the selected month (by deliveryDate) — for commission
+    monthDeliveredOrders: Order[];
 }
 
 const formatNumber = (num: number) => Math.round(num).toLocaleString("en-IN");
 
-const calcBorderCommission = (list: Order[], rate: number) =>
-    list.reduce((sum, o) => {
+// Commission is calculated from orders whose deliveryDate falls in the selected month
+function calcBorderCommission(list: Order[]): number {
+    const active = list.filter(
+        (o) => o.deliveredBy === "Ankush" && o.deliveryStatus !== "cancelled"
+    );
+    return active.reduce((sum, o) => {
         const commission = o.commission || "";
-        if (commission === "Flat NPR 600") return sum + ((o.totalAmount || 0) - 600) * rate;
-        if (commission === "Flat NPR 700") return sum + ((o.totalAmount || 0) - 700) * rate;
+        const total = o.totalAmount || 0;
+        if (commission === "Flat NPR 600") return sum + (total - 600) * 0.07;
+        if (commission === "Flat NPR 700") return sum + (total - 700) * 0.07;
         const pct = parseFloat(commission.replace("%", "") || "0") / 100;
         if (pct === 0) return sum;
-        return sum + ((o.totalAmount || 0) / (1 + pct)) * rate;
+        return sum + (total / (1 + pct)) * 0.07;
     }, 0);
-
-function getMonthBorderCommission(orders: Order[], month: number, year: number) {
-    const activeOrders = orders.filter((o) => o.deliveryStatus !== "cancelled");
-
-    const ankushInMonth = activeOrders.filter((o) => {
-        if (!o.deliveryStatus || o.deliveredBy !== "Ankush" || !o.deliveryDate?.seconds) return false;
-        const d = new Date(o.deliveryDate.seconds * 1000);
-        return d.getMonth() === month && d.getFullYear() === year;
-    });
-
-    return calcBorderCommission(ankushInMonth, 0.07);
-}
-
-function getAvailableMonths(orders: Order[]): { month: number; year: number; label: string }[] {
-    const now = new Date();
-    const months: { month: number; year: number; label: string }[] = [];
-
-    for (let i = 1; i <= 24; i++) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const m = d.getMonth();
-        const y = d.getFullYear();
-        const hasData = orders.some((o) => {
-            const ts = o.deliveryDate?.seconds || o.orderedDate?.seconds;
-            if (!ts) return false;
-            const od = new Date(ts * 1000);
-            return od.getMonth() === m && od.getFullYear() === y;
-        });
-        if (hasData) {
-            months.push({
-                month: m,
-                year: y,
-                label: d.toLocaleString("en-US", { month: "long", year: "numeric" }),
-            });
-        }
-    }
-
-    return months;
 }
 
 const OrdersStatsAnkush: React.FC<StatsProps> = ({
-    totalOrders,
-    delivered,
-    pending,
-    orders,
+    selectedMonth,
+    availableMonths,
+    onMonthChange,
+    monthOrdersLoading,
+    monthStatOrders,
+    monthDeliveredOrders,
 }) => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const currentMonthLabel = now.toLocaleString("en-US", { month: "long", year: "numeric" });
+    const selectedLabel =
+        availableMonths.find((x) => `${x.month}-${x.year}` === selectedMonth)?.label ?? "";
 
-    const [selectedHistorical, setSelectedHistorical] = useState<string>("");
+    // Commission: based on orders delivered this month (deliveryDate)
+    const commission = calcBorderCommission(monthDeliveredOrders);
 
-    const availableMonths = useMemo(() => getAvailableMonths(orders), [orders]);
-
-    const currentCommission = useMemo(
-        () => getMonthBorderCommission(orders, currentMonth, currentYear),
-        [orders, currentMonth, currentYear]
-    );
-
-    const historicalCommission = useMemo(() => {
-        if (!selectedHistorical) return null;
-        const [m, y] = selectedHistorical.split("-").map(Number);
-        return getMonthBorderCommission(orders, m, y);
-    }, [orders, selectedHistorical]);
-
-    const historicalLabel = availableMonths.find(
-        (x) => `${x.month}-${x.year}` === selectedHistorical
-    )?.label ?? "";
+    // Counts: based on orders placed this month (orderedDate)
+    const monthDelivered = monthStatOrders.filter(
+        (o) => o.deliveryStatus === true && o.deliveryStatus !== "cancelled"
+    ).length;
+    const monthPending = monthStatOrders.filter(
+        (o) => o.deliveryStatus !== true && o.deliveryStatus !== "cancelled"
+    ).length;
+    const monthTotal = monthStatOrders.filter((o) => o.deliveryStatus !== "cancelled").length;
 
     return (
         <div className="mb-8 space-y-5">
 
-            {/* ── Row 1: All-time summary tiles ── */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                <div className="p-4 bg-indigo-200 rounded-xl shadow">
-                    <p className="text-sm text-indigo-900">Total Orders</p>
-                    <p className="text-2xl font-bold text-indigo-950">{formatNumber(totalOrders)}</p>
-                </div>
-                <div className="p-4 bg-green-200 rounded-xl shadow">
-                    <p className="text-sm text-green-900">Delivered</p>
-                    <p className="text-2xl font-bold text-green-950">{formatNumber(delivered)}</p>
-                </div>
-                <div className="p-4 bg-yellow-200 rounded-xl shadow">
-                    <p className="text-sm text-yellow-900">Pending</p>
-                    <p className="text-2xl font-bold text-yellow-950">{formatNumber(pending)}</p>
-                </div>
-            </div>
-
-            {/* ── Row 2: Current month border commission ── */}
+            {/* ── Month picker + stats ── */}
             <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">
-                    {currentMonthLabel}
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="p-4 bg-orange-100 rounded-xl shadow">
-                        <p className="text-sm font-medium text-orange-900 opacity-80">
-                            Border Commission <span className="text-xs">(7%)</span>
-                        </p>
-                        <p className="text-xl font-bold text-orange-900 mt-1">
-                            Rs. {formatNumber(currentCommission)}
-                        </p>
-                    </div>
-                </div>
-            </div>
-
-            {/* ── Row 3: Historical month dropdown ── */}
-            <div>
-                <div className="flex items-center gap-3 mb-2">
-                    <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">
-                        Previous Month
+                {/* Dropdown */}
+                <div className="flex items-center gap-3 mb-3">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 whitespace-nowrap">
+                        Monthly Stats
                     </p>
                     <select
-                        value={selectedHistorical}
-                        onChange={(e) => setSelectedHistorical(e.target.value)}
+                        value={selectedMonth}
+                        onChange={(e) => onMonthChange(e.target.value)}
                         className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white shadow-sm
                                    focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none cursor-pointer"
                     >
@@ -151,23 +86,55 @@ const OrdersStatsAnkush: React.FC<StatsProps> = ({
                     </select>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {historicalCommission !== null ? (
-                        <div className="p-4 bg-orange-100 rounded-xl shadow">
-                            <p className="text-sm font-medium text-orange-900 opacity-80">
-                                Border Commission <span className="text-xs">(7%)</span>
-                            </p>
-                            <p className="text-xl font-bold text-orange-900 mt-1">
-                                Rs. {formatNumber(historicalCommission)}
-                            </p>
+                {/* Stats for selected month */}
+                {monthOrdersLoading ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="p-4 bg-gray-100 rounded-xl shadow animate-pulse">
+                                <div className="h-3 bg-gray-300 rounded w-2/3 mb-3" />
+                                <div className="h-6 bg-gray-300 rounded w-1/2" />
+                            </div>
+                        ))}
+                    </div>
+                ) : selectedMonth && !monthOrdersLoading ? (
+                    <>
+                        <p className="text-xs text-gray-400 mb-2">{selectedLabel}</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div className="p-4 bg-indigo-100 rounded-xl shadow">
+                                <p className="text-sm text-indigo-800">Orders</p>
+                                <p className="text-xl font-bold text-indigo-950">{formatNumber(monthTotal)}</p>
+                            </div>
+                            <div className="p-4 bg-green-100 rounded-xl shadow">
+                                <p className="text-sm text-green-800">Delivered</p>
+                                <p className="text-xl font-bold text-green-950">{formatNumber(monthDelivered)}</p>
+                            </div>
+                            <div className="p-4 bg-yellow-100 rounded-xl shadow">
+                                <p className="text-sm text-yellow-800">Pending</p>
+                                <p className="text-xl font-bold text-yellow-950">{formatNumber(monthPending)}</p>
+                            </div>
+                            <div className="p-4 bg-orange-100 rounded-xl shadow">
+                                <p className="text-sm font-medium text-orange-900 opacity-80">
+                                    Commission <span className="text-xs">(7%)</span>
+                                </p>
+                                <p className="text-xl font-bold text-orange-900 mt-1">
+                                    Rs. {formatNumber(commission)}
+                                </p>
+                            </div>
                         </div>
-                    ) : (
-                        <div className="p-4 bg-gray-100 rounded-xl shadow border border-dashed border-gray-300">
-                            <p className="text-sm text-gray-400">Border Commission (7%)</p>
-                            <p className="text-xl font-bold text-gray-300 mt-1">—</p>
-                        </div>
-                    )}
-                </div>
+                    </>
+                ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {["Orders", "Delivered", "Pending", "Commission (7%)"].map((label) => (
+                            <div
+                                key={label}
+                                className="p-4 bg-gray-100 rounded-xl shadow border border-dashed border-gray-300"
+                            >
+                                <p className="text-sm text-gray-400">{label}</p>
+                                <p className="text-xl font-bold text-gray-300 mt-1">—</p>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
 
         </div>
