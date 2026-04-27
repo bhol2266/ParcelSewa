@@ -27,14 +27,13 @@ export default function Ankush() {
     const PASSWORD = "5555";
     const COOKIE_NAME = "admin_access";
 
-    // Fetch orders
     const fetchOrders = async () => {
         setLoading(true);
 
         const q = query(
             collection(db, "Confirm Orders"),
             orderBy("orderedDate", "desc"),
-            limit(70)
+            limit(50)
         );
 
         const snap = await getDocs(q);
@@ -52,7 +51,6 @@ export default function Ankush() {
         fetchOrders();
     }, []);
 
-    // Check cookie on load
     useEffect(() => {
         const cookie = Cookies.get(COOKIE_NAME);
         if (cookie === PASSWORD) {
@@ -64,7 +62,6 @@ export default function Ankush() {
         }
     }, []);
 
-    // Check password
     useEffect(() => {
         if (passwordInput === PASSWORD) {
             setAccessGranted(true);
@@ -95,125 +92,23 @@ export default function Ankush() {
             case "delivered":
                 filtered = filtered
                     .filter((o) => o.deliveryStatus === true && o.deliveryDate)
-                    .sort(
-                        (a, b) =>
-                            b.deliveryDate.toMillis() - a.deliveryDate.toMillis()
-                    );
+                    .sort((a, b) => b.deliveryDate.toMillis() - a.deliveryDate.toMillis());
                 break;
         }
 
         return filtered;
     }, [search, orders, sortOption]);
 
-    // Stats calculation
-    const stats = useMemo(() => {
+    // Only summary counts needed — monthly stats computed inside OrdersStatsAnkush
+    const summaryStats = useMemo(() => {
         const activeOrders = orders.filter((o) => o.deliveryStatus !== "cancelled");
-
-        const totalOrders = activeOrders.length;
-
         const deliveredOrders = activeOrders.filter((o) => o.deliveryStatus === true);
         const pendingOrders = activeOrders.filter((o) => o.deliveryStatus !== true);
 
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const currentYear = now.getFullYear();
-
-        const deleiveryByAnkush = activeOrders.filter((o) => {
-            if (!o.deliveryStatus) return false;
-            if (o.deliveredBy !== "Ankush") return false;
-            if (!o.deliveryDate?.seconds) return false;
-
-            const deliveryDate = new Date(o.deliveryDate.seconds * 1000);
-
-            return (
-                deliveryDate.getMonth() === currentMonth &&
-                deliveryDate.getFullYear() === currentYear
-            );
-        });
-
-        const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const lastMonth = lastMonthDate.getMonth();
-        const lastMonthYear = lastMonthDate.getFullYear();
-
-        const deleiveryByAnkushLastMonth = activeOrders.filter((o) => {
-            if (!o.deliveryStatus) return false;
-            if (o.deliveredBy !== "Ankush") return false;
-            if (!o.deliveryDate?.seconds) return false;
-
-            const deliveryDate = new Date(o.deliveryDate.seconds * 1000);
-
-            return (
-                deliveryDate.getMonth() === lastMonth &&
-                deliveryDate.getFullYear() === lastMonthYear
-            );
-        });
-
-        const deliveredRevenue = deliveredOrders.reduce(
-            (sum, o) => sum + (o.totalAmount || 0),
-            0
-        );
-
-        const advanceFromPending = pendingOrders.reduce(
-            (sum, o) => sum + (o.advancePayment || 0),
-            0
-        );
-
-        const totalRevenue = deliveredRevenue + advanceFromPending;
-
-        const remainingPayment = pendingOrders.reduce(
-            (sum, o) => sum + ((o.totalAmount || 0) - (o.advancePayment || 0)),
-            0
-        );
-
-        const Profit = deliveredOrders.reduce((sum, o) => {
-            const commissionPercent = parseFloat(o.commission?.replace("%", "") || "0") / 100;
-            if (commissionPercent === 0) return sum;
-            const x = (o.totalAmount || 0) / (1 + commissionPercent);
-            const profit = x * (commissionPercent - 0.05);
-            return sum + profit;
-        }, 0) - deliveredOrders.filter(o => parseFloat(o.commission?.replace("%", "") || "0") !== 0).length * 100;
-
-        const calcBorderCommission = (deliveredList: Order[], rate: number) =>
-            deliveredList.reduce((sum, o) => {
-                const commission = o.commission || "";
-
-                if (commission === "Flat NPR 600") {
-                    const principal = (o.totalAmount || 0) - 600;
-                    return sum + principal * rate;
-                }
-                if (commission === "Flat NPR 700") {
-                    const principal = (o.totalAmount || 0) - 700;
-                    return sum + principal * rate;
-                }
-
-                const commissionPercent = parseFloat(commission.replace("%", "") || "0") / 100;
-                if (commissionPercent === 0) return sum;
-
-                const x = (o.totalAmount || 0) / (1 + commissionPercent);
-                return sum + x * rate;
-            }, 0);
-
-        const totalFivePercent = calcBorderCommission(deleiveryByAnkush, 0.07);
-        const totalFivePercent_LastMonth = calcBorderCommission(deleiveryByAnkushLastMonth, 0.05);
-
-        const estimatedProfit = activeOrders.reduce((sum, o) => {
-            const commissionPercent = parseFloat(o.commission?.replace("%", "") || "0") / 100;
-            if (commissionPercent === 0) return sum;
-            const x = (o.totalAmount || 0) / (1 + commissionPercent);
-            const profit = x * (commissionPercent - 0.05);
-            return sum + profit;
-        }, 0) - deliveredOrders.filter(o => parseFloat(o.commission?.replace("%", "") || "0") !== 0).length * 100;
-
         return {
-            totalOrders,
+            totalOrders: activeOrders.length,
             delivered: deliveredOrders.length,
             pending: pendingOrders.length,
-            totalRevenue,
-            remainingPayment,
-            estimatedProfit,
-            totalFivePercent,
-            totalFivePercent_LastMonth,
-            Profit
         };
     }, [orders]);
 
@@ -228,15 +123,10 @@ export default function Ankush() {
                 <h1 className="text-3xl font-bold mb-6">All Orders</h1>
 
                 <OrdersStatsAnkush
-                    totalOrders={stats.totalOrders}
-                    delivered={stats.delivered}
-                    pending={stats.pending}
-                    totalRevenue={stats.totalRevenue}
-                    remainingPayment={stats.remainingPayment}
-                    estimatedProfit={stats.estimatedProfit}
-                    borderCommission={stats.totalFivePercent}
-                    borderCommissionLastMonth={stats.totalFivePercent_LastMonth}
-                    Profit={stats.Profit}
+                    totalOrders={summaryStats.totalOrders}
+                    delivered={summaryStats.delivered}
+                    pending={summaryStats.pending}
+                    orders={orders}
                 />
 
                 {/* Search Bar */}
@@ -257,11 +147,18 @@ export default function Ankush() {
                     {["latest", "oldest", "pending", "delivered"].map((option) => (
                         <button
                             key={option}
-                            className={`px-4 py-2 rounded-xl border ${sortOption === option ? "bg-blue-500 text-white" : "bg-white text-gray-700 border-gray-300"
-                                } shadow-sm hover:bg-blue-500 hover:text-white transition-all`}
+                            className={`px-4 py-2 rounded-xl border ${
+                                sortOption === option
+                                    ? "bg-blue-500 text-white"
+                                    : "bg-white text-gray-700 border-gray-300"
+                            } shadow-sm hover:bg-blue-500 hover:text-white transition-all`}
                             onClick={() => setSortOption(option as SortOption)}
                         >
-                            {option.charAt(0).toUpperCase() + option.slice(1).replace("pending", "Pending Orders").replace("delivered", "Delivered Orders")}
+                            {option.charAt(0).toUpperCase() +
+                                option
+                                    .slice(1)
+                                    .replace("pending", "Pending Orders")
+                                    .replace("delivered", "Delivered Orders")}
                         </button>
                     ))}
                 </div>
