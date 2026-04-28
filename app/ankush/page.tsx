@@ -6,7 +6,6 @@ import {
     getDocs,
     query,
     orderBy,
-    limit,
     where,
     Timestamp,
 } from "firebase/firestore";
@@ -41,8 +40,6 @@ function buildAvailableMonths(): { month: number; year: number; label: string }[
 const availableMonths = buildAvailableMonths();
 
 export default function Ankush() {
-    const [orders, setOrders] = useState<Order[]>([]);
-    const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [accessGranted, setAccessGranted] = useState(false);
     const [passwordInput, setPasswordInput] = useState("");
@@ -54,30 +51,15 @@ export default function Ankush() {
     const defaultMonth = `${now.getMonth()}-${now.getFullYear()}`;
     const [selectedMonth, setSelectedMonth] = useState<string>(defaultMonth);
 
-    // Orders placed in the month (by orderedDate) → for total / delivered / pending counts
+    // Orders created in the selected month (by createdAt) — latest / oldest / pending card list + stats
     const [monthStatOrders, setMonthStatOrders] = useState<Order[]>([]);
-    // Orders delivered in the month (by deliveryDate) → for border commission
+    // Orders delivered in the selected month (by deliveryDate) — delivered card list + border commission
     const [monthDeliveredOrders, setMonthDeliveredOrders] = useState<Order[]>([]);
 
     const [monthOrdersLoading, setMonthOrdersLoading] = useState(false);
 
     const PASSWORD = "5555";
     const COOKIE_NAME = "admin_access";
-
-    // ── Fetch all recent orders (for the main list) ───────────────────────────
-    const fetchOrders = async () => {
-        setLoading(true);
-        const q = query(
-            collection(db, "Confirm Orders"),
-            orderBy("createdAt", "desc"),
-            limit(100)
-        );
-        const snap = await getDocs(q);
-        setOrders(
-            snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Order[]
-        );
-        setLoading(false);
-    };
 
     // ── Fetch both order sets for a specific month ────────────────────────────
     const fetchMonthOrders = useCallback(async (monthKey: string) => {
@@ -92,7 +74,7 @@ export default function Ankush() {
 
         setMonthOrdersLoading(true);
         try {
-            // Query 1: orders created this month (by createdAt) — for counts
+            // Query 1: orders created this month (by createdAt) — latest / oldest / pending tabs
             const statQuery = query(
                 collection(db, "Confirm Orders"),
                 where("createdAt", ">=", Timestamp.fromDate(start)),
@@ -100,7 +82,7 @@ export default function Ankush() {
                 orderBy("createdAt", "desc")
             );
 
-            // Query 2: orders delivered this month (by deliveryDate) — for commission
+            // Query 2: orders delivered this month (by deliveryDate) — delivered tab + border commission
             const deliveryQuery = query(
                 collection(db, "Confirm Orders"),
                 where("deliveryDate", ">=", Timestamp.fromDate(start)),
@@ -128,11 +110,7 @@ export default function Ankush() {
         }
     }, []);
 
-    // ── On mount: fetch main orders + default month ───────────────────────────
-    useEffect(() => {
-        fetchOrders();
-    }, []);
-
+    // ── On mount: fetch default (current) month ───────────────────────────────
     useEffect(() => {
         fetchMonthOrders(defaultMonth);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -162,37 +140,46 @@ export default function Ankush() {
         fetchMonthOrders(value);
     };
 
-    // ── Filtered + sorted orders for the card list ────────────────────────────
+    // ── refresh callback passed to cards ─────────────────────────────────────
+    const refresh = useCallback(() => {
+        fetchMonthOrders(selectedMonth);
+    }, [fetchMonthOrders, selectedMonth]);
+
+    // ── Filtered + sorted card list ───────────────────────────────────────────
+    // latest / oldest / pending  →  monthStatOrders  (sorted by createdAt)
+    // delivered                  →  monthDeliveredOrders  (sorted by deliveryDate)
     const filteredOrders = useMemo(() => {
-        let filtered = orders.filter((o) => {
-            const nameMatch = o.name?.toLowerCase().includes(search.toLowerCase());
-            const mobileMatch = o.mobile?.includes(search);
-            return nameMatch || mobileMatch;
-        });
+        const matchesSearch = (o: Order) =>
+            o.name?.toLowerCase().includes(search.toLowerCase()) ||
+            o.mobile?.includes(search);
 
         switch (sortOption) {
             case "latest":
-                filtered.sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
-                break;
+                return monthStatOrders
+                    .filter(matchesSearch)
+                    .sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
+
             case "oldest":
-                filtered.sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
-                break;
-            case "pending":
-                filtered = filtered
-                    .filter((o) => o.deliveryStatus !== true)
+                return monthStatOrders
+                    .filter(matchesSearch)
                     .sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
-                break;
+
+            case "pending":
+                return monthStatOrders
+                    .filter((o) => matchesSearch(o) && o.deliveryStatus !== true && o.deliveryStatus !== "cancelled")
+                    .sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
+
             case "delivered":
-                filtered = filtered
-                    .filter((o) => o.deliveryStatus === true && o.deliveryDate)
-                    .sort((a, b) => b.deliveryDate.toMillis() - a.deliveryDate.toMillis());
-                break;
+                return monthDeliveredOrders
+                    .filter(matchesSearch)
+                    .sort((a, b) => (b.deliveryDate?.toMillis() ?? 0) - (a.deliveryDate?.toMillis() ?? 0));
+
+            default:
+                return [];
         }
+    }, [search, sortOption, monthStatOrders, monthDeliveredOrders]);
 
-        return filtered;
-    }, [search, orders, sortOption]);
-
-    if (loading) return <p className="p-5 text-center">Loading…</p>;
+    if (monthOrdersLoading) return <p className="p-5 text-center">Loading…</p>;
 
     return (
         <div className="relative min-h-screen">
@@ -247,7 +234,7 @@ export default function Ankush() {
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredOrders.length > 0 ? (
                         filteredOrders.map((order) => (
-                            <OrderCardAnkush key={order.id} order={order} refresh={fetchOrders} />
+                            <OrderCardAnkush key={order.id} order={order} refresh={refresh} />
                         ))
                     ) : (
                         <p className="text-center col-span-full text-gray-500 mt-10">
