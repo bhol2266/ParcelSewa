@@ -29,40 +29,70 @@ const parseCommission = (commission: any): number => {
     return isNaN(parsed) ? 0 : parsed / 100;
 };
 
-// Profit: based on orders placed this month (orderedDate) — delivered subset for cost deduction
+// profit per order = commission earned - 7% of base price
+// Percentage commission (e.g. 20%):
+//   basePrice  = totalAmount / (1 + pct)
+//   commission = totalAmount - basePrice
+//   profit     = commission - basePrice * 0.07
+//
+// Flat NPR 600:
+//   basePrice  = totalAmount - 600
+//   commission = 600
+//   profit     = 600 - basePrice * 0.07
+//
+// Flat NPR 700:
+//   basePrice  = totalAmount - 700
+//   commission = 700
+//   profit     = 700 - basePrice * 0.07
+function calcOrderProfit(o: Order): number {
+    const total = o.totalAmount || 0;
+    const commission = o.commission || "";
+
+    if (commission === "Flat NPR 600") {
+        const basePrice = total - 600;
+        return 600 - basePrice * 0.07;
+    }
+    if (commission === "Flat NPR 700") {
+        const basePrice = total - 700;
+        return 700 - basePrice * 0.07;
+    }
+
+    const pct = parseCommission(commission);
+    if (pct === 0) return 0;
+
+    const basePrice = total / (1 + pct);
+    const commissionEarned = total - basePrice;
+    return commissionEarned - basePrice * 0.07;
+}
+
+// Profit: delivered orders only (createdAt month)
 function calcProfit(list: Order[]): number {
-    return (
-        list.reduce((sum, o) => {
-            const commissionPercent = parseCommission(o.commission);
-            if (commissionPercent === 0) return sum;
-            const x = (o.totalAmount || 0) / (1 + commissionPercent);
-            return sum + x * (commissionPercent - 0.05);
-        }, 0) - list.filter((o) => parseCommission(o.commission) !== 0).length * 100
-    );
+    return list.reduce((sum, o) => sum + calcOrderProfit(o), 0);
 }
 
-// Estimated Profit: all ordered this month vs delivered this month for cost
-function calcEstimatedProfit(allList: Order[], delvList: Order[]): number {
-    return (
-        allList.reduce((sum, o) => {
-            const pct = parseCommission(o.commission);
-            if (pct === 0) return sum;
-            const x = (o.totalAmount || 0) / (1 + pct);
-            return sum + x * (pct - 0.05);
-        }, 0) - delvList.filter((o) => parseCommission(o.commission) !== 0).length * 100
-    );
+// Estimated Profit: all orders this month (including pending)
+function calcEstimatedProfit(list: Order[]): number {
+    return list.reduce((sum, o) => sum + calcOrderProfit(o), 0);
 }
 
-// Border Commission: based on orders whose deliveryDate falls in the selected month
+// Border Commission: orders whose deliveryDate falls in the selected month
 function calcBorderCommission(list: Order[]): number {
     return list.reduce((sum, o) => {
         const commission = o.commission || "";
-        if (commission === "Flat NPR 600") return sum + ((o.totalAmount || 0) - 600) * 0.07;
-        if (commission === "Flat NPR 700") return sum + ((o.totalAmount || 0) - 700) * 0.07;
+        const total = o.totalAmount || 0;
+        if (commission === "Flat NPR 600") return sum + (total - 600) * 0.07;
+        if (commission === "Flat NPR 700") return sum + (total - 700) * 0.07;
         const pct = parseCommission(commission);
         if (pct === 0) return sum;
-        return sum + ((o.totalAmount || 0) / (1 + pct)) * 0.07;
+        return sum + (total / (1 + pct)) * 0.07;
     }, 0);
+}
+
+// Remaining Payment: sum of (totalAmount - advancePayment) for all pending orders
+function calcRemainingPayment(list: Order[]): number {
+    return list
+        .filter((o) => o.deliveryStatus !== true && o.deliveryStatus !== "cancelled")
+        .reduce((sum, o) => sum + ((o.totalAmount || 0) - (o.advancePayment || 0)), 0);
 }
 
 interface StatCardProps {
@@ -90,16 +120,14 @@ const OrdersStats: React.FC<StatsProps> = ({
     const selectedLabel =
         availableMonths.find((x) => `${x.month}-${x.year}` === selectedMonth)?.label ?? "";
 
-    // All stats derived from the two order sets passed in from parent
-    const totalRevenue = monthStatOrders
-        .filter((o) => o.deliveryStatus === true)
-        .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    const activeStatOrders = monthStatOrders.filter((o) => o.deliveryStatus !== "cancelled");
+    const deliveredStatOrders = activeStatOrders.filter((o) => o.deliveryStatus === true);
 
-    const deliveredStatOrders = monthStatOrders.filter((o) => o.deliveryStatus === true);
-
+    const totalRevenue = deliveredStatOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
     const profit = calcProfit(deliveredStatOrders);
-    const estimatedProfit = calcEstimatedProfit(monthStatOrders, deliveredStatOrders);
+    const estimatedProfit = calcEstimatedProfit(activeStatOrders);
     const borderCommission = calcBorderCommission(monthDeliveredOrders);
+    const remainingPayment = calcRemainingPayment(monthStatOrders);
 
     return (
         <div className="mb-8 space-y-5">
@@ -128,8 +156,8 @@ const OrdersStats: React.FC<StatsProps> = ({
 
                 {/* Stats */}
                 {monthOrdersLoading ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {[...Array(4)].map((_, i) => (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                        {[...Array(5)].map((_, i) => (
                             <div key={i} className="p-4 bg-gray-100 rounded-xl shadow animate-pulse">
                                 <div className="h-3 bg-gray-300 rounded w-2/3 mb-3" />
                                 <div className="h-6 bg-gray-300 rounded w-1/2" />
@@ -139,7 +167,7 @@ const OrdersStats: React.FC<StatsProps> = ({
                 ) : selectedMonth ? (
                     <>
                         <p className="text-xs text-gray-400 mb-2">{selectedLabel}</p>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                             <StatCard
                                 label="Total Revenue"
                                 value={`Rs. ${formatNumber(totalRevenue)}`}
@@ -164,11 +192,17 @@ const OrdersStats: React.FC<StatsProps> = ({
                                 bg="bg-orange-100"
                                 textColor="text-orange-900"
                             />
+                            <StatCard
+                                label="Remaining Payment"
+                                value={`Rs. ${formatNumber(remainingPayment)}`}
+                                bg="bg-red-100"
+                                textColor="text-red-900"
+                            />
                         </div>
                     </>
                 ) : (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {["Total Revenue", "Profit", "Estimated Profit", "Border Commission"].map((label) => (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                        {["Total Revenue", "Profit", "Estimated Profit", "Border Commission", "Remaining Payment"].map((label) => (
                             <div
                                 key={label}
                                 className="p-4 bg-gray-100 rounded-xl shadow border border-dashed border-gray-300"
