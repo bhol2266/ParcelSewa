@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React from "react";
 
 interface Order {
     id: string;
@@ -8,14 +8,16 @@ interface Order {
 }
 
 interface StatsProps {
-    // Summary counts (all-time, passed from parent)
-    totalOrders: number;
-    delivered: number;
-    pending: number;
-    remainingPayment: number;
+    // Month selector (controlled from page.tsx)
+    selectedMonth: string;                                          // "month-year" e.g. "3-2025"
+    availableMonths: { month: number; year: number; label: string }[];
+    onMonthChange: (value: string) => void;
+    monthOrdersLoading: boolean;
 
-    // All orders — used to compute historical month stats
-    orders: Order[];
+    // Orders created in the selected month (by createdAt) — for revenue / profit / estimated profit
+    monthStatOrders: Order[];
+    // Orders delivered in the selected month (by deliveryDate) — for border commission
+    monthDeliveredOrders: Order[];
 }
 
 const formatNumber = (num: number) => Math.round(num).toLocaleString("en-IN");
@@ -27,16 +29,33 @@ const parseCommission = (commission: any): number => {
     return isNaN(parsed) ? 0 : parsed / 100;
 };
 
-const calcProfit = (list: Order[]) =>
-    list.reduce((sum, o) => {
-        const commissionPercent = parseCommission(o.commission);
-        if (commissionPercent === 0) return sum;
-        const x = (o.totalAmount || 0) / (1 + commissionPercent);
-        return sum + x * (commissionPercent - 0.05);
-    }, 0) - list.filter((o) => parseCommission(o.commission) !== 0).length * 100;
+// Profit: based on orders placed this month (orderedDate) — delivered subset for cost deduction
+function calcProfit(list: Order[]): number {
+    return (
+        list.reduce((sum, o) => {
+            const commissionPercent = parseCommission(o.commission);
+            if (commissionPercent === 0) return sum;
+            const x = (o.totalAmount || 0) / (1 + commissionPercent);
+            return sum + x * (commissionPercent - 0.05);
+        }, 0) - list.filter((o) => parseCommission(o.commission) !== 0).length * 100
+    );
+}
 
-const calcBorderCommission = (list: Order[]) =>
-    list.reduce((sum, o) => {
+// Estimated Profit: all ordered this month vs delivered this month for cost
+function calcEstimatedProfit(allList: Order[], delvList: Order[]): number {
+    return (
+        allList.reduce((sum, o) => {
+            const pct = parseCommission(o.commission);
+            if (pct === 0) return sum;
+            const x = (o.totalAmount || 0) / (1 + pct);
+            return sum + x * (pct - 0.05);
+        }, 0) - delvList.filter((o) => parseCommission(o.commission) !== 0).length * 100
+    );
+}
+
+// Border Commission: based on orders whose deliveryDate falls in the selected month
+function calcBorderCommission(list: Order[]): number {
+    return list.reduce((sum, o) => {
         const commission = o.commission || "";
         if (commission === "Flat NPR 600") return sum + ((o.totalAmount || 0) - 600) * 0.07;
         if (commission === "Flat NPR 700") return sum + ((o.totalAmount || 0) - 700) * 0.07;
@@ -44,69 +63,6 @@ const calcBorderCommission = (list: Order[]) =>
         if (pct === 0) return sum;
         return sum + ((o.totalAmount || 0) / (1 + pct)) * 0.07;
     }, 0);
-
-const calcEstimatedProfit = (allList: Order[], delvList: Order[]) =>
-    allList.reduce((sum, o) => {
-        const pct = parseCommission(o.commission);
-        if (pct === 0) return sum;
-        const x = (o.totalAmount || 0) / (1 + pct);
-        return sum + x * (pct - 0.05);
-    }, 0) - delvList.filter((o) => parseCommission(o.commission) !== 0).length * 100;
-
-function getMonthStats(orders: Order[], month: number, year: number) {
-    const activeOrders = orders.filter((o) => o.deliveryStatus !== "cancelled");
-
-    const deliveredInMonth = activeOrders.filter((o) => {
-        if (o.deliveryStatus !== true || !o.deliveryDate?.seconds) return false;
-        const d = new Date(o.deliveryDate.seconds * 1000);
-        return d.getMonth() === month && d.getFullYear() === year;
-    });
-
-    const orderedInMonth = activeOrders.filter((o) => {
-        if (!o.orderedDate?.seconds) return false;
-        const d = new Date(o.orderedDate.seconds * 1000);
-        return d.getMonth() === month && d.getFullYear() === year;
-    });
-
-    const ankushInMonth = activeOrders.filter((o) => {
-        if (!o.deliveryStatus || o.deliveredBy !== "Ankush" || !o.deliveryDate?.seconds) return false;
-        const d = new Date(o.deliveryDate.seconds * 1000);
-        return d.getMonth() === month && d.getFullYear() === year;
-    });
-
-    const totalRevenue = deliveredInMonth.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-    const profit = calcProfit(deliveredInMonth);
-    const estimatedProfit = calcEstimatedProfit(orderedInMonth, deliveredInMonth);
-    const borderCommission = calcBorderCommission(ankushInMonth);
-
-    return { totalRevenue, profit, estimatedProfit, borderCommission, deliveredCount: deliveredInMonth.length };
-}
-
-// Build list of months that have any order activity, going back up to 24 months
-function getAvailableMonths(orders: Order[]): { month: number; year: number; label: string }[] {
-    const now = new Date();
-    const months: { month: number; year: number; label: string }[] = [];
-
-    for (let i = 1; i <= 24; i++) {
-        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        const m = d.getMonth();
-        const y = d.getFullYear();
-        const hasData = orders.some((o) => {
-            const ts = o.orderedDate?.seconds || o.deliveryDate?.seconds;
-            if (!ts) return false;
-            const od = new Date(ts * 1000);
-            return od.getMonth() === m && od.getFullYear() === y;
-        });
-        if (hasData) {
-            months.push({
-                month: m,
-                year: y,
-                label: d.toLocaleString("en-US", { month: "long", year: "numeric" }),
-            });
-        }
-    }
-
-    return months;
 }
 
 interface StatCardProps {
@@ -124,97 +80,40 @@ const StatCard: React.FC<StatCardProps> = ({ label, value, bg, textColor }) => (
 );
 
 const OrdersStats: React.FC<StatsProps> = ({
-    totalOrders,
-    delivered,
-    pending,
-    remainingPayment,
-    orders,
+    selectedMonth,
+    availableMonths,
+    onMonthChange,
+    monthOrdersLoading,
+    monthStatOrders,
+    monthDeliveredOrders,
 }) => {
-    const now = new Date();
-    const currentMonth = now.getMonth();
-    const currentYear = now.getFullYear();
-    const currentMonthLabel = now.toLocaleString("en-US", { month: "long", year: "numeric" });
+    const selectedLabel =
+        availableMonths.find((x) => `${x.month}-${x.year}` === selectedMonth)?.label ?? "";
 
-    const [selectedHistorical, setSelectedHistorical] = useState<string>("");
+    // All stats derived from the two order sets passed in from parent
+    const totalRevenue = monthStatOrders
+        .filter((o) => o.deliveryStatus === true)
+        .reduce((sum, o) => sum + (o.totalAmount || 0), 0);
 
-    const availableMonths = useMemo(() => getAvailableMonths(orders), [orders]);
+    const deliveredStatOrders = monthStatOrders.filter((o) => o.deliveryStatus === true);
 
-    const currentStats = useMemo(
-        () => getMonthStats(orders, currentMonth, currentYear),
-        [orders, currentMonth, currentYear]
-    );
-
-    const historicalStats = useMemo(() => {
-        if (!selectedHistorical) return null;
-        const [m, y] = selectedHistorical.split("-").map(Number);
-        return getMonthStats(orders, m, y);
-    }, [orders, selectedHistorical]);
-
-    const historicalLabel = availableMonths.find(
-        (x) => `${x.month}-${x.year}` === selectedHistorical
-    )?.label ?? "";
-
-    const renderMonthStats = (
-        stats: ReturnType<typeof getMonthStats>,
-        label: string,
-        isNegativeProfitBg = false
-    ) => (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatCard
-                label="Total Revenue"
-                value={`Rs. ${formatNumber(stats.totalRevenue)}`}
-                bg="bg-blue-100"
-                textColor="text-blue-900"
-            />
-            <StatCard
-                label="Profit"
-                value={`Rs. ${formatNumber(stats.profit)}`}
-                bg={stats.profit < 0 ? "bg-red-200" : "bg-purple-100"}
-                textColor={stats.profit < 0 ? "text-red-900" : "text-purple-900"}
-            />
-            <StatCard
-                label="Estimated Profit"
-                value={`Rs. ${formatNumber(stats.estimatedProfit)}`}
-                bg={stats.estimatedProfit < 0 ? "bg-red-200" : "bg-teal-100"}
-                textColor={stats.estimatedProfit < 0 ? "text-red-900" : "text-teal-900"}
-            />
-            <StatCard
-                label="Border Commission"
-                value={`Rs. ${formatNumber(stats.borderCommission)}`}
-                bg="bg-orange-100"
-                textColor="text-orange-900"
-            />
-        </div>
-    );
+    const profit = calcProfit(deliveredStatOrders);
+    const estimatedProfit = calcEstimatedProfit(monthStatOrders, deliveredStatOrders);
+    const borderCommission = calcBorderCommission(monthDeliveredOrders);
 
     return (
         <div className="mb-8 space-y-5">
 
-            {/* ── Row 1: All-time summary tiles ── */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <StatCard label="Total Orders" value={formatNumber(totalOrders)} bg="bg-indigo-200" textColor="text-indigo-950" />
-                <StatCard label="Delivered" value={formatNumber(delivered)} bg="bg-green-200" textColor="text-green-950" />
-                <StatCard label="Pending" value={formatNumber(pending)} bg="bg-yellow-200" textColor="text-yellow-950" />
-                <StatCard label="Remaining Payment" value={`Rs. ${formatNumber(remainingPayment)}`} bg="bg-red-200" textColor="text-red-950" />
-            </div>
-
-            {/* ── Row 2: Current month ── */}
+            {/* ── Month picker + stats ── */}
             <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 mb-2">
-                    {currentMonthLabel}
-                </p>
-                {renderMonthStats(currentStats, currentMonthLabel)}
-            </div>
-
-            {/* ── Row 3: Historical month dropdown ── */}
-            <div>
-                <div className="flex items-center gap-3 mb-2">
-                    <p className="text-xs font-semibold uppercase tracking-widest text-gray-500">
-                        Previous Month
+                {/* Dropdown */}
+                <div className="flex items-center gap-3 mb-3">
+                    <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 whitespace-nowrap">
+                        Monthly Stats
                     </p>
                     <select
-                        value={selectedHistorical}
-                        onChange={(e) => setSelectedHistorical(e.target.value)}
+                        value={selectedMonth}
+                        onChange={(e) => onMonthChange(e.target.value)}
                         className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white shadow-sm
                                    focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none cursor-pointer"
                     >
@@ -227,19 +126,61 @@ const OrdersStats: React.FC<StatsProps> = ({
                     </select>
                 </div>
 
-                {historicalStats ? (
-                    renderMonthStats(historicalStats, historicalLabel)
+                {/* Stats */}
+                {monthOrdersLoading ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[...Array(4)].map((_, i) => (
+                            <div key={i} className="p-4 bg-gray-100 rounded-xl shadow animate-pulse">
+                                <div className="h-3 bg-gray-300 rounded w-2/3 mb-3" />
+                                <div className="h-6 bg-gray-300 rounded w-1/2" />
+                            </div>
+                        ))}
+                    </div>
+                ) : selectedMonth ? (
+                    <>
+                        <p className="text-xs text-gray-400 mb-2">{selectedLabel}</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <StatCard
+                                label="Total Revenue"
+                                value={`Rs. ${formatNumber(totalRevenue)}`}
+                                bg="bg-blue-100"
+                                textColor="text-blue-900"
+                            />
+                            <StatCard
+                                label="Profit"
+                                value={`Rs. ${formatNumber(profit)}`}
+                                bg={profit < 0 ? "bg-red-200" : "bg-purple-100"}
+                                textColor={profit < 0 ? "text-red-900" : "text-purple-900"}
+                            />
+                            <StatCard
+                                label="Estimated Profit"
+                                value={`Rs. ${formatNumber(estimatedProfit)}`}
+                                bg={estimatedProfit < 0 ? "bg-red-200" : "bg-teal-100"}
+                                textColor={estimatedProfit < 0 ? "text-red-900" : "text-teal-900"}
+                            />
+                            <StatCard
+                                label="Border Commission"
+                                value={`Rs. ${formatNumber(borderCommission)}`}
+                                bg="bg-orange-100"
+                                textColor="text-orange-900"
+                            />
+                        </div>
+                    </>
                 ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {["Total Revenue", "Profit", "Estimated Profit", "Border Commission"].map((l) => (
-                            <div key={l} className="p-4 bg-gray-100 rounded-xl shadow border border-dashed border-gray-300">
-                                <p className="text-sm text-gray-400">{l}</p>
+                        {["Total Revenue", "Profit", "Estimated Profit", "Border Commission"].map((label) => (
+                            <div
+                                key={label}
+                                className="p-4 bg-gray-100 rounded-xl shadow border border-dashed border-gray-300"
+                            >
+                                <p className="text-sm text-gray-400">{label}</p>
                                 <p className="text-xl font-bold text-gray-300 mt-1">—</p>
                             </div>
                         ))}
                     </div>
                 )}
             </div>
+
         </div>
     );
 };

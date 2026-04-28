@@ -1,7 +1,15 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
-import { collection, getDocs, query, orderBy, limit } from "firebase/firestore";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import {
+    collection,
+    getDocs,
+    query,
+    orderBy,
+    limit,
+    where,
+    Timestamp,
+} from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import OrderCard from "./OrderCard";
 import Cookies from "js-cookie";
@@ -15,6 +23,23 @@ interface Order {
 
 type SortOption = "latest" | "oldest" | "pending" | "delivered";
 
+// ── Build the last 24 months list ─────────────────────────────────────────────
+function buildAvailableMonths(): { month: number; year: number; label: string }[] {
+    const now = new Date();
+    const months: { month: number; year: number; label: string }[] = [];
+    for (let i = 0; i <= 23; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        months.push({
+            month: d.getMonth(),
+            year: d.getFullYear(),
+            label: d.toLocaleString("en-US", { month: "long", year: "numeric" }),
+        });
+    }
+    return months;
+}
+
+const availableMonths = buildAvailableMonths();
+
 export default function OrdersPage() {
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
@@ -24,47 +49,105 @@ export default function OrdersPage() {
     const passwordInputRef = useRef<HTMLInputElement>(null);
     const [sortOption, setSortOption] = useState<SortOption>("pending");
 
+    // ── Month selector state ──────────────────────────────────────────────────
+    const now = new Date();
+    const defaultMonth = `${now.getMonth()}-${now.getFullYear()}`;
+    const [selectedMonth, setSelectedMonth] = useState<string>(defaultMonth);
+
+    // Orders placed in the month (by orderedDate) → for revenue / profit / estimated profit
+    const [monthStatOrders, setMonthStatOrders] = useState<Order[]>([]);
+    // Orders delivered in the month (by deliveryDate) → for border commission
+    const [monthDeliveredOrders, setMonthDeliveredOrders] = useState<Order[]>([]);
+
+    const [monthOrdersLoading, setMonthOrdersLoading] = useState(false);
+
     const PASSWORD = "5555";
     const COOKIE_NAME = "admin_access";
 
-    // Fetch orders
+    // ── Fetch all recent orders (for the main list) ───────────────────────────
     const fetchOrders = async () => {
         setLoading(true);
-
         const q = query(
             collection(db, "Confirm Orders"),
-            orderBy("orderedDate", "desc"),
+            orderBy("createdAt", "desc"),
             limit(100)
         );
-
         const snap = await getDocs(q);
-
-        const docs = snap.docs.map((d) => ({
-            id: d.id,
-            ...d.data(),
-        })) as Order[];
-
-        setOrders(docs);
+        setOrders(
+            snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Order[]
+        );
         setLoading(false);
     };
 
+    // ── Fetch both order sets for a specific month ────────────────────────────
+    const fetchMonthOrders = useCallback(async (monthKey: string) => {
+        if (!monthKey) {
+            setMonthStatOrders([]);
+            setMonthDeliveredOrders([]);
+            return;
+        }
+        const [m, y] = monthKey.split("-").map(Number);
+        const start = new Date(y, m, 1);
+        const end = new Date(y, m + 1, 1);
+
+        setMonthOrdersLoading(true);
+        try {
+            // Query 1: orders created this month (by createdAt) — for revenue / profit / estimated profit
+            const statQuery = query(
+                collection(db, "Confirm Orders"),
+                where("createdAt", ">=", Timestamp.fromDate(start)),
+                where("createdAt", "<", Timestamp.fromDate(end)),
+                orderBy("createdAt", "desc")
+            );
+
+            // Query 2: orders delivered this month (by deliveryDate) — for border commission
+            const deliveryQuery = query(
+                collection(db, "Confirm Orders"),
+                where("deliveryDate", ">=", Timestamp.fromDate(start)),
+                where("deliveryDate", "<", Timestamp.fromDate(end)),
+                orderBy("deliveryDate", "desc")
+            );
+
+            const [statSnap, deliverySnap] = await Promise.all([
+                getDocs(statQuery),
+                getDocs(deliveryQuery),
+            ]);
+
+            setMonthStatOrders(
+                statSnap.docs.map((d) => ({ id: d.id, ...d.data() })) as Order[]
+            );
+            setMonthDeliveredOrders(
+                deliverySnap.docs.map((d) => ({ id: d.id, ...d.data() })) as Order[]
+            );
+        } catch (err) {
+            console.error("Failed to fetch month orders:", err);
+            setMonthStatOrders([]);
+            setMonthDeliveredOrders([]);
+        } finally {
+            setMonthOrdersLoading(false);
+        }
+    }, []);
+
+    // ── On mount: fetch main orders + default month ───────────────────────────
     useEffect(() => {
         fetchOrders();
     }, []);
 
-    // Check cookie on load
+    useEffect(() => {
+        fetchMonthOrders(defaultMonth);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // ── Auth cookie check ─────────────────────────────────────────────────────
     useEffect(() => {
         const cookie = Cookies.get(COOKIE_NAME);
         if (cookie === PASSWORD) {
             setAccessGranted(true);
         } else {
-            setTimeout(() => {
-                passwordInputRef.current?.focus();
-            }, 300);
+            setTimeout(() => passwordInputRef.current?.focus(), 300);
         }
     }, []);
 
-    // Check password
     useEffect(() => {
         if (passwordInput === PASSWORD) {
             setAccessGranted(true);
@@ -73,6 +156,13 @@ export default function OrdersPage() {
         }
     }, [passwordInput]);
 
+    // ── Month dropdown change → fetch from Firestore ──────────────────────────
+    const handleMonthChange = (value: string) => {
+        setSelectedMonth(value);
+        fetchMonthOrders(value);
+    };
+
+    // ── Filtered + sorted orders for the card list ────────────────────────────
     const filteredOrders = useMemo(() => {
         let filtered = orders.filter((o) => {
             const nameMatch = o.name?.toLowerCase().includes(search.toLowerCase());
@@ -82,65 +172,42 @@ export default function OrdersPage() {
 
         switch (sortOption) {
             case "latest":
-                filtered.sort((a, b) => b.orderedDate.toMillis() - a.orderedDate.toMillis());
+                filtered.sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
                 break;
             case "oldest":
-                filtered.sort((a, b) => a.orderedDate.toMillis() - b.orderedDate.toMillis());
+                filtered.sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
                 break;
             case "pending":
                 filtered = filtered
                     .filter((o) => o.deliveryStatus !== true)
-                    .sort((a, b) => a.orderedDate.toMillis() - b.orderedDate.toMillis());
+                    .sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
                 break;
             case "delivered":
                 filtered = filtered
                     .filter((o) => o.deliveryStatus === true && o.deliveryDate)
-                    .sort(
-                        (a, b) =>
-                            b.deliveryDate.toMillis() - a.deliveryDate.toMillis()
-                    );
+                    .sort((a, b) => b.deliveryDate.toMillis() - a.deliveryDate.toMillis());
                 break;
         }
 
         return filtered;
     }, [search, orders, sortOption]);
 
-    // Summary stats (all-time counts + remaining payment)
-    const summaryStats = useMemo(() => {
-        const activeOrders = orders.filter((o) => o.deliveryStatus !== "cancelled");
-        const deliveredOrders = activeOrders.filter((o) => o.deliveryStatus === true);
-        const pendingOrders = activeOrders.filter((o) => o.deliveryStatus !== true);
-
-        const remainingPayment = pendingOrders.reduce(
-            (sum, o) => sum + ((o.totalAmount || 0) - (o.advancePayment || 0)),
-            0
-        );
-
-        return {
-            totalOrders: activeOrders.length,
-            delivered: deliveredOrders.length,
-            pending: pendingOrders.length,
-            remainingPayment,
-        };
-    }, [orders]);
-
-    if (loading)
-        return <p className="p-5 text-center">Loading…</p>;
+    if (loading) return <p className="p-5 text-center">Loading…</p>;
 
     return (
         <div className="relative min-h-screen">
 
             <ClickableTiles />
-            {/* Page content (blurred when modal active) */}
             <div className={`p-6 ${!accessGranted ? "filter blur-md" : ""}`}>
-                <h1 className="text-3xl font-bold mb-6">All Orders</h1>
+                {/* <h1 className="text-3xl font-bold mb-6">All Orders</h1> */}
 
                 <OrdersStats
-                    totalOrders={summaryStats.totalOrders}
-                    delivered={summaryStats.delivered}
-                    pending={summaryStats.pending}
-                    remainingPayment={summaryStats.remainingPayment}
-                    orders={orders}
+                    selectedMonth={selectedMonth}
+                    availableMonths={availableMonths}
+                    onMonthChange={handleMonthChange}
+                    monthOrdersLoading={monthOrdersLoading}
+                    monthStatOrders={monthStatOrders}
+                    monthDeliveredOrders={monthDeliveredOrders}
                 />
 
                 {/* Search Bar */}
@@ -161,11 +228,18 @@ export default function OrdersPage() {
                     {["latest", "oldest", "pending", "delivered"].map((option) => (
                         <button
                             key={option}
-                            className={`px-4 py-2 rounded-xl border ${sortOption === option ? "bg-blue-500 text-white" : "bg-white text-gray-700 border-gray-300"
-                                } shadow-sm hover:bg-blue-500 hover:text-white transition-all`}
+                            className={`px-4 py-2 rounded-xl border ${
+                                sortOption === option
+                                    ? "bg-blue-500 text-white"
+                                    : "bg-white text-gray-700 border-gray-300"
+                            } shadow-sm hover:bg-blue-500 hover:text-white transition-all`}
                             onClick={() => setSortOption(option as SortOption)}
                         >
-                            {option.charAt(0).toUpperCase() + option.slice(1).replace("pending", "Pending Orders").replace("delivered", "Delivered Orders")}
+                            {option.charAt(0).toUpperCase() +
+                                option
+                                    .slice(1)
+                                    .replace("pending", "Pending Orders")
+                                    .replace("delivered", "Delivered Orders")}
                         </button>
                     ))}
                 </div>

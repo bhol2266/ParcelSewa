@@ -14,7 +14,7 @@ interface StatsProps {
     onMonthChange: (value: string) => void;
     monthOrdersLoading: boolean;
 
-    // Orders placed in the selected month (by orderedDate) — for count stats
+    // Orders created in the selected month (by createdAt) — for count stats
     monthStatOrders: Order[];
     // Orders delivered in the selected month (by deliveryDate) — for commission
     monthDeliveredOrders: Order[];

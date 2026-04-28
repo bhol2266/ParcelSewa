@@ -56,7 +56,7 @@ export default function Ankush() {
 
     // Orders placed in the month (by orderedDate) → for total / delivered / pending counts
     const [monthStatOrders, setMonthStatOrders] = useState<Order[]>([]);
-    // Delivered orders in the month (by deliveryDate) → for border commission calculation
+    // Orders delivered in the month (by deliveryDate) → for border commission
     const [monthDeliveredOrders, setMonthDeliveredOrders] = useState<Order[]>([]);
 
     const [monthOrdersLoading, setMonthOrdersLoading] = useState(false);
@@ -69,7 +69,7 @@ export default function Ankush() {
         setLoading(true);
         const q = query(
             collection(db, "Confirm Orders"),
-            orderBy("orderedDate", "desc"),
+            orderBy("createdAt", "desc"),
             limit(100)
         );
         const snap = await getDocs(q);
@@ -92,12 +92,12 @@ export default function Ankush() {
 
         setMonthOrdersLoading(true);
         try {
-            // Query 1: orders placed this month (by orderedDate) — for counts
+            // Query 1: orders created this month (by createdAt) — for counts
             const statQuery = query(
                 collection(db, "Confirm Orders"),
-                where("orderedDate", ">=", Timestamp.fromDate(start)),
-                where("orderedDate", "<", Timestamp.fromDate(end)),
-                orderBy("orderedDate", "desc")
+                where("createdAt", ">=", Timestamp.fromDate(start)),
+                where("createdAt", "<", Timestamp.fromDate(end)),
+                orderBy("createdAt", "desc")
             );
 
             // Query 2: orders delivered this month (by deliveryDate) — for commission
@@ -172,15 +172,15 @@ export default function Ankush() {
 
         switch (sortOption) {
             case "latest":
-                filtered.sort((a, b) => b.orderedDate.toMillis() - a.orderedDate.toMillis());
+                filtered.sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
                 break;
             case "oldest":
-                filtered.sort((a, b) => a.orderedDate.toMillis() - b.orderedDate.toMillis());
+                filtered.sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
                 break;
             case "pending":
                 filtered = filtered
                     .filter((o) => o.deliveryStatus !== true)
-                    .sort((a, b) => a.orderedDate.toMillis() - b.orderedDate.toMillis());
+                    .sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
                 break;
             case "delivered":
                 filtered = filtered
@@ -199,7 +199,6 @@ export default function Ankush() {
 
             <ClickableTiles />
             <div className={`p-6 ${!accessGranted ? "filter blur-md" : ""}`}>
-                {/* <h1 className="text-3xl font-bold mb-6">All Orders</h1> */}
 
                 <OrdersStatsAnkush
                     selectedMonth={selectedMonth}
