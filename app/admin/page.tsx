@@ -46,20 +46,43 @@ export default function OrdersPage() {
     const passwordInputRef = useRef<HTMLInputElement>(null);
     const [sortOption, setSortOption] = useState<SortOption>("pending");
 
-    // ── Month selector state ──────────────────────────────────────────────────
-    const now = new Date();
-    const defaultMonth = `${now.getMonth()}-${now.getFullYear()}`;
-    const [selectedMonth, setSelectedMonth] = useState<string>(defaultMonth);
+    // ── Month selector state — empty string = "All Pending" default ───────────
+    const [selectedMonth, setSelectedMonth] = useState<string>("");
 
     // Orders created in the selected month (by createdAt) — latest / oldest / pending card list + stats
     const [monthStatOrders, setMonthStatOrders] = useState<Order[]>([]);
     // Orders delivered in the selected month (by deliveryDate) — delivered card list + border commission
     const [monthDeliveredOrders, setMonthDeliveredOrders] = useState<Order[]>([]);
 
+    // All-time pending orders shown by default when no month is selected
+    const [allPendingOrders, setAllPendingOrders] = useState<Order[]>([]);
+    const [allPendingLoading, setAllPendingLoading] = useState(false);
+
     const [monthOrdersLoading, setMonthOrdersLoading] = useState(false);
 
     const PASSWORD = "5555";
     const COOKIE_NAME = "admin_access";
+
+    // ── Fetch all pending orders (all time) ───────────────────────────────────
+    const fetchAllPendingOrders = useCallback(async () => {
+        setAllPendingLoading(true);
+        try {
+            const q = query(
+                collection(db, "Confirm Orders"),
+                where("deliveryStatus", "==", false),
+                orderBy("createdAt", "asc")
+            );
+            const snap = await getDocs(q);
+            setAllPendingOrders(
+                snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Order[]
+            );
+        } catch (err) {
+            console.error("Failed to fetch all pending orders:", err);
+            setAllPendingOrders([]);
+        } finally {
+            setAllPendingLoading(false);
+        }
+    }, []);
 
     // ── Fetch both order sets for a specific month ────────────────────────────
     const fetchMonthOrders = useCallback(async (monthKey: string) => {
@@ -110,9 +133,9 @@ export default function OrdersPage() {
         }
     }, []);
 
-    // ── On mount: fetch default (current) month ───────────────────────────────
+    // ── On mount: fetch all pending orders (default view) ────────────────────
     useEffect(() => {
-        fetchMonthOrders(defaultMonth);
+        fetchAllPendingOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -137,21 +160,39 @@ export default function OrdersPage() {
     // ── Month dropdown change → fetch from Firestore ──────────────────────────
     const handleMonthChange = (value: string) => {
         setSelectedMonth(value);
-        fetchMonthOrders(value);
+        if (value) {
+            fetchMonthOrders(value);
+        } else {
+            // Switched back to "All Pending" — re-fetch if needed
+            fetchAllPendingOrders();
+        }
     };
 
     // ── refresh callback passed to cards ─────────────────────────────────────
     const refresh = useCallback(() => {
-        fetchMonthOrders(selectedMonth);
-    }, [fetchMonthOrders, selectedMonth]);
+        if (selectedMonth) {
+            fetchMonthOrders(selectedMonth);
+        } else {
+            fetchAllPendingOrders();
+        }
+    }, [fetchMonthOrders, fetchAllPendingOrders, selectedMonth]);
 
     // ── Filtered + sorted card list ───────────────────────────────────────────
-    // latest / oldest / pending  →  monthStatOrders  (sorted by createdAt)
-    // delivered                  →  monthDeliveredOrders  (sorted by deliveryDate)
+    // When no month selected: always show all pending orders
+    // When month selected:
+    //   latest / oldest / pending  →  monthStatOrders  (sorted by createdAt)
+    //   delivered                  →  monthDeliveredOrders  (sorted by deliveryDate)
     const filteredOrders = useMemo(() => {
         const matchesSearch = (o: Order) =>
             o.name?.toLowerCase().includes(search.toLowerCase()) ||
             o.mobile?.includes(search);
+
+        // Default all-time pending view
+        if (!selectedMonth) {
+            return allPendingOrders
+                .filter(matchesSearch)
+                .sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
+        }
 
         switch (sortOption) {
             case "latest":
@@ -177,16 +218,16 @@ export default function OrdersPage() {
             default:
                 return [];
         }
-    }, [search, sortOption, monthStatOrders, monthDeliveredOrders]);
+    }, [search, sortOption, selectedMonth, monthStatOrders, monthDeliveredOrders, allPendingOrders]);
 
-    if (monthOrdersLoading) return <p className="p-5 text-center">Loading…</p>;
+    const isLoading = !selectedMonth ? allPendingLoading : monthOrdersLoading;
+    if (isLoading) return <p className="p-5 text-center">Loading…</p>;
 
     return (
         <div className="relative min-h-screen">
 
             <ClickableTiles />
             <div className={`p-6 ${!accessGranted ? "filter blur-md" : ""}`}>
-                {/* <h1 className="text-3xl font-bold mb-6">All Orders</h1> */}
 
                 <OrdersStats
                     selectedMonth={selectedMonth}
@@ -195,6 +236,8 @@ export default function OrdersPage() {
                     monthOrdersLoading={monthOrdersLoading}
                     monthStatOrders={monthStatOrders}
                     monthDeliveredOrders={monthDeliveredOrders}
+                    allPendingOrders={allPendingOrders}
+                    allPendingLoading={allPendingLoading}
                 />
 
                 {/* Search Bar */}
@@ -210,26 +253,28 @@ export default function OrdersPage() {
                     />
                 </div>
 
-                {/* Sort Buttons */}
-                <div className="flex flex-wrap gap-2 mb-6">
-                    {["latest", "oldest", "pending", "delivered"].map((option) => (
-                        <button
-                            key={option}
-                            className={`px-4 py-2 rounded-xl border ${
-                                sortOption === option
-                                    ? "bg-blue-500 text-white"
-                                    : "bg-white text-gray-700 border-gray-300"
-                            } shadow-sm hover:bg-blue-500 hover:text-white transition-all`}
-                            onClick={() => setSortOption(option as SortOption)}
-                        >
-                            {option.charAt(0).toUpperCase() +
-                                option
-                                    .slice(1)
-                                    .replace("pending", "Pending Orders")
-                                    .replace("delivered", "Delivered Orders")}
-                        </button>
-                    ))}
-                </div>
+                {/* Sort Buttons — only shown when a month is selected */}
+                {selectedMonth && (
+                    <div className="flex flex-wrap gap-2 mb-6">
+                        {["latest", "oldest", "pending", "delivered"].map((option) => (
+                            <button
+                                key={option}
+                                className={`px-4 py-2 rounded-xl border ${
+                                    sortOption === option
+                                        ? "bg-blue-500 text-white"
+                                        : "bg-white text-gray-700 border-gray-300"
+                                } shadow-sm hover:bg-blue-500 hover:text-white transition-all`}
+                                onClick={() => setSortOption(option as SortOption)}
+                            >
+                                {option.charAt(0).toUpperCase() +
+                                    option
+                                        .slice(1)
+                                        .replace("pending", "Pending Orders")
+                                        .replace("delivered", "Delivered Orders")}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 {/* Orders List */}
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
