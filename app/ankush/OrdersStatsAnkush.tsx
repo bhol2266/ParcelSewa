@@ -31,7 +31,7 @@ const formatNumber = (num: number) => Math.round(num).toLocaleString("en-IN");
 // Commission is calculated from orders whose deliveryDate falls in the given month
 function calcBorderCommission(list: Order[]): number {
     const active = list.filter(
-        (o) => o.deliveredBy === "Ankush" && o.deliveryStatus !== "cancelled"
+        (o) => o.deliveryStatus !== "cancelled"
     );
     return active.reduce((sum, o) => {
         const commission = o.commission || "";

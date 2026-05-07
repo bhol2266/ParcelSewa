@@ -74,8 +74,7 @@ export default function Ankush() {
             );
             const snap = await getDocs(q);
             const all = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Order[];
-            // Filter for Ankush client-side — no composite index needed
-            setAllPendingOrders(all.filter((o) => o.deliveredBy === "Ankush"));
+            setAllPendingOrders(all);
         } catch (err) {
             console.error("Failed to fetch all pending orders:", err);
             setAllPendingOrders([]);
@@ -96,9 +95,7 @@ export default function Ankush() {
             );
             const snap = await getDocs(q);
             const all = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Order[];
-            setAllRecentDeliveredOrders(
-                all.filter((o) => o.deliveredBy === "Ankush").slice(0, 30)
-            );
+            setAllRecentDeliveredOrders(all.slice(0, 30));
         } catch (err) {
             console.error("Failed to fetch recent delivered orders:", err);
             setAllRecentDeliveredOrders([]);
