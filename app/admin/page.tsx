@@ -8,6 +8,7 @@ import {
     orderBy,
     where,
     Timestamp,
+    limit,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import OrderCard from "./OrderCard";
@@ -20,7 +21,8 @@ interface Order {
     [key: string]: any;
 }
 
-type SortOption = "latest" | "oldest" | "pending" | "delivered";
+type SortOption = "latest" | "oldest" | "delivered";
+type AllTimeSortOption = "latest" | "oldest" | "delivered";
 
 // ── Build the last 24 months list ─────────────────────────────────────────────
 function buildAvailableMonths(): { month: number; year: number; label: string }[] {
@@ -44,19 +46,21 @@ export default function OrdersPage() {
     const [accessGranted, setAccessGranted] = useState(false);
     const [passwordInput, setPasswordInput] = useState("");
     const passwordInputRef = useRef<HTMLInputElement>(null);
-    const [sortOption, setSortOption] = useState<SortOption>("pending");
+    const [sortOption, setSortOption] = useState<SortOption>("oldest");
+
+    // All-time sort: latest / oldest / delivered
+    const [allTimeSortOption, setAllTimeSortOption] = useState<AllTimeSortOption>("oldest");
 
     // ── Month selector state — empty string = "All Pending" default ───────────
     const [selectedMonth, setSelectedMonth] = useState<string>("");
 
-    // Orders created in the selected month (by createdAt) — latest / oldest / pending card list + stats
     const [monthStatOrders, setMonthStatOrders] = useState<Order[]>([]);
-    // Orders delivered in the selected month (by deliveryDate) — delivered card list + border commission
     const [monthDeliveredOrders, setMonthDeliveredOrders] = useState<Order[]>([]);
 
-    // All-time pending orders shown by default when no month is selected
     const [allPendingOrders, setAllPendingOrders] = useState<Order[]>([]);
+    const [allRecentDeliveredOrders, setAllRecentDeliveredOrders] = useState<Order[]>([]);
     const [allPendingLoading, setAllPendingLoading] = useState(false);
+    const [allDeliveredLoading, setAllDeliveredLoading] = useState(false);
 
     const [monthOrdersLoading, setMonthOrdersLoading] = useState(false);
 
@@ -84,6 +88,28 @@ export default function OrdersPage() {
         }
     }, []);
 
+    // ── Fetch last 30 delivered orders (all time, any month) ─────────────────
+    const fetchAllRecentDeliveredOrders = useCallback(async () => {
+        setAllDeliveredLoading(true);
+        try {
+            const q = query(
+                collection(db, "Confirm Orders"),
+                where("deliveryStatus", "==", true),
+                orderBy("deliveryDate", "desc"),
+                limit(30)
+            );
+            const snap = await getDocs(q);
+            setAllRecentDeliveredOrders(
+                snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Order[]
+            );
+        } catch (err) {
+            console.error("Failed to fetch recent delivered orders:", err);
+            setAllRecentDeliveredOrders([]);
+        } finally {
+            setAllDeliveredLoading(false);
+        }
+    }, []);
+
     // ── Fetch both order sets for a specific month ────────────────────────────
     const fetchMonthOrders = useCallback(async (monthKey: string) => {
         if (!monthKey) {
@@ -97,7 +123,7 @@ export default function OrdersPage() {
 
         setMonthOrdersLoading(true);
         try {
-            // Query 1: orders created this month (by createdAt) — latest / oldest / pending tabs
+            // Query 1: orders created this month (by createdAt)
             const statQuery = query(
                 collection(db, "Confirm Orders"),
                 where("createdAt", ">=", Timestamp.fromDate(start)),
@@ -105,7 +131,7 @@ export default function OrdersPage() {
                 orderBy("createdAt", "desc")
             );
 
-            // Query 2: orders delivered this month (by deliveryDate) — delivered tab + border commission
+            // Query 2: orders delivered this month (by deliveryDate) — for commission
             const deliveryQuery = query(
                 collection(db, "Confirm Orders"),
                 where("deliveryDate", ">=", Timestamp.fromDate(start)),
@@ -133,13 +159,18 @@ export default function OrdersPage() {
         }
     }, []);
 
-    // ── On mount: fetch all pending orders (default view) ────────────────────
     useEffect(() => {
         fetchAllPendingOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // ── Auth cookie check ─────────────────────────────────────────────────────
+    // Fetch delivered orders when that tab is activated in all-time view
+    useEffect(() => {
+        if (!selectedMonth && allTimeSortOption === "delivered" && allRecentDeliveredOrders.length === 0) {
+            fetchAllRecentDeliveredOrders();
+        }
+    }, [selectedMonth, allTimeSortOption, allRecentDeliveredOrders.length, fetchAllRecentDeliveredOrders]);
+
     useEffect(() => {
         const cookie = Cookies.get(COOKIE_NAME);
         if (cookie === PASSWORD) {
@@ -157,41 +188,45 @@ export default function OrdersPage() {
         }
     }, [passwordInput]);
 
-    // ── Month dropdown change → fetch from Firestore ──────────────────────────
     const handleMonthChange = (value: string) => {
         setSelectedMonth(value);
         if (value) {
             fetchMonthOrders(value);
         } else {
-            // Switched back to "All Pending" — re-fetch if needed
             fetchAllPendingOrders();
+            setAllTimeSortOption("oldest");
         }
     };
 
-    // ── refresh callback passed to cards ─────────────────────────────────────
     const refresh = useCallback(() => {
         if (selectedMonth) {
             fetchMonthOrders(selectedMonth);
         } else {
             fetchAllPendingOrders();
+            if (allTimeSortOption === "delivered") {
+                fetchAllRecentDeliveredOrders();
+            }
         }
-    }, [fetchMonthOrders, fetchAllPendingOrders, selectedMonth]);
+    }, [fetchMonthOrders, fetchAllPendingOrders, fetchAllRecentDeliveredOrders, selectedMonth, allTimeSortOption]);
 
-    // ── Filtered + sorted card list ───────────────────────────────────────────
-    // When no month selected: always show all pending orders
-    // When month selected:
-    //   latest / oldest / pending  →  monthStatOrders  (sorted by createdAt)
-    //   delivered                  →  monthDeliveredOrders  (sorted by deliveryDate)
     const filteredOrders = useMemo(() => {
         const matchesSearch = (o: Order) =>
             o.name?.toLowerCase().includes(search.toLowerCase()) ||
             o.mobile?.includes(search);
 
-        // Default all-time pending view
+        // All-time view
         if (!selectedMonth) {
+            if (allTimeSortOption === "delivered") {
+                return allRecentDeliveredOrders.filter(matchesSearch);
+            }
             return allPendingOrders
                 .filter(matchesSearch)
-                .sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
+                .sort((a, b) => {
+                    if (allTimeSortOption === "latest") {
+                        return (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0);
+                    }
+                    return (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0);
+                });
         }
 
         switch (sortOption) {
@@ -199,33 +234,27 @@ export default function OrdersPage() {
                 return monthStatOrders
                     .filter(matchesSearch)
                     .sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
-
             case "oldest":
                 return monthStatOrders
                     .filter(matchesSearch)
                     .sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
-
-            case "pending":
-                return monthStatOrders
-                    .filter((o) => matchesSearch(o) && o.deliveryStatus !== true && o.deliveryStatus !== "cancelled")
-                    .sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
-
             case "delivered":
                 return monthDeliveredOrders
                     .filter(matchesSearch)
                     .sort((a, b) => (b.deliveryDate?.toMillis() ?? 0) - (a.deliveryDate?.toMillis() ?? 0));
-
             default:
                 return [];
         }
-    }, [search, sortOption, selectedMonth, monthStatOrders, monthDeliveredOrders, allPendingOrders]);
+    }, [search, sortOption, allTimeSortOption, selectedMonth, monthStatOrders, monthDeliveredOrders, allPendingOrders, allRecentDeliveredOrders]);
 
-    const isLoading = !selectedMonth ? allPendingLoading : monthOrdersLoading;
+    const isLoading = !selectedMonth
+        ? (allTimeSortOption === "delivered" ? allDeliveredLoading : allPendingLoading)
+        : monthOrdersLoading;
+
     if (isLoading) return <p className="p-5 text-center">Loading…</p>;
 
     return (
         <div className="relative min-h-screen">
-
             <ClickableTiles />
             <div className={`p-6 ${!accessGranted ? "filter blur-md" : ""}`}>
 
@@ -253,10 +282,34 @@ export default function OrdersPage() {
                     />
                 </div>
 
-                {/* Sort Buttons — only shown when a month is selected */}
+                {/* Sort Buttons — All Pending (All Time) view */}
+                {!selectedMonth && (
+                    <div className="flex flex-wrap items-center gap-2 mb-6">
+                        {(["oldest", "latest", "delivered"] as AllTimeSortOption[]).map((option) => (
+                            <button
+                                key={option}
+                                className={`px-4 py-2 rounded-xl border ${
+                                    allTimeSortOption === option
+                                        ? "bg-blue-500 text-white"
+                                        : "bg-white text-gray-700 border-gray-300"
+                                } shadow-sm hover:bg-blue-500 hover:text-white transition-all`}
+                                onClick={() => setAllTimeSortOption(option)}
+                            >
+                                {option === "oldest" && "Oldest First"}
+                                {option === "latest" && "Latest First"}
+                                {option === "delivered" && "Delivered Orders"}
+                            </button>
+                        ))}
+                        {allTimeSortOption === "delivered" && (
+                            <span className="text-xs text-gray-400">Last 30 delivered orders</span>
+                        )}
+                    </div>
+                )}
+
+                {/* Sort Buttons — Monthly view */}
                 {selectedMonth && (
-                    <div className="flex flex-wrap gap-2 mb-6">
-                        {["latest", "oldest", "pending", "delivered"].map((option) => (
+                    <div className="flex flex-wrap items-center gap-2 mb-6">
+                        {(["oldest", "latest", "delivered"] as SortOption[]).map((option) => (
                             <button
                                 key={option}
                                 className={`px-4 py-2 rounded-xl border ${
@@ -264,13 +317,11 @@ export default function OrdersPage() {
                                         ? "bg-blue-500 text-white"
                                         : "bg-white text-gray-700 border-gray-300"
                                 } shadow-sm hover:bg-blue-500 hover:text-white transition-all`}
-                                onClick={() => setSortOption(option as SortOption)}
+                                onClick={() => setSortOption(option)}
                             >
-                                {option.charAt(0).toUpperCase() +
-                                    option
-                                        .slice(1)
-                                        .replace("pending", "Pending Orders")
-                                        .replace("delivered", "Delivered Orders")}
+                                {option === "oldest" && "Oldest First"}
+                                {option === "latest" && "Latest First"}
+                                {option === "delivered" && "Delivered Orders"}
                             </button>
                         ))}
                     </div>
@@ -290,7 +341,6 @@ export default function OrdersPage() {
                 </div>
             </div>
 
-            {/* Admin Password Modal */}
             {!accessGranted && (
                 <div className="fixed inset-0 flex items-center justify-center z-50">
                     <div className="bg-white p-8 rounded-xl shadow-lg w-80 text-center">
