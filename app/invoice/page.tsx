@@ -7,21 +7,59 @@ import autoTable from "jspdf-autotable";
 interface Item {
   id: string;
   productName: string;
-  area: string;
+  qty: string;
   rate: string;
 }
 
-const PRODUCT_OPTIONS = ["Louver Panel", "5mm Panel"];
+interface FittingSection {
+  id: string;
+  type: "wall" | "ceiling";
+  inputMode: "dimensions" | "area";
+  length: string;
+  breadth: string;
+  area: string;
+}
+
+const FITTING_RATES = { wall: 30, ceiling: 35 };
+
+const PRODUCT_RATES: Record<string, number> = {
+  "Louver Panel (9ft)": 1150,
+  "5mm Panel (9ft)": 525,
+  "2G Panel (9ft)": 500,
+  "L Channel (9ft)": 150,
+  "U Channel (9ft)": 150,
+  "Grip": 1,
+  "Wall Clip": 20,
+  "Glue": 150,
+};
+
+const PRODUCT_OPTIONS = Object.keys(PRODUCT_RATES);
 
 const emptyItem = (): Item => ({
   id: crypto.randomUUID(),
   productName: "",
-  area: "",
+  qty: "",
   rate: "",
+});
+
+const emptyFittingSection = (): FittingSection => ({
+  id: crypto.randomUUID(),
+  type: "wall",
+  inputMode: "dimensions",
+  length: "",
+  breadth: "",
+  area: "",
 });
 
 const generateInvoiceNo = () =>
   String(Math.floor(Math.random() * 900) + 100);
+
+const getSectionArea = (s: FittingSection): number => {
+  if (s.inputMode === "area") return parseFloat(s.area) || 0;
+  const l = parseFloat(s.length) || 0;
+  const b = parseFloat(s.breadth) || 0;
+  return l * b;
+};
 
 export default function InvoicePage() {
   const [partyName, setPartyName] = useState("");
@@ -31,8 +69,10 @@ export default function InvoicePage() {
     new Date().toISOString().split("T")[0]
   );
   const [items, setItems] = useState<Item[]>([emptyItem()]);
-  const [localTransport, setLocalTransport] = useState<number | "">("");
+  const [fittingSections, setFittingSections] = useState<FittingSection[]>([]);
   const [advanceDeposit, setAdvanceDeposit] = useState<number | "">("");
+  const [remainingPanels, setRemainingPanels] = useState<string>("");
+  const [remainingChannels, setRemainingChannels] = useState<string>("");
 
   useEffect(() => {
     setInvoiceNo(generateInvoiceNo());
@@ -40,50 +80,104 @@ export default function InvoicePage() {
 
   const addItem = () => setItems((p) => [...p, emptyItem()]);
 
-  const removeItem = (id: string) =>
-    setItems((p) => p.filter((x) => x.id !== id));
-
   const updateItem = useCallback(
     (id: string, field: keyof Item, value: string) => {
-      setItems((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, [field]: value } : p))
-      );
+      setItems((prev) => {
+        const updated = prev.map((p) => {
+          if (p.id !== id) return p;
+          const newItem = { ...p, [field]: value };
+          if (field === "productName") {
+            newItem.rate = PRODUCT_RATES[value] !== undefined
+              ? String(PRODUCT_RATES[value])
+              : "";
+          }
+          return newItem;
+        });
+
+        if (field === "productName" && value === "Wall Clip") {
+          const currentItem = updated.find((p) => p.id === id);
+          const linkedGripId = `grip-for-${id}`;
+          const hasLinkedGrip = updated.some((p) => p.id === linkedGripId);
+          if (!hasLinkedGrip) {
+            const gripItem: Item = {
+              id: linkedGripId,
+              productName: "Grip",
+              qty: currentItem?.qty || "1",
+              rate: String(PRODUCT_RATES["Grip"]),
+            };
+            return [...updated, gripItem];
+          }
+        }
+
+        if (field === "qty") {
+          const changedItem = updated.find((p) => p.id === id);
+          if (changedItem?.productName === "Wall Clip") {
+            const linkedGripId = `grip-for-${id}`;
+            return updated.map((p) =>
+              p.id === linkedGripId ? { ...p, qty: value } : p
+            );
+          }
+        }
+
+        return updated;
+      });
     },
     []
   );
 
+  const addFittingSection = () =>
+    setFittingSections((p) => [...p, emptyFittingSection()]);
+
+  const removeFittingSection = (id: string) =>
+    setFittingSections((p) => p.filter((s) => s.id !== id));
+
+  const updateFittingSection = (id: string, patch: Partial<FittingSection>) =>
+    setFittingSections((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, ...patch } : s))
+    );
+
+  // ── Computed values ──────────────────────────────────────────
   const computedItems = items.map((p) => {
-    const area = parseFloat(p.area) || 0;
+    const qty = parseFloat(p.qty) || 0;
     const rate = parseFloat(p.rate) || 0;
-    const amount = area > 0 && rate > 0 ? area * rate : 0;
-    return { ...p, computedArea: area, computedRate: rate, amount };
+    const amount = qty > 0 && rate > 0 ? qty * rate : 0;
+    return { ...p, computedQty: qty, computedRate: rate, amount };
   });
 
-  const totalArea = computedItems.reduce((s, p) => s + p.computedArea, 0);
+  const totalPcs = computedItems.reduce((s, p) => s + p.computedQty, 0);
   const productTotal = computedItems.reduce((s, p) => s + p.amount, 0);
-  const transport = localTransport !== "" ? (localTransport as number) : 0;
-  const advance = advanceDeposit !== "" ? (advanceDeposit as number) : 0;
-  const grandTotal = productTotal + transport;
-  const netPayable = grandTotal - advance;
-  const avgRate = totalArea > 0 ? productTotal / totalArea : 0;
 
+  const computedFitting = fittingSections.map((s) => {
+    const area = getSectionArea(s);
+    const rate = FITTING_RATES[s.type];
+    const amount = area * rate;
+    return { ...s, computedArea: area, rate, amount };
+  });
+
+  const totalFittingAmount = computedFitting.reduce((s, f) => s + f.amount, 0);
+  const totalWallArea = computedFitting.filter(f => f.type === "wall").reduce((s, f) => s + f.computedArea, 0);
+  const totalCeilingArea = computedFitting.filter(f => f.type === "ceiling").reduce((s, f) => s + f.computedArea, 0);
+
+  const advance = advanceDeposit !== "" ? (advanceDeposit as number) : 0;
+  const grandTotal = productTotal + totalFittingAmount;
+  const netPayable = grandTotal - advance;
+
+  // ── PDF ─────────────────────────────────────────────────────
   const generatePDF = () => {
     const doc = new jsPDF({ unit: "mm", format: "a4" });
     const pw = doc.internal.pageSize.getWidth();
 
+    // Header
     doc.setFillColor(15, 40, 80);
     doc.rect(0, 0, pw, 38, "F");
-
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(20);
     doc.text("UK PLASTIC AND PRODUCT", pw / 2, 14, { align: "center" });
-
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(180, 210, 255);
     doc.text("Buddhanagar, Kathmandu", pw / 2, 21, { align: "center" });
-
     doc.setFillColor(230, 160, 20);
     doc.roundedRect(pw / 2 - 22, 25, 44, 10, 2, 2, "F");
     doc.setTextColor(15, 40, 80);
@@ -91,11 +185,11 @@ export default function InvoicePage() {
     doc.setFontSize(11);
     doc.text("INVOICE", pw / 2, 31.5, { align: "center" });
 
+    // Bill To & Invoice meta
     let y = 46;
     doc.setTextColor(50, 50, 50);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(9);
-
     doc.text("Bill To:", 14, y);
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
@@ -114,57 +208,103 @@ export default function InvoicePage() {
     doc.text(`#${invoiceNo}`, pw - 30, y, { align: "right" });
     doc.text(
       new Date(invoiceDate).toLocaleDateString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
+        day: "2-digit", month: "short", year: "numeric",
       }),
-      pw - 30,
-      y + 7,
-      { align: "right" }
+      pw - 30, y + 7, { align: "right" }
     );
 
+    // ── Products table ──
     y += 28;
-    const tableHead = [["#", "Product", "Area (sqft)", "Rate / sqft (Rs)", "Amount (Rs)"]];
-    const tableBody = computedItems.map((p, i) => [
-      i + 1,
-      p.productName || "—",
-      p.computedArea > 0 ? p.computedArea.toFixed(2) : "—",
-      p.computedRate > 0 ? `Rs ${p.computedRate.toFixed(2)}` : "—",
-      `Rs ${p.amount.toFixed(2)}`,
-    ]);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(15, 40, 80);
+    doc.text("PRODUCTS", 14, y);
+    y += 4;
 
     autoTable(doc, {
       startY: y,
-      head: tableHead,
-      body: tableBody,
+      head: [["#", "Product", "Qty (pcs)", "Rate / pcs (Rs)", "Amount (Rs)"]],
+      body: computedItems.map((p, i) => [
+        i + 1,
+        p.productName || "—",
+        p.computedQty > 0 ? p.computedQty.toString() : "—",
+        p.computedRate > 0 ? `Rs ${p.computedRate.toFixed(2)}` : "—",
+        `Rs ${p.amount.toFixed(2)}`,
+      ]),
       theme: "grid",
-      headStyles: {
-        fillColor: [15, 40, 80],
-        textColor: [255, 255, 255],
-        fontSize: 9,
-        fontStyle: "bold",
-        halign: "center",
-      },
+      headStyles: { fillColor: [15, 40, 80], textColor: [255, 255, 255], fontSize: 9, fontStyle: "bold", halign: "center" },
       bodyStyles: { fontSize: 9, textColor: [40, 40, 40] },
       columnStyles: {
         0: { halign: "center", cellWidth: 10 },
-        1: { halign: "left", cellWidth: 45 },
+        1: { halign: "left", cellWidth: 55 },
         2: { halign: "right" },
         3: { halign: "right" },
         4: { halign: "right" },
       },
       alternateRowStyles: { fillColor: [240, 246, 255] },
       margin: { left: 14, right: 14 },
+      foot: [[
+        "", "Products Sub-total", "", "",
+        `Rs ${productTotal.toFixed(2)}`,
+      ]],
+      footStyles: { fillColor: [230, 240, 255], textColor: [15, 40, 80], fontStyle: "bold", fontSize: 9 },
     });
 
+    // ── Fitting Charges table ──
+    // @ts-ignore
+    let afterProducts = doc.lastAutoTable.finalY + 6;
+
+    if (computedFitting.length > 0) {
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(15, 40, 80);
+      doc.text("FITTING CHARGES", 14, afterProducts);
+      afterProducts += 4;
+
+      const fittingBody = computedFitting.map((f, i) => {
+        const dimStr = f.inputMode === "dimensions"
+          ? `${f.length || "—"} ft × ${f.breadth || "—"} ft`
+          : "Direct area input";
+        return [
+          i + 1,
+          f.type === "wall" ? "Wall Fitting" : "Ceiling Fitting",
+          dimStr,
+          `${f.computedArea.toFixed(2)} sqft`,
+          `Rs ${f.rate}/sqft`,
+          `Rs ${f.amount.toFixed(2)}`,
+        ];
+      });
+
+      autoTable(doc, {
+        startY: afterProducts,
+        head: [["#", "Type", "Dimensions", "Area (sqft)", "Rate", "Amount (Rs)"]],
+        body: fittingBody,
+        theme: "grid",
+        headStyles: { fillColor: [30, 100, 60], textColor: [255, 255, 255], fontSize: 9, fontStyle: "bold", halign: "center" },
+        bodyStyles: { fontSize: 9, textColor: [40, 40, 40] },
+        columnStyles: {
+          0: { halign: "center", cellWidth: 8 },
+          1: { halign: "left", cellWidth: 30 },
+          2: { halign: "center" },
+          3: { halign: "right" },
+          4: { halign: "right" },
+          5: { halign: "right" },
+        },
+        alternateRowStyles: { fillColor: [240, 255, 245] },
+        margin: { left: 14, right: 14 },
+        foot: [["", "Fitting Sub-total", "", totalWallArea > 0 ? `Wall: ${totalWallArea.toFixed(2)} sqft` : "" + (totalCeilingArea > 0 ? `  Ceil: ${totalCeilingArea.toFixed(2)} sqft` : ""), "", `Rs ${totalFittingAmount.toFixed(2)}`]],
+        footStyles: { fillColor: [215, 245, 225], textColor: [20, 80, 40], fontStyle: "bold", fontSize: 9 },
+      });
+    }
+
+    // ── Summary box ──
     // @ts-ignore
     const afterTable = doc.lastAutoTable.finalY + 6;
-
     const boxX = pw - 90;
     const boxW = 76;
     let by = afterTable;
 
-    const drawRow = (label: string, value: string, highlight = false, large = false) => {
+    const drawRow = (label: string, value: string, highlight = false, large = false, color?: [number,number,number]) => {
       const rowH = large ? 9 : 7;
       if (highlight) {
         doc.setFillColor(15, 40, 80);
@@ -174,7 +314,8 @@ export default function InvoicePage() {
       } else {
         doc.setFillColor(245, 245, 252);
         doc.rect(boxX, by, boxW, rowH, "F");
-        doc.setTextColor(50, 50, 50);
+        if (color) doc.setTextColor(...color);
+        else doc.setTextColor(50, 50, 50);
         doc.setFont("helvetica", "normal");
       }
       doc.setFontSize(large ? 10 : 8.5);
@@ -183,16 +324,51 @@ export default function InvoicePage() {
       by += rowH;
     };
 
-    drawRow("Total Area", `${totalArea.toFixed(2)} sqft`);
-    drawRow("Avg Rate / sqft", `Rs ${avgRate.toFixed(2)}`);
-    drawRow("Area Total", `Rs ${productTotal.toFixed(2)}`);
-    drawRow("Local Transportation", `Rs ${transport.toFixed(2)}`);
-    drawRow("Grand Total", `Rs ${grandTotal.toFixed(2)}`);
-    if (advance > 0) {
-      drawRow("Advance Deposit (-)", `- Rs ${advance.toFixed(2)}`);
+    drawRow("Total Pcs", `${totalPcs} pcs`);
+    drawRow("Products Total", `Rs ${productTotal.toFixed(2)}`);
+    if (computedFitting.length > 0) {
+      if (totalWallArea > 0) drawRow(`Wall Fitting (${totalWallArea.toFixed(2)} sqft @ Rs 30)`, `Rs ${(totalWallArea * 30).toFixed(2)}`);
+      if (totalCeilingArea > 0) drawRow(`Ceiling Fitting (${totalCeilingArea.toFixed(2)} sqft @ Rs 35)`, `Rs ${(totalCeilingArea * 35).toFixed(2)}`);
+      drawRow("Fitting Charges Total", `Rs ${totalFittingAmount.toFixed(2)}`);
     }
+    drawRow("Grand Total", `Rs ${grandTotal.toFixed(2)}`);
+    if (advance > 0) drawRow("Advance Deposit (-)", `- Rs ${advance.toFixed(2)}`, false, false, [160, 100, 0]);
     drawRow("NET PAYABLE", `Rs ${netPayable.toFixed(2)}`, true, true);
 
+    // ── Remaining Items (info only) ──
+    const remPanels = parseInt(remainingPanels) || 0;
+    const remChannels = parseInt(remainingChannels) || 0;
+    if (remPanels > 0 || remChannels > 0) {
+      // @ts-ignore
+      const remStartY = by + 8;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(120, 60, 0);
+      doc.text("REMAINING ITEMS  (For Reference Only — Not Billed)", 14, remStartY);
+
+      const remBody: (string | number)[][] = [];
+      if (remPanels > 0) remBody.push(["Panel", remPanels, "pcs", "Not included in billing"]);
+      if (remChannels > 0) remBody.push(["U/L Channel", remChannels, "pcs", "Not included in billing"]);
+
+      autoTable(doc, {
+        startY: remStartY + 3,
+        head: [["Item", "Quantity", "Unit", "Note"]],
+        body: remBody,
+        theme: "grid",
+        headStyles: { fillColor: [180, 100, 20], textColor: [255, 255, 255], fontSize: 9, fontStyle: "bold", halign: "center" },
+        bodyStyles: { fontSize: 9, textColor: [80, 40, 0] },
+        columnStyles: {
+          0: { halign: "left", cellWidth: 40 },
+          1: { halign: "center", cellWidth: 25 },
+          2: { halign: "center", cellWidth: 20 },
+          3: { halign: "left" },
+        },
+        alternateRowStyles: { fillColor: [255, 245, 230] },
+        margin: { left: 14, right: 14 },
+      });
+    }
+
+    // Footer
     const footerY = doc.internal.pageSize.getHeight() - 22;
     doc.setDrawColor(200, 200, 200);
     doc.line(14, footerY, pw - 14, footerY);
@@ -230,58 +406,30 @@ export default function InvoicePage() {
 
         {/* Invoice Details */}
         <section className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-4">
-            Invoice Details
-          </h2>
+          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-4">Invoice Details</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <div className="space-y-4">
               <div>
                 <label className={labelCls}>Party Name</label>
-                <input
-                  className={inputCls}
-                  placeholder="Customer / Company name"
-                  value={partyName}
-                  onChange={(e) => setPartyName(e.target.value)}
-                />
+                <input className={inputCls} placeholder="Customer / Company name" value={partyName} onChange={(e) => setPartyName(e.target.value)} />
               </div>
               <div>
                 <label className={labelCls}>Party Address</label>
-                <textarea
-                  className={`${inputCls} resize-none`}
-                  rows={3}
-                  placeholder="Full address"
-                  value={partyAddress}
-                  onChange={(e) => setPartyAddress(e.target.value)}
-                />
+                <textarea className={`${inputCls} resize-none`} rows={3} placeholder="Full address" value={partyAddress} onChange={(e) => setPartyAddress(e.target.value)} />
               </div>
             </div>
             <div className="space-y-4">
               <div>
                 <label className={labelCls}>Invoice Number</label>
                 <div className="flex gap-2">
-                  <input
-                    className={`${inputCls} font-mono font-bold text-blue-700`}
-                    value={`#${invoiceNo}`}
-                    readOnly
-                  />
-                  <button
-                    onClick={() => setInvoiceNo(generateInvoiceNo())}
-                    title="Regenerate invoice number"
-                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-slate-500 hover:text-slate-700 transition text-base font-bold"
-                  >
-                    ↻
-                  </button>
+                  <input className={`${inputCls} font-mono font-bold text-blue-700`} value={`#${invoiceNo}`} readOnly />
+                  <button onClick={() => setInvoiceNo(generateInvoiceNo())} title="Regenerate" className="px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-slate-500 hover:text-slate-700 transition text-base font-bold">↻</button>
                 </div>
                 <p className="text-[11px] text-slate-400 mt-1">Auto-generated · click ↻ to refresh</p>
               </div>
               <div>
                 <label className={labelCls}>Invoice Date</label>
-                <input
-                  type="date"
-                  className={inputCls}
-                  value={invoiceDate}
-                  onChange={(e) => setInvoiceDate(e.target.value)}
-                />
+                <input type="date" className={inputCls} value={invoiceDate} onChange={(e) => setInvoiceDate(e.target.value)} />
               </div>
             </div>
           </div>
@@ -291,144 +439,214 @@ export default function InvoicePage() {
         <section className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-bold text-slate-700 uppercase tracking-widest">Items</h2>
-            <button
-              onClick={addItem}
-              className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition"
-            >
+            <button onClick={addItem} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition">
               <span className="text-base leading-none">+</span> Add Row
             </button>
           </div>
 
-          {/* Column headers */}
           <div className="hidden md:grid grid-cols-12 gap-2 mb-2 px-1">
             <div className="col-span-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">#</div>
-            <div className="col-span-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">Product</div>
-            <div className="col-span-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">Area (sqft)</div>
-            <div className="col-span-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">Rate / sqft (Rs)</div>
-            <div className="col-span-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right">Amount</div>
+            <div className="col-span-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">Product</div>
+            <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">Qty (pcs)</div>
+            <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">Rate / pcs (Rs)</div>
+            <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right">Amount</div>
             <div className="col-span-1" />
           </div>
 
           <div className="space-y-2">
-            {computedItems.map((p, idx) => (
-              <div
-                key={p.id}
-                className="grid grid-cols-12 gap-2 items-center bg-slate-50/70 rounded-xl p-2 border border-slate-100"
-              >
-                <div className="col-span-1 text-center text-xs font-bold text-slate-400">
-                  {idx + 1}
+            {computedItems.map((p, idx) => {
+              const isLinkedGrip = p.id.startsWith("grip-for-");
+              return (
+                <div key={p.id} className={`grid grid-cols-12 gap-2 items-center rounded-xl p-2 border ${isLinkedGrip ? "bg-green-50/60 border-green-200" : "bg-slate-50/70 border-slate-100"}`}>
+                  <div className="col-span-1 text-center text-xs font-bold text-slate-400">{idx + 1}</div>
+                  <div className="col-span-11 md:col-span-4">
+                    {isLinkedGrip ? (
+                      <div className={`${inputCls} text-green-700 font-medium flex items-center gap-1`}>
+                        <span className="text-green-500 text-xs">⚙</span>
+                        {p.productName}
+                        <span className="ml-auto text-[10px] text-green-500 font-semibold">auto</span>
+                      </div>
+                    ) : (
+                      <select className={`${inputCls} cursor-pointer`} value={p.productName} onChange={(e) => updateItem(p.id, "productName", e.target.value)}>
+                        <option value="">Select product</option>
+                        {PRODUCT_OPTIONS.map((opt) => (<option key={opt} value={opt}>{opt}</option>))}
+                      </select>
+                    )}
+                  </div>
+                  <div className="col-span-5 md:col-span-2">
+                    <input type="text" inputMode="decimal" className={`${inputCls} text-center`} placeholder="0" value={p.qty} onChange={(e) => updateItem(p.id, "qty", e.target.value)} readOnly={isLinkedGrip} />
+                  </div>
+                  <div className="col-span-5 md:col-span-2">
+                    <div className={`${inputCls} text-center text-slate-600 bg-slate-50`}>
+                      Rs {p.computedRate > 0 ? p.computedRate.toFixed(2) : "—"}
+                    </div>
+                  </div>
+                  <div className="col-span-10 md:col-span-2 text-right">
+                    <span className="text-sm font-semibold text-blue-700 bg-blue-50 px-2 py-1.5 rounded-lg block">
+                      Rs {p.amount.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="col-span-1 flex justify-center">
+                    {!isLinkedGrip && items.length > 1 && (
+                      <button onClick={() => { const linkedGripId = `grip-for-${p.id}`; setItems((prev) => prev.filter((x) => x.id !== p.id && x.id !== linkedGripId)); }} className="text-red-400 hover:text-red-600 transition text-lg font-bold leading-none" title="Remove row">×</button>
+                    )}
+                  </div>
                 </div>
-                <div className="col-span-11 md:col-span-3">
-                  <select
-                    className={`${inputCls} cursor-pointer`}
-                    value={p.productName}
-                    onChange={(e) => updateItem(p.id, "productName", e.target.value)}
-                  >
-                    <option value="">Select product</option>
-                    {PRODUCT_OPTIONS.map((opt) => (
-                      <option key={opt} value={opt}>{opt}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="col-span-5 md:col-span-3">
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    className={`${inputCls} text-center`}
-                    placeholder="e.g. 120"
-                    value={p.area}
-                    onChange={(e) => updateItem(p.id, "area", e.target.value)}
-                  />
-                </div>
-                <div className="col-span-5 md:col-span-3">
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    className={`${inputCls} text-center`}
-                    placeholder="e.g. 45"
-                    value={p.rate}
-                    onChange={(e) => updateItem(p.id, "rate", e.target.value)}
-                  />
-                </div>
-                <div className="col-span-10 md:col-span-1 text-right">
-                  <span className="text-sm font-semibold text-blue-700 bg-blue-50 px-2 py-1.5 rounded-lg block">
-                    Rs {p.amount.toFixed(2)}
-                  </span>
-                </div>
-                <div className="col-span-1 flex justify-center">
-                  {items.length > 1 && (
-                    <button
-                      onClick={() => removeItem(p.id)}
-                      className="text-red-400 hover:text-red-600 transition text-lg font-bold leading-none"
-                      title="Remove row"
-                    >
-                      ×
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
 
-        {/* Transport + Advance + Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <section className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-4">
-              Local Transportation
-            </h2>
-            <label className={labelCls}>Amount (Rs)</label>
-            <input
-              type="text"
-              inputMode="decimal"
-              className={inputCls}
-              placeholder="0.00"
-              value={localTransport}
-              onChange={(e) =>
-                setLocalTransport(e.target.value === "" ? "" : parseFloat(e.target.value))
-              }
-            />
-          </section>
+        {/* Fitting Charges */}
+        <section className="bg-white rounded-2xl shadow-sm border border-emerald-100 p-6">
+          <div className="flex items-center justify-between mb-1">
+            <div>
+              <h2 className="text-sm font-bold text-emerald-800 uppercase tracking-widest">Fitting Charges</h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">Wall: Rs 30/sqft &nbsp;·&nbsp; Ceiling: Rs 35/sqft</p>
+            </div>
+            <button onClick={addFittingSection} className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition">
+              <span className="text-base leading-none">+</span> Add Section
+            </button>
+          </div>
 
+          {fittingSections.length === 0 && (
+            <div className="mt-4 text-center text-slate-400 text-sm py-6 border-2 border-dashed border-slate-200 rounded-xl">
+              No fitting charges added · click <span className="font-semibold text-emerald-600">+ Add Section</span> to begin
+            </div>
+          )}
+
+          <div className="space-y-3 mt-4">
+            {computedFitting.map((s, idx) => (
+              <div key={s.id} className={`rounded-xl border p-4 ${s.type === "wall" ? "bg-blue-50/40 border-blue-200" : "bg-purple-50/40 border-purple-200"}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Section {idx + 1}</span>
+                  <button onClick={() => removeFittingSection(s.id)} className="text-red-400 hover:text-red-600 text-lg font-bold leading-none" title="Remove">×</button>
+                </div>
+
+                {/* Type selector */}
+                <div className="flex gap-2 mb-3">
+                  <button
+                    onClick={() => updateFittingSection(s.id, { type: "wall" })}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold border transition ${s.type === "wall" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-slate-500 border-slate-200 hover:border-blue-300"}`}
+                  >
+                    🧱 Wall &nbsp;<span className="font-normal opacity-80">(Rs 30/sqft)</span>
+                  </button>
+                  <button
+                    onClick={() => updateFittingSection(s.id, { type: "ceiling" })}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold border transition ${s.type === "ceiling" ? "bg-purple-600 text-white border-purple-600" : "bg-white text-slate-500 border-slate-200 hover:border-purple-300"}`}
+                  >
+                    🔳 Ceiling &nbsp;<span className="font-normal opacity-80">(Rs 35/sqft)</span>
+                  </button>
+                </div>
+
+                {/* Input mode toggle */}
+                <div className="flex gap-2 mb-3">
+                  <button
+                    onClick={() => updateFittingSection(s.id, { inputMode: "dimensions" })}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition ${s.inputMode === "dimensions" ? "bg-slate-700 text-white border-slate-700" : "bg-white text-slate-500 border-slate-200"}`}
+                  >
+                    Length × Breadth
+                  </button>
+                  <button
+                    onClick={() => updateFittingSection(s.id, { inputMode: "area" })}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition ${s.inputMode === "area" ? "bg-slate-700 text-white border-slate-700" : "bg-white text-slate-500 border-slate-200"}`}
+                  >
+                    Direct Area
+                  </button>
+                </div>
+
+                {/* Inputs */}
+                {s.inputMode === "dimensions" ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={labelCls}>Length (ft)</label>
+                      <input type="text" inputMode="decimal" className={`${inputCls} text-center`} placeholder="e.g. 12" value={s.length} onChange={(e) => updateFittingSection(s.id, { length: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className={labelCls}>Breadth (ft)</label>
+                      <input type="text" inputMode="decimal" className={`${inputCls} text-center`} placeholder="e.g. 10" value={s.breadth} onChange={(e) => updateFittingSection(s.id, { breadth: e.target.value })} />
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <label className={labelCls}>Area (sqft)</label>
+                    <input type="text" inputMode="decimal" className={`${inputCls} text-center`} placeholder="e.g. 120" value={s.area} onChange={(e) => updateFittingSection(s.id, { area: e.target.value })} />
+                  </div>
+                )}
+
+                {/* Section total */}
+                {s.computedArea > 0 && (
+                  <div className={`mt-3 flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold ${s.type === "wall" ? "bg-blue-100 text-blue-800" : "bg-purple-100 text-purple-800"}`}>
+                    <span>{s.computedArea.toFixed(2)} sqft × Rs {s.rate}/sqft</span>
+                    <span>Rs {s.amount.toFixed(2)}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Fitting total */}
+          {fittingSections.length > 0 && (
+            <div className="mt-4 flex justify-between items-center bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+              <div className="text-sm text-emerald-700 space-y-0.5">
+                {totalWallArea > 0 && <div className="text-xs">Wall: {totalWallArea.toFixed(2)} sqft × Rs 30 = Rs {(totalWallArea * 30).toFixed(2)}</div>}
+                {totalCeilingArea > 0 && <div className="text-xs">Ceiling: {totalCeilingArea.toFixed(2)} sqft × Rs 35 = Rs {(totalCeilingArea * 35).toFixed(2)}</div>}
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] text-emerald-600 uppercase font-bold tracking-wide">Fitting Total</p>
+                <p className="text-lg font-extrabold text-emerald-700">Rs {totalFittingAmount.toFixed(2)}</p>
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Advance + Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <section className="bg-white rounded-2xl shadow-sm border border-amber-100 p-6">
-            <h2 className="text-sm font-bold text-amber-700 uppercase tracking-widest mb-4">
-              Advance Deposit
-            </h2>
+            <h2 className="text-sm font-bold text-amber-700 uppercase tracking-widest mb-4">Advance Deposit</h2>
             <label className={labelCls}>Amount Received (Rs)</label>
             <input
-              type="text"
-              inputMode="decimal"
+              type="text" inputMode="decimal"
               className={`${inputCls} border-amber-200 focus:border-amber-400`}
-              placeholder="0.00"
-              value={advanceDeposit}
-              onChange={(e) =>
-                setAdvanceDeposit(e.target.value === "" ? "" : parseFloat(e.target.value))
-              }
+              placeholder="0.00" value={advanceDeposit}
+              onChange={(e) => setAdvanceDeposit(e.target.value === "" ? "" : parseFloat(e.target.value))}
             />
             {advance > 0 && (
-              <p className="text-[11px] text-amber-600 mt-2 font-medium">
-                ✓ Rs {advance.toFixed(2)} will be deducted
-              </p>
+              <p className="text-[11px] text-amber-600 mt-2 font-medium">✓ Rs {advance.toFixed(2)} will be deducted</p>
             )}
           </section>
 
           <section className="bg-[#0f2850] rounded-2xl shadow-lg p-6 text-white">
-            <h2 className="text-xs font-bold uppercase tracking-widest text-blue-300 mb-4">
-              Summary
-            </h2>
-            <div className="space-y-2.5">
-              {[
-                ["Total Area", `${totalArea.toFixed(2)} sqft`],
-                ["Avg Rate / sqft", `Rs ${avgRate.toFixed(2)}`],
-                ["Area Total", `Rs ${productTotal.toFixed(2)}`],
-                ["Local Transportation", `Rs ${transport.toFixed(2)}`],
-                ["Grand Total", `Rs ${grandTotal.toFixed(2)}`],
-              ].map(([label, val]) => (
-                <div key={label} className="flex justify-between text-sm">
-                  <span className="text-blue-200">{label}</span>
-                  <span className="font-semibold">{val}</span>
-                </div>
-              ))}
+            <h2 className="text-xs font-bold uppercase tracking-widest text-blue-300 mb-4">Summary</h2>
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-blue-200">Products Total</span>
+                <span className="font-semibold">Rs {productTotal.toFixed(2)}</span>
+              </div>
+              {totalFittingAmount > 0 && (
+                <>
+                  {totalWallArea > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-emerald-300">Wall Fitting ({totalWallArea.toFixed(2)} sqft)</span>
+                      <span className="text-emerald-300">Rs {(totalWallArea * 30).toFixed(2)}</span>
+                    </div>
+                  )}
+                  {totalCeilingArea > 0 && (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-emerald-300">Ceiling Fitting ({totalCeilingArea.toFixed(2)} sqft)</span>
+                      <span className="text-emerald-300">Rs {(totalCeilingArea * 35).toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between text-sm">
+                    <span className="text-blue-200">Fitting Charges Total</span>
+                    <span className="font-semibold">Rs {totalFittingAmount.toFixed(2)}</span>
+                  </div>
+                </>
+              )}
+              <div className="flex justify-between text-sm border-t border-white/10 pt-2">
+                <span className="text-blue-200">Grand Total</span>
+                <span className="font-semibold">Rs {grandTotal.toFixed(2)}</span>
+              </div>
               {advance > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-amber-300">Advance Deposit (-)</span>
@@ -437,20 +655,61 @@ export default function InvoicePage() {
               )}
               <div className="border-t border-white/20 pt-3 mt-1 flex justify-between items-center">
                 <span className="text-base font-bold">Net Payable</span>
-                <span className="text-xl font-extrabold text-yellow-400">
-                  Rs {netPayable.toFixed(2)}
-                </span>
+                <span className="text-xl font-extrabold text-yellow-400">Rs {netPayable.toFixed(2)}</span>
               </div>
             </div>
           </section>
         </div>
 
+        {/* Remaining Items */}
+        <section className="bg-white rounded-2xl shadow-sm border border-orange-100 p-6">
+          <div className="mb-4">
+            <h2 className="text-sm font-bold text-orange-800 uppercase tracking-widest">Remaining Items</h2>
+            <p className="text-[11px] text-slate-400 mt-0.5">For reference only · not included in billing</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Number of Panels (pcs)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                className={`${inputCls} text-center border-orange-200 focus:border-orange-400`}
+                placeholder="e.g. 5"
+                value={remainingPanels}
+                onChange={(e) => setRemainingPanels(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className={labelCls}>Number of U/L Channels (pcs)</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                className={`${inputCls} text-center border-orange-200 focus:border-orange-400`}
+                placeholder="e.g. 3"
+                value={remainingChannels}
+                onChange={(e) => setRemainingChannels(e.target.value)}
+              />
+            </div>
+          </div>
+          {(parseInt(remainingPanels) > 0 || parseInt(remainingChannels) > 0) && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {parseInt(remainingPanels) > 0 && (
+                <span className="inline-flex items-center gap-1.5 bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold px-3 py-1.5 rounded-lg">
+                  📦 Panel: {remainingPanels} pcs remaining
+                </span>
+              )}
+              {parseInt(remainingChannels) > 0 && (
+                <span className="inline-flex items-center gap-1.5 bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold px-3 py-1.5 rounded-lg">
+                  📦 U/L Channel: {remainingChannels} pcs remaining
+                </span>
+              )}
+            </div>
+          )}
+        </section>
+
         {/* Download */}
         <div className="flex justify-end pb-8">
-          <button
-            onClick={generatePDF}
-            className="flex items-center gap-2 bg-[#0f2850] hover:bg-blue-900 text-white font-bold px-8 py-3.5 rounded-xl shadow-lg transition text-sm tracking-wide"
-          >
+          <button onClick={generatePDF} className="flex items-center gap-2 bg-[#0f2850] hover:bg-blue-900 text-white font-bold px-8 py-3.5 rounded-xl shadow-lg transition text-sm tracking-wide">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 16v-8m0 8l-3-3m3 3l3-3M6 20h12a2 2 0 002-2V8l-6-6H6a2 2 0 00-2 2v14a2 2 0 002 2z" />
             </svg>
