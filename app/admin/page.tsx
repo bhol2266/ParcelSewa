@@ -69,7 +69,7 @@ export default function OrdersPage() {
     const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
     const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const PASSWORD = "5555";
+    const PASSWORD = "2266";
     const COOKIE_NAME = "admin_access";
 
     // ── Fetch all pending orders (all time) ───────────────────────────────────
