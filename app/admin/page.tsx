@@ -64,6 +64,11 @@ export default function OrdersPage() {
 
     const [monthOrdersLoading, setMonthOrdersLoading] = useState(false);
 
+    // ── Global search (fires when local results are empty) ────────────────────
+    const [globalSearchResults, setGlobalSearchResults] = useState<Order[] | null>(null);
+    const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
+    const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
     const PASSWORD = "5555";
     const COOKIE_NAME = "admin_access";
 
@@ -190,6 +195,7 @@ export default function OrdersPage() {
 
     const handleMonthChange = (value: string) => {
         setSelectedMonth(value);
+        setGlobalSearchResults(null);
         if (value) {
             fetchMonthOrders(value);
         } else {
@@ -198,7 +204,37 @@ export default function OrdersPage() {
         }
     };
 
-    const refresh = useCallback(() => {
+    // ── Search all orders in Firestore by name or mobile ──────────────────────
+    const searchAllOrders = useCallback(async (term: string) => {
+        if (term.length < 2) {
+            setGlobalSearchResults(null);
+            return;
+        }
+        setGlobalSearchLoading(true);
+        try {
+            const snap = await getDocs(collection(db, "Confirm Orders"));
+            const all = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Order[];
+            const lower = term.toLowerCase();
+            const matched = all.filter(
+                (o) =>
+                    o.name?.toLowerCase().includes(lower) ||
+                    o.mobile?.includes(term)
+            );
+            setGlobalSearchResults(matched);
+        } catch (err) {
+            console.error("Global search failed:", err);
+            setGlobalSearchResults([]);
+        } finally {
+            setGlobalSearchLoading(false);
+        }
+    }, []);
+
+    const scrollSaveRef = useRef<number | null>(null);
+
+    const refresh = useCallback((orderId?: string) => {
+        // Save the order id to scroll to after re-render
+        if (orderId) sessionStorage.setItem("scrollToOrderId", orderId);
+
         if (selectedMonth) {
             fetchMonthOrders(selectedMonth);
         } else {
@@ -209,12 +245,25 @@ export default function OrdersPage() {
         }
     }, [fetchMonthOrders, fetchAllPendingOrders, fetchAllRecentDeliveredOrders, selectedMonth, allTimeSortOption]);
 
+    // After data re-renders, scroll the saved card to center
+    useEffect(() => {
+        const orderId = sessionStorage.getItem("scrollToOrderId");
+        if (!orderId) return;
+        sessionStorage.removeItem("scrollToOrderId");
+
+        setTimeout(() => {
+            const el = document.querySelector(`[data-order-id="${orderId}"]`);
+            if (el) {
+                el.scrollIntoView({ behavior: "smooth", block: "center" });
+            }
+        }, 150);
+    }, [allPendingOrders, monthStatOrders, monthDeliveredOrders, allRecentDeliveredOrders]);
+
     const filteredOrders = useMemo(() => {
         const matchesSearch = (o: Order) =>
             o.name?.toLowerCase().includes(search.toLowerCase()) ||
             o.mobile?.includes(search);
 
-        // All-time view
         if (!selectedMonth) {
             if (allTimeSortOption === "delivered") {
                 return allRecentDeliveredOrders.filter(matchesSearch);
@@ -246,6 +295,25 @@ export default function OrdersPage() {
                 return [];
         }
     }, [search, sortOption, allTimeSortOption, selectedMonth, monthStatOrders, monthDeliveredOrders, allPendingOrders, allRecentDeliveredOrders]);
+
+    // ── Debounced global search — fires 600ms after typing stops ─────────────
+    useEffect(() => {
+        if (!search) {
+            setGlobalSearchResults(null);
+            return;
+        }
+        if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+        searchDebounceRef.current = setTimeout(() => {
+            if (filteredOrders.length === 0) {
+                searchAllOrders(search);
+            } else {
+                setGlobalSearchResults(null);
+            }
+        }, 600);
+        return () => {
+            if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+        };
+    }, [search, filteredOrders.length, searchAllOrders]);
 
     const isLoading = !selectedMonth
         ? (allTimeSortOption === "delivered" ? allDeliveredLoading : allPendingLoading)
@@ -329,13 +397,30 @@ export default function OrdersPage() {
 
                 {/* Orders List */}
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredOrders.length > 0 ? (
+                    {globalSearchLoading ? (
+                        <p className="text-center col-span-full text-gray-400 mt-10">🔍 Searching all orders…</p>
+                    ) : globalSearchResults !== null ? (
+                        globalSearchResults.length > 0 ? (
+                            <>
+                                <p className="col-span-full text-xs text-blue-600 font-medium mb-1">
+                                    🌐 Showing results from all orders ({globalSearchResults.length} found)
+                                </p>
+                                {globalSearchResults.map((order) => (
+                                    <OrderCard key={order.id} order={order} refresh={refresh} />
+                                ))}
+                            </>
+                        ) : (
+                            <p className="text-center col-span-full text-gray-500 mt-10">
+                                No orders found anywhere.
+                            </p>
+                        )
+                    ) : filteredOrders.length > 0 ? (
                         filteredOrders.map((order) => (
                             <OrderCard key={order.id} order={order} refresh={refresh} />
                         ))
                     ) : (
                         <p className="text-center col-span-full text-gray-500 mt-10">
-                            No orders found.
+                            {search ? "Searching all orders…" : "No orders found."}
                         </p>
                     )}
                 </div>
