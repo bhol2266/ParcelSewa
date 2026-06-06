@@ -2,30 +2,12 @@
 
 import React, { useState } from "react";
 import ReactCountryFlag from "react-country-flag";
-import Cookies from "js-cookie";
-import { useEffect } from "react";
-import Quatation_Calc from "./Quatation_Calc";
-
-
-
-const COOKIE_NAME = "admin_access";
-
 
 export default function PriceCalculator() {
   const [price, setPrice] = useState("");
   const [weight, setWeight] = useState("");
   const [category, setCategory] = useState("");
   const [total, setTotal] = useState<number | null>(null);
-
-  const [accessGranted, setAccessGranted] = useState(false);
-
-
-  useEffect(() => {
-    const cookie = Cookies.get(COOKIE_NAME);
-    if (cookie === "5555") {
-      setAccessGranted(true);
-    }
-  }, []);
 
   const handleCalculate = () => {
     if (!price || !weight || !category || category === "Choose Product Category") {
@@ -55,8 +37,6 @@ export default function PriceCalculator() {
   return (
     <div className="w-full mx-auto px-4 py-8 md:flex justify-evenly gap-8">
 
-
-
       <div className="w-full mx-auto max-w-[500px] lg:max-w-[700px]">
         {/* Badge */}
         <div className="inline-block bg-blue-100 text-blue-700 px-5 py-1.5 rounded-full text-sm font-medium mb-4">
@@ -65,20 +45,19 @@ export default function PriceCalculator() {
 
         {/* Heading */}
         <h1 className="w-full text-[24px] md:text-[32px] lg:text-[40px] font-semibold leading-snug text-[#002B5B]">
-          Know your final cost before you say <span className="text-orange-500">“yes”.</span>
+          Know your final cost before you say <span className="text-orange-500">"yes".</span>
         </h1>
 
         <p className="mt-4 text-[#002B5B] text-sm md:text-base leading-relaxed">
           Our calculator uses live FX rates, category-based customs rules and your delivery location to estimate your final price.
         </p>
 
-        {accessGranted &&
-          <Quatation_Calc />
-        }
         {/* Result Box */}
         {total !== null && (
-          <div className="mx-auto  max-w-[500px] mt-6 p-5 rounded-xl shadow-acertinity bg-white border border-gray-200">
-            <h3 className="text-md text-[#002B5B] mb-3">Estimated Total Cost (Approx*)  <br /> (Including border handling + courier)</h3>
+          <div className="mx-auto max-w-[500px] mt-6 p-5 rounded-xl shadow-acertinity bg-white border border-gray-200">
+            <h3 className="text-md text-[#002B5B] mb-3">
+              Estimated Total Cost (Approx*) <br /> (Including border handling + courier)
+            </h3>
 
             {/* INR Section */}
             <div className="flex items-center justify-between bg-blue-50 p-3 rounded-lg mb-3">
@@ -106,7 +85,6 @@ export default function PriceCalculator() {
             </div>
           </div>
         )}
-
       </div>
 
       {/* Form Container */}
@@ -165,12 +143,7 @@ export default function PriceCalculator() {
         >
           Calculate
         </button>
-
-
       </div>
     </div>
   );
 }
-
-
-

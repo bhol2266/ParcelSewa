@@ -16,7 +16,7 @@ const tiles: Tile[] = [
   {
     title: "Price Calculator",
     icon: <FaCalculator size={30} />,
-    href: "/price-calculator",
+    href: "/admin/quotation-calculator",
     bg: "bg-blue-500",
   },
   {
