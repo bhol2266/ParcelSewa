@@ -2,12 +2,103 @@ import { NextRequest, NextResponse } from "next/server";
 
 const CRONJOB_API = process.env.CRONJOB_API_URL || "https://backend.uktechdeveloper.co.uk/parcelsewa";
 
+// ── Myntra-specific image extractor ──────────────────────────────────────────
+// Myntra is a React SPA; the scraper gets raw HTML which lacks dynamic content.
+// However, Myntra embeds product data in an inline <script> tag as JSON, and
+// their CDN image URLs follow a predictable pattern based on the product ID.
+async function fetchMyntraImage(productUrl: string, notes: string): Promise<string | null> {
+    try {
+        // Extract the product ID from the URL.
+        // Myntra URLs look like: https://www.myntra.com/tops/brand/name-detail/12345678/buy
+        const idMatch = productUrl.match(/\/(\d{6,10})\/buy/);
+        const productId = idMatch?.[1];
+
+        // Step 1: Try fetching the raw HTML and parse the embedded JSON script.
+        const res = await fetch(productUrl, {
+            headers: {
+                // Mimic a real browser to avoid bot-detection blocks.
+                "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.5",
+            },
+            signal: AbortSignal.timeout(20000),
+        });
+
+        if (res.ok) {
+            const html = await res.text();
+
+            // Myntra injects product data into a script tag like:
+            // <script id="__NEXT_DATA__" ...>{"props":{"pageProps":{"pdpData":...}}}</script>
+            // or a legacy: window.__myntraweb__ = {...}
+            const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+            if (nextDataMatch) {
+                try {
+                    const json = JSON.parse(nextDataMatch[1]);
+                    // Navigate to the media list in the pdp data
+                    const pdpData =
+                        json?.props?.pageProps?.pdpData ||
+                        json?.props?.pageProps?.initialState?.pdp?.pdpData;
+                    const media: any[] = pdpData?.mediaList ?? pdpData?.media ?? [];
+
+                    if (media.length > 0) {
+                        // Each entry has a `src` (base URL) and optionally `imageURL`
+                        // Pick the one matching `notes` color hint if possible
+                        const hint = notes?.toLowerCase() ?? "";
+                        const scored = media
+                            .filter((m) => m.src || m.imageURL)
+                            .map((m) => {
+                                const url: string = m.imageURL ?? `${m.src}`;
+                                const matchesHint =
+                                    hint && url.toLowerCase().includes(hint) ? 1 : 0;
+                                // Myntra appends ?q=90&crop=false to hi-res images
+                                const isHighRes = url.includes("h=960") || url.includes("h=780") ? 1 : 0;
+                                return { url, score: matchesHint * 10 + isHighRes };
+                            })
+                            .sort((a, b) => b.score - a.score);
+
+                        if (scored[0]?.url) return scored[0].url;
+                    }
+                } catch {
+                    // JSON parse failed — fall through to CDN pattern
+                }
+            }
+
+            // Legacy Myntra: images are in <img> tags with class "image-grid-imageContainer"
+            // or in an og:image meta tag which IS server-rendered.
+            const ogMatch = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/);
+            if (ogMatch?.[1]) return ogMatch[1];
+        }
+
+        // Step 2: Fallback — construct Myntra's CDN URL directly from the product ID.
+        // Myntra CDN pattern: https://assets.myntassets.com/h/960/q/90/{productId}/images/1/1/1/*_1.jpg
+        // This is the standard front-image slot used across nearly all listings.
+        if (productId) {
+            return `https://assets.myntassets.com/h/960,q_90/${productId}/images/1/1/1/1_1.jpg`;
+        }
+
+        return null;
+    } catch {
+        return null;
+    }
+}
+
 export async function POST(req: NextRequest) {
     try {
         const { productUrl, notes } = await req.json();
 
         if (!productUrl) {
             return NextResponse.json({ error: "Missing productUrl" }, { status: 400 });
+        }
+
+        // ── Myntra early-exit: bypass generic scraper ─────────────────────────
+        const isMyntra = /myntra\.com/i.test(productUrl);
+        if (isMyntra) {
+            const myntraImage = await fetchMyntraImage(productUrl, notes || "");
+            if (myntraImage) {
+                return NextResponse.json({ imageUrl: myntraImage });
+            }
+            // If Myntra extractor failed, fall through to generic scraper as a last resort.
         }
 
         // ── Step 1: Get image candidates from scraper ─────────────────────────
