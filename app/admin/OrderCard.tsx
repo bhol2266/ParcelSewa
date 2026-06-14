@@ -352,8 +352,11 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                         <p><b>Total Amount:</b> Rs. {order.totalAmount}</p>
                         <p><b>Advance Paid:</b> Rs. {order.advancePayment}</p>
 
-                        {!isDelivered && !isCancelled && (
-                            <p className="text-red-700 font-semibold text-lg"><b>Remaining Payment:</b> Rs. {remaining}</p>
+                        {!isCancelled && (
+                            <p className={`font-semibold text-lg ${remaining > 0 ? "text-red-700" : "text-green-700"}`}>
+                                <b>Remaining Payment:</b> Rs. {remaining}
+                                {isDelivered && remaining === 0 && " ✅"}
+                            </p>
                         )}
 
                         <p><b>Ordered Date:</b> {formatDate(order.orderedDate)}</p>
