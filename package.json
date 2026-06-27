@@ -9,9 +9,11 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.106.0",
     "@headlessui/react": "^2.2.9",
     "@heroicons/react": "^2.2.0",
     "cookies-next": "^6.1.1",
+    "exceljs": "^4.4.0",
     "firebase": "^12.6.0",
     "firebase-admin": "^13.6.0",
     "js-cookie": "^3.0.5",
