@@ -15,12 +15,6 @@ interface PassportData {
   placeOfBirth: string;
   personalNumber: string;
   permanentAddress: string;
-  temporaryAddress: string;
-  municipality: string;
-  wardNo: string;
-  district: string;
-  province: string;
-  country: string;
 }
 
 interface ExtractionResult {
@@ -52,12 +46,6 @@ const PASSPORT_FIELDS: [keyof PassportData, string][] = [
 
 const ADDRESS_FIELDS: [keyof PassportData, string][] = [
   ["permanentAddress", "Permanent Address"],
-  ["temporaryAddress", "Temporary Address"],
-  ["municipality", "Municipality"],
-  ["wardNo", "Ward No."],
-  ["district", "District"],
-  ["province", "Province"],
-  ["country", "Country"],
 ];
 
 export default function PassportExtractorPage() {
@@ -480,7 +468,7 @@ export default function PassportExtractorPage() {
                         </p>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                           {ADDRESS_FIELDS.map(([field, label]) => (
-                            <div key={field} className={field === "permanentAddress" || field === "temporaryAddress" ? "lg:col-span-3 sm:col-span-2" : ""}>
+                            <div key={field}>
                               <label className="block text-xs font-medium text-slate-500 mb-1.5">{label}</label>
                               <input type="text" value={result.data![field] || ""}
                                 onChange={(e) => updateField(idx, field, e.target.value)}

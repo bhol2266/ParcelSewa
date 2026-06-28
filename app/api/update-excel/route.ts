@@ -14,12 +14,6 @@ interface PassportData {
   placeOfBirth: string;
   personalNumber: string;
   permanentAddress: string;
-  temporaryAddress: string;
-  municipality: string;
-  wardNo: string;
-  district: string;
-  province: string;
-  country: string;
 }
 
 function calculateAge(dob: string): number {
@@ -76,12 +70,6 @@ const COLUMNS: [string, keyof PassportData | "age" | "srNo" | "designation" | "o
   ["AGE", "age"],
   ["REMARKS", "remarks"],
   ["PERMANENT ADDRESS", "permanentAddress"],
-  ["TEMPORARY ADDRESS", "temporaryAddress"],
-  ["MUNICIPALITY", "municipality"],
-  ["WARD NO.", "wardNo"],
-  ["DISTRICT", "district"],
-  ["PROVINCE", "province"],
-  ["COUNTRY", "country"],
 ];
 
 export async function POST(req: NextRequest) {
@@ -124,27 +112,15 @@ export async function POST(req: NextRequest) {
       // Map of extra columns to add if missing
       const extraColumns: [string, number][] = [
         ["PERMANENT ADDRESS", 10],
-        ["TEMPORARY ADDRESS", 11],
-        ["MUNICIPALITY", 12],
-        ["WARD NO.", 13],
-        ["DISTRICT", 14],
-        ["PROVINCE", 15],
-        ["COUNTRY", 16],
       ];
 
       for (const [label, colIdx] of extraColumns) {
-        const alreadyExists = existingHeaders.some(
-          (h) => h.includes("ADDRESS") || h.includes("MUNICIPALITY") || h.includes("DISTRICT") || h.includes("PROVINCE") || h.includes("COUNTRY") || h.includes("WARD")
-        );
+        const alreadyExists = existingHeaders.some((h) => h.includes("ADDRESS"));
         if (!alreadyExists || currentColCount < colIdx) {
-          // Add header cell for missing column
           sheet.eachRow((row, rowNumber) => {
-            if (rowNumber <= 2) {
-              // try to set header on row 1 only
-              if (rowNumber === 1) {
-                clearAndSetCell(row, colIdx, label, true);
-                row.commit();
-              }
+            if (rowNumber === 1) {
+              clearAndSetCell(row, colIdx, label, true);
+              row.commit();
             }
           });
         }
@@ -210,7 +186,7 @@ export async function POST(req: NextRequest) {
       nextSr = 1;
 
       // Set column widths (use local ref so TS keeps the narrowing inside the callback)
-      const widths = [8, 14, 30, 20, 18, 16, 16, 8, 16, 28, 28, 20, 10, 16, 14, 14];
+      const widths = [8, 14, 30, 20, 18, 16, 16, 8, 16, 35];
       const newSheet = sheet;
       widths.forEach((w, i) => {
         newSheet.getColumn(i + 1).width = w;
@@ -267,12 +243,6 @@ export async function POST(req: NextRequest) {
       clearAndSetCell(row, 8, calculateAge(record.dateOfBirth));
       clearAndSetCell(row, 9, "");
       clearAndSetCell(row, 10, record.permanentAddress || "");
-      clearAndSetCell(row, 11, record.temporaryAddress || "");
-      clearAndSetCell(row, 12, record.municipality || "");
-      clearAndSetCell(row, 13, record.wardNo || "");
-      clearAndSetCell(row, 14, record.district || "");
-      clearAndSetCell(row, 15, record.province || "");
-      clearAndSetCell(row, 16, record.country || "");
 
       row.height = 18;
       row.commit();

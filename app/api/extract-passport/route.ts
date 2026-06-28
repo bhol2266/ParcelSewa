@@ -42,7 +42,11 @@ export async function POST(req: NextRequest) {
               },
               {
                 type: "text",
-                text: `Extract all details from this passport image. Return ONLY a JSON object with these exact fields:
+                text: `This image shows a Nepali passport — it may contain TWO pages visible at once: the top half is the inner data page (contains address, emergency contact, old passport info printed sideways/rotated), and the bottom half is the main bio-data page.
+
+Carefully examine BOTH halves of the image, including any text that is rotated 90 degrees.
+
+Extract all details and return ONLY a JSON object with these exact fields:
 {
   "surname": "",
   "givenNames": "",
@@ -55,20 +59,13 @@ export async function POST(req: NextRequest) {
   "sex": "",
   "placeOfBirth": "",
   "personalNumber": "",
-  "permanentAddress": "",
-  "temporaryAddress": "",
-  "municipality": "",
-  "wardNo": "",
-  "district": "",
-  "province": "",
-  "country": ""
+  "permanentAddress": ""
 }
 
 Rules:
 - Use DD MMM YYYY format for all dates (e.g., "18 AUG 1993").
 - fullName should be "GIVEN_NAMES SURNAME" (e.g., "TEK BAHADUR ROKA MAGAR").
-- For address fields, extract whatever address information is visible on the passport (permanent address, temporary address, municipality, ward number, district, province, country).
-- If a field is not visible or not present on the passport, leave it as an empty string "".
+- permanentAddress: look in the TOP half of the image (inner page), find the field labelled "ठेगाना | ADDRESS" — it is printed sideways/rotated. Extract that full address (e.g., "CHEPANG, BANSGADHI 1, BARDIYA"). If not found, leave as "".
 - Return ONLY the JSON, no explanation.`,
               },
             ],
