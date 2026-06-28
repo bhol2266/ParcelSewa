@@ -66,6 +66,7 @@ export default function PassportExtractorPage() {
 
   const handleExtract = async () => {
     if (passportFiles.length === 0) return;
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setStep("extracting");
     setErrorMsg(null);
 
@@ -89,9 +90,11 @@ export default function PassportExtractorPage() {
       );
 
       setResults(enriched);
+      window.scrollTo({ top: 0, behavior: "smooth" });
       setStep("review");
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Extraction failed");
+      window.scrollTo({ top: 0, behavior: "smooth" });
       setStep("upload-passport");
     }
   };
@@ -112,6 +115,7 @@ export default function PassportExtractorPage() {
 
   const handleUpdateExcel = async () => {
     if (!excelFile) return;
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setStep("updating");
     setErrorMsg(null);
 
@@ -136,14 +140,17 @@ export default function PassportExtractorPage() {
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       setDownloadUrl(url);
+      window.scrollTo({ top: 0, behavior: "smooth" });
       setStep("done");
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Excel update failed");
+      window.scrollTo({ top: 0, behavior: "smooth" });
       setStep("review");
     }
   };
 
   const reset = () => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
     setStep("upload-passport");
     setPassportFiles([]);
     setPassportPreviews([]);

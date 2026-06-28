@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_FIREBASE_APP_ID: "1:77205406370:web:64537418eb85fbbbb24dfb",
     NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: "G-0GMBZ1L7JR",
     NEXT_PUBLIC_FIREBASE_DATABASE_URL: "https://parcel-sewa-default-rtdb.asia-southeast1.firebasedatabase.app",
-    NEXT_PUBLIC_ANTHROPIC_API_KEY: "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",
+    NEXT_PUBLIC_ANTHROPIC_API_KEY: "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",
   }
 };
 
