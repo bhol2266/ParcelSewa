@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic({
-  apiKey: "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",
+  apiKey: process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY || "",
 });
 
 export async function POST(req: NextRequest) {
