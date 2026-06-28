@@ -5,7 +5,7 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || "",
 });
 
-export  async function POST(req: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const images = formData.getAll("images") as File[];
@@ -15,7 +15,7 @@ export  async function POST(req: NextRequest) {
     }
 
     const results = [];
-    
+
     for (const image of images) {
       const arrayBuffer = await image.arrayBuffer();
       const base64 = Buffer.from(arrayBuffer).toString("base64");
@@ -42,7 +42,7 @@ export  async function POST(req: NextRequest) {
               },
               {
                 type: "text",
-                text: `Extract passport details from this image. Return ONLY a JSON object with these exact fields:
+                text: `Extract all details from this passport image. Return ONLY a JSON object with these exact fields:
 {
   "surname": "",
   "givenNames": "",
@@ -54,12 +54,22 @@ export  async function POST(req: NextRequest) {
   "nationality": "",
   "sex": "",
   "placeOfBirth": "",
-  "personalNumber": ""
+  "personalNumber": "",
+  "permanentAddress": "",
+  "temporaryAddress": "",
+  "municipality": "",
+  "wardNo": "",
+  "district": "",
+  "province": "",
+  "country": ""
 }
 
-Use DD MMM YYYY format for all dates (e.g., "18 AUG 1993").
-fullName should be "GIVEN_NAMES SURNAME" (e.g., "TEK BAHADUR ROKA MAGAR").
-Return ONLY the JSON, no explanation.`,
+Rules:
+- Use DD MMM YYYY format for all dates (e.g., "18 AUG 1993").
+- fullName should be "GIVEN_NAMES SURNAME" (e.g., "TEK BAHADUR ROKA MAGAR").
+- For address fields, extract whatever address information is visible on the passport (permanent address, temporary address, municipality, ward number, district, province, country).
+- If a field is not visible or not present on the passport, leave it as an empty string "".
+- Return ONLY the JSON, no explanation.`,
               },
             ],
           },
