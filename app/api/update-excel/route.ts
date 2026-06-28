@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     const passportRecords: PassportData[] = JSON.parse(passportDataRaw);
 
     const workbook = new ExcelJS.Workbook();
-    let sheet: ExcelJS.Worksheet;
+    let sheet: ExcelJS.Worksheet | undefined;
     let lastDataRow = 1;
     let nextSr = 1;
 
@@ -217,6 +217,9 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Write records ───────────────────────────────────────────────────────
+    if (!sheet) {
+      return NextResponse.json({ error: "Worksheet could not be initialised" }, { status: 500 });
+    }
     // For "new" mode also check duplicates within the batch being inserted
     const batchPassportNos = new Set<string>();
     const batchDuplicates: string[] = [];
