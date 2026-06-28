@@ -209,10 +209,11 @@ export async function POST(req: NextRequest) {
       lastDataRow = 1;
       nextSr = 1;
 
-      // Set column widths
+      // Set column widths (use local ref so TS keeps the narrowing inside the callback)
       const widths = [8, 14, 30, 20, 18, 16, 16, 8, 16, 28, 28, 20, 10, 16, 14, 14];
+      const newSheet = sheet;
       widths.forEach((w, i) => {
-        sheet.getColumn(i + 1).width = w;
+        newSheet.getColumn(i + 1).width = w;
       });
     }
 
