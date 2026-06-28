@@ -5,7 +5,7 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || "",
 });
 
-export async function POST(req: NextRequest) {
+export  async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const images = formData.getAll("images") as File[];
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     }
 
     const results = [];
-
+    
     for (const image of images) {
       const arrayBuffer = await image.arrayBuffer();
       const base64 = Buffer.from(arrayBuffer).toString("base64");
