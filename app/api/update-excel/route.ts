@@ -14,6 +14,7 @@ interface PassportData {
   placeOfBirth: string;
   personalNumber: string;
   permanentAddress: string;
+  oldPassportNumber: string;
 }
 
 function calculateAge(dob: string): number {
@@ -236,7 +237,7 @@ export async function POST(req: NextRequest) {
       clearAndSetCell(row, 1, nextSr++);
       clearAndSetCell(row, 2, "GARDENER");
       clearAndSetCell(row, 3, record.fullName || `${record.givenNames} ${record.surname}`);
-      clearAndSetCell(row, 4, "");
+      clearAndSetCell(row, 4, record.oldPassportNumber || "");
       clearAndSetCell(row, 5, record.passportNumber);
       clearAndSetCell(row, 6, record.dateOfExpiry);
       clearAndSetCell(row, 7, record.dateOfBirth);

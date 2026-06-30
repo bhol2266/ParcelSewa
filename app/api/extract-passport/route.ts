@@ -59,13 +59,15 @@ Extract all details and return ONLY a JSON object with these exact fields:
   "sex": "",
   "placeOfBirth": "",
   "personalNumber": "",
-  "permanentAddress": ""
+  "permanentAddress": "",
+  "oldPassportNumber": ""
 }
 
 Rules:
 - Use DD MMM YYYY format for all dates (e.g., "18 AUG 1993").
 - fullName should be "GIVEN_NAMES SURNAME" (e.g., "TEK BAHADUR ROKA MAGAR").
 - permanentAddress: look in the TOP half of the image (inner page), find the field labelled "ठेगाना | ADDRESS" — it is printed sideways/rotated. Extract that full address (e.g., "CHEPANG, BANSGADHI 1, BARDIYA"). If not found, leave as "".
+- oldPassportNumber: look in the TOP half of the image (inner page), find the field labelled "पुरानो राहदानी नं. | OLD PASSPORT NO" — it is usually printed sideways/rotated, near the photo box. Extract the number exactly as printed, including any status annotation in parentheses if shown (e.g., "10237341 (LOST)"). If the field is blank, shows only dashes, or is not present at all, leave oldPassportNumber as "".
 - Return ONLY the JSON, no explanation.`,
               },
             ],

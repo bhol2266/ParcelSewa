@@ -15,6 +15,7 @@ interface PassportData {
   placeOfBirth: string;
   personalNumber: string;
   permanentAddress: string;
+  oldPassportNumber: string;
 }
 
 interface ExtractionResult {
@@ -46,6 +47,7 @@ const PASSPORT_FIELDS: [keyof PassportData, string][] = [
 
 const ADDRESS_FIELDS: [keyof PassportData, string][] = [
   ["permanentAddress", "Permanent Address"],
+  ["oldPassportNumber", "Old Passport Number"],
 ];
 
 export default function PassportExtractorPage() {
