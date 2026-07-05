@@ -4,6 +4,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Script from "next/script";
+import { IS_COMPANY_CLOSED } from "@/lib/site-status";
 
 
 const inter = Inter({
@@ -78,11 +79,11 @@ export default function RootLayout({
         >
 
           <div className="pt-[50px]  xl:px-10 3xl:w-1/5 mx-auto ">
-            <Navbar />
+            {!IS_COMPANY_CLOSED && <Navbar />}
 
             {children}
           </div>
-          <Footer />
+          {!IS_COMPANY_CLOSED && <Footer />}
         </body>
       </html>
 

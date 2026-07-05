@@ -1,4 +1,3 @@
-
 import BottomSection from "@/components/BottomSection";
 import Brands from "@/components/Brands";
 import Faqs from "@/components/Faqs";
@@ -10,6 +9,7 @@ import Workflow from "@/components/Workflow";
 import Workflow2 from "@/components/Workflow2";
 import ReactCountryFlag from "react-country-flag";
 import Link from "next/link";
+import { IS_COMPANY_CLOSED } from "@/lib/site-status";
 
 export const metadata = {
   title: "ParcelSewa | Buy from Indian Online Stores & Get Delivered in Nepal",
@@ -42,7 +42,35 @@ export const metadata = {
 };
 
 
+function ClosedNotice() {
+  return (
+    <div className="min-h-screen flex items-center justify-center px-4 bg-white">
+      <div className="max-w-md text-center">
+        <img
+          src="/landingPage/box4.png"
+          alt=""
+          className="w-40 mx-auto mb-6 opacity-80"
+        />
+        <h1 className="text-2xl font-semibold text-themeBlue mb-3">
+          We're temporarily closed
+        </h1>
+        <p className="text-gray-600 mb-2">
+          ParcelSewa is currently not accepting new orders. We'll be back
+          soon — thank you for your patience.
+        </p>
+        <p className="text-gray-500 text-sm">
+          For urgent queries, please reach out to our support team.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function Home() {
+  if (IS_COMPANY_CLOSED) {
+    return <ClosedNotice />;
+  }
+
   return (
     <div>
 
