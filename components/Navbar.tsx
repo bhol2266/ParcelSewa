@@ -26,7 +26,12 @@ const Navbar = () => {
   const pathname = usePathname();
   const router = useRouter();
 
-  if (pathname === "/huggai-delete-account" || pathname === "/huggai-privacy-policy") return null;
+  if (
+    pathname === "/huggai-delete-account" ||
+    pathname === "/huggai-privacy-policy" ||
+    pathname === "/vixoai-delete-account" ||
+    pathname === "/vixoai-privacy-policy"
+  ) return null;
 
   return (
     <motion.div
