@@ -6,7 +6,7 @@ const brandsimages = ["StoresImages/hd/amazon.png", "StoresImages/hd/flipkart.pn
 export default function Workflow2() {
     return (
 
-        <div  id="workflow" className="bg-[#F7F7F7]">
+        <div  id="workflow" className="bg-[#F7F7F7] dark:bg-gray-900 transition-colors">
 
             <div className="hidden lg:flex items-center gap-12 px-6 lg:px-6   px-4">
 
@@ -28,15 +28,15 @@ export default function Workflow2() {
                     <div className="max-w-6xl mx-auto px-6">
                         {/* Header */}
 
-                        <div className="inline-block bg-blue-100 text-blue-600 px-5 py-2 rounded-full text-sm font-medium mb-2">
+                        <div className="inline-block bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-300 px-5 py-2 rounded-full text-sm font-medium mb-2">
                             How it works
                         </div>
 
-                        <h2 className="text-3xl md:text-4xl font-bold text-[#0A2A4A] leading-tight">
+                        <h2 className="text-3xl md:text-4xl font-bold text-[#0A2A4A] dark:text-blue-100 leading-tight">
                             Shop from India, get it in <br /> Nepal in 4 steps.
                         </h2>
 
-                        <p className="text-gray-600 mt-4 max-w-3xl text-sm md:text-base">
+                        <p className="text-gray-600 dark:text-gray-300 mt-4 max-w-3xl text-sm md:text-base">
                             No more confusion about customs, currency conversion or courier charges.
                             Paste the link, confirm the quote, pay in NPR and we handle the rest.
                         </p>
@@ -44,37 +44,37 @@ export default function Workflow2() {
                         {/* Steps */}
                         <div className="grid md:grid-cols-2 gap-8 mt-12">
                             <div>
-                                <h3 className="text-lg font-semibold text-orange-500">
+                                <h3 className="text-lg font-semibold text-orange-500 dark:text-orange-400">
                                     Paste the product link
                                 </h3>
-                                <p className="text-gray-600 mt-1 text-sm md:text-base">
+                                <p className="text-gray-600 dark:text-gray-300 mt-1 text-sm md:text-base">
                                     Copy the URL from Amazon, Flipkart, Myntra, Ajio or any trusted Indian store.
                                 </p>
                             </div>
 
                             <div>
-                                <h3 className="text-lg font-semibold text-orange-500">
+                                <h3 className="text-lg font-semibold text-orange-500 dark:text-orange-400">
                                     Get an all-inclusive quote
                                 </h3>
-                                <p className="text-gray-600 mt-1 text-sm md:text-base">
+                                <p className="text-gray-600 dark:text-gray-300 mt-1 text-sm md:text-base">
                                     We calculate product price, duties, service fees and shipping in real-time.
                                 </p>
                             </div>
 
                             <div>
-                                <h3 className="text-lg font-semibold text-orange-500">
+                                <h3 className="text-lg font-semibold text-orange-500 dark:text-orange-400">
                                     Pay securely in NPR
                                 </h3>
-                                <p className="text-gray-600 mt-1 text-sm md:text-base">
+                                <p className="text-gray-600 dark:text-gray-300 mt-1 text-sm md:text-base">
                                     Use bank transfer, wallet or QR. No international cards or USD balance needed.
                                 </p>
                             </div>
 
                             <div>
-                                <h3 className="text-lg font-semibold text-orange-500">
+                                <h3 className="text-lg font-semibold text-orange-500 dark:text-orange-400">
                                     Relax while we deliver
                                 </h3>
-                                <p className="text-gray-600 mt-1 text-sm md:text-base">
+                                <p className="text-gray-600 dark:text-gray-300 mt-1 text-sm md:text-base">
                                     We purchase the item in India, clear customs and ship to your address in Nepal.
                                 </p>
                             </div>

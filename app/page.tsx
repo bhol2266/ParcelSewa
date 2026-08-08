@@ -44,21 +44,21 @@ export const metadata = {
 
 function ClosedNotice() {
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-white">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-white dark:bg-gray-950">
       <div className="max-w-md text-center">
         <img
           src="/landingPage/box4.png"
           alt=""
           className="w-40 mx-auto mb-6 opacity-80"
         />
-        <h1 className="text-2xl font-semibold text-themeBlue mb-3">
+        <h1 className="text-2xl font-semibold text-themeBlue dark:text-blue-300 mb-3">
           We're temporarily closed
         </h1>
-        <p className="text-gray-600 mb-2">
+        <p className="text-gray-600 dark:text-gray-300 mb-2">
           ParcelSewa is currently not accepting new orders. We'll be back
           soon — thank you for your patience.
         </p>
-        <p className="text-gray-500 text-sm">
+        <p className="text-gray-500 dark:text-gray-400 text-sm">
           For urgent queries, please reach out to our support team.
         </p>
       </div>
@@ -72,12 +72,12 @@ export default function Home() {
   }
 
   return (
-    <div>
+    <div className="dark:bg-gray-950 transition-colors">
 
       <div className="lg:px-6   px-4 mt-6 lg:mt-12">
 
-        <div className="flex lg:justify-start justify-center w-full my-4 text-[#2460E9]">
-          <span className="py-2 px-4 bg-[#DDEBFE] rounded-3xl text-sm flex items-center gap-2">
+        <div className="flex lg:justify-start justify-center w-full my-4 text-[#2460E9] dark:text-blue-300">
+          <span className="py-2 px-4 bg-[#DDEBFE] dark:bg-blue-950 rounded-3xl text-sm flex items-center gap-2">
 
             <ReactCountryFlag countryCode="IN" svg style={{ width: "1.5em", height: "1.5em" }} />
 
@@ -103,7 +103,7 @@ export default function Home() {
 
             <div className="lg:w-4/5">
 
-              <span className="text-themeBlue font-medium ">Paste the product link from Amazon, Flipkart, Myntra or any Indian store. We handle buying, customs and shipping — you pay once in NPR and relax.</span>
+              <span className="text-themeBlue dark:text-blue-300 font-medium ">Paste the product link from Amazon, Flipkart, Myntra or any Indian store. We handle buying, customs and shipping — you pay once in NPR and relax.</span>
             </div>
 
 
@@ -153,7 +153,7 @@ export default function Home() {
       <Workflow />
 
 
-      <div className="bg-gradient-to-b from-white to-[#EEF1F5]">
+      <div className="bg-gradient-to-b from-white to-[#EEF1F5] dark:from-gray-950 dark:to-gray-900">
         <PricingWorkflow />
         <Faqs />
         <BottomSection />

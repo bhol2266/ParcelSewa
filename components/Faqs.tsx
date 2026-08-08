@@ -45,13 +45,13 @@ export default function Faqs() {
 
   return (
     <section id="faqs" className="w-full px-4 md:px-8 lg:px-20 py-4">
-      <div className="inline-block bg-blue-100 text-blue-600 px-5 py-2 rounded-full text-sm font-medium mb-2">
+      <div className="inline-block bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-300 px-5 py-2 rounded-full text-sm font-medium mb-2">
         FAQs
       </div>
 
-      <h2 className="text-3xl md:text-4xl font-bold text-gray-900 leading-tight">
+      <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
         Frequently <br className="md:hidden" />
-        <span className="text-orange-500">Asked Questions</span>
+        <span className="text-orange-500 dark:text-orange-400">Asked Questions</span>
       </h2>
 
       <div className="mt-6 flex flex-col gap-4">
@@ -61,22 +61,22 @@ export default function Faqs() {
           return (
             <div
               key={index}
-              className="rounded-xl shadow-acertinity border border-gray-200 overflow-hidden"
+              className="rounded-xl shadow-acertinity border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden transition-colors"
             >
               {/* Question */}
               <button
                 onClick={() => toggle(index)}
                 className="w-full flex items-center justify-between px-6 py-5 text-left"
               >
-                <span className="text-lg font-medium text-themeBlue">
+                <span className="text-lg font-medium text-themeBlue dark:text-blue-200">
                   {faq.question}
                 </span>
 
-                <span className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100">
+                <span className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
                   {isOpen ? (
-                    <IoRemove className="text-2xl text-gray-700" />
+                    <IoRemove className="text-2xl text-gray-700 dark:text-gray-200" />
                   ) : (
-                    <IoAdd className="text-2xl text-gray-700" />
+                    <IoAdd className="text-2xl text-gray-700 dark:text-gray-200" />
                   )}
                 </span>
               </button>
@@ -84,7 +84,7 @@ export default function Faqs() {
               {/* Answer */}
               {isOpen && (
                 <div className="px-6 pb-5">
-                  <p className="text-[15px] leading-relaxed text-themeBlue">
+                  <p className="text-[15px] leading-relaxed text-themeBlue dark:text-blue-200/90">
                     {faq.answer}
                   </p>
                 </div>

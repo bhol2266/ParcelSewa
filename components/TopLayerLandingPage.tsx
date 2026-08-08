@@ -25,7 +25,7 @@ const TopLayerLandingPage = () => {
         >
             {/* Line 1 */}
             <motion.p
-                className="text-3xl lg:text-5xl text-[#002f5c]"
+                className="text-3xl lg:text-5xl text-[#002f5c] dark:text-blue-200"
                 variants={{
                     hidden: { opacity: 0, y: 20 },
                     visible: { opacity: 1, y: 0 },
@@ -43,7 +43,7 @@ const TopLayerLandingPage = () => {
                 }}
             >
                 <motion.span
-                    className="text-[#f48b28] mr-2"
+                    className="text-[#f48b28] dark:text-orange-300 mr-2"
                     variants={{
                         hidden: { opacity: 0, y: 20, filter: "blur(6px)" },
                         visible: { opacity: 1, y: 0, filter: "blur(0px)" },
@@ -54,7 +54,7 @@ const TopLayerLandingPage = () => {
 
                 {/* Nepal (mobile) */}
                 <motion.span
-                    className="text-[#f48b28] lg:hidden block mr-2"
+                    className="text-[#f48b28] dark:text-orange-300 lg:hidden block mr-2"
                     variants={{
                         hidden: { opacity: 0, y: 20, filter: "blur(6px)" },
                         visible: { opacity: 1, y: 0, filter: "blur(0px)" },
@@ -65,7 +65,7 @@ const TopLayerLandingPage = () => {
 
                 {/* Nepal (desktop inline) */}
                 <motion.span
-                    className="hidden lg:inline text-[#f48b28] mr-2"
+                    className="hidden lg:inline text-[#f48b28] dark:text-orange-300 mr-2"
                     variants={{
                         hidden: { opacity: 0, y: 20, filter: "blur(6px)" },
                         visible: { opacity: 1, y: 0, filter: "blur(0px)" },
@@ -75,7 +75,7 @@ const TopLayerLandingPage = () => {
                 </motion.span>
 
                 <motion.span
-                    className="text-[#002f5c]"
+                    className="text-[#002f5c] dark:text-blue-200"
                     variants={{
                         hidden: { opacity: 0, y: 20, filter: "blur(6px)" },
                         visible: { opacity: 1, y: 0, filter: "blur(0px)" },

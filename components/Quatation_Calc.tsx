@@ -133,7 +133,7 @@ NPR ${nprConverted.toLocaleString()} + ${rate}% = ${nprConverted.toLocaleString(
             </button>
 
             {result && (
-                <div className="mt-6 p-4 border rounded bg-gray-50">
+                <div className="mt-6 p-4 border rounded bg-gray-50 dark:bg-gray-900">
                     <p>
                         INR {parseFloat(amountINR).toLocaleString()} x {conversionRate} ={" "}
                         {result.nprConverted.toLocaleString()} NPR
@@ -149,7 +149,7 @@ NPR ${nprConverted.toLocaleString()} + ${rate}% = ${nprConverted.toLocaleString(
                                 Total + courier charge:{" "}
                                 <strong>{result.total.toLocaleString()} NPR</strong>
                             </p>
-                            <p className="mt-2 text-sm text-gray-500 italic">
+                            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 italic">
                                 Below order 1500 charge will be flat {result.commissionAmount} + courier charge
                             </p>
                         </>
@@ -163,7 +163,7 @@ NPR ${nprConverted.toLocaleString()} + ${rate}% = ${nprConverted.toLocaleString(
                     )}
 
                     <p className="mt-2 font-medium">Product + Nepali Custom + Service charge</p>
-                    <p className="mt-1 text-xs text-green-600">✓ Copied to clipboard</p>
+                    <p className="mt-1 text-xs text-green-600 dark:text-green-400">✓ Copied to clipboard</p>
                 </div>
             )}
         </div>

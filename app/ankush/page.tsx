@@ -295,7 +295,7 @@ export default function Ankush() {
                         placeholder="Search by name or mobile…"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-300 shadow-sm
+                        className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 shadow-sm
                        focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     />
                 </div>
@@ -309,7 +309,7 @@ export default function Ankush() {
                                 className={`px-4 py-2 rounded-xl border ${
                                     allTimeSortOption === option
                                         ? "bg-blue-500 text-white"
-                                        : "bg-white text-gray-700 border-gray-300"
+                                        : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600"
                                 } shadow-sm hover:bg-blue-500 hover:text-white transition-all`}
                                 onClick={() => setAllTimeSortOption(option)}
                             >
@@ -333,7 +333,7 @@ export default function Ankush() {
                                 className={`px-4 py-2 rounded-xl border ${
                                     sortOption === option
                                         ? "bg-blue-500 text-white"
-                                        : "bg-white text-gray-700 border-gray-300"
+                                        : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600"
                                 } shadow-sm hover:bg-blue-500 hover:text-white transition-all`}
                                 onClick={() => setSortOption(option)}
                             >
@@ -352,7 +352,7 @@ export default function Ankush() {
                             <OrderCardAnkush key={order.id} order={order} refresh={refresh} />
                         ))
                     ) : (
-                        <p className="text-center col-span-full text-gray-500 mt-10">
+                        <p className="text-center col-span-full text-gray-500 dark:text-gray-400 mt-10">
                             No orders found.
                         </p>
                     )}
@@ -361,7 +361,7 @@ export default function Ankush() {
 
             {!accessGranted && (
                 <div className="fixed inset-0 flex items-center justify-center z-50">
-                    <div className="bg-white p-8 rounded-xl shadow-lg w-80 text-center">
+                    <div className="bg-white dark:bg-gray-900 p-8 rounded-xl shadow-lg w-80 text-center">
                         <h2 className="text-2xl font-bold mb-4">Admin Access</h2>
                         <input
                             type="password"

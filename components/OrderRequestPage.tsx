@@ -105,9 +105,9 @@ const OrderRequestComponent: React.FC = () => {
         </div>
 
         {/* FORM */}
-        <div className="mt-6 border border-gray-300 rounded-2xl p-4 shadow-sm">
+        <div className="mt-6 border border-gray-300 dark:border-gray-600 rounded-2xl p-4 shadow-sm">
           {/* Product URL */}
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Product URL (from Indian website) *
           </label>
           <input
@@ -115,11 +115,11 @@ const OrderRequestComponent: React.FC = () => {
             placeholder="https://www.amazon.in/…"
             value={productUrl}
             onChange={(e) => setProductUrl(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
           />
 
           {/* Delivery Location */}
-          <label className="block text-sm font-medium text-gray-700 mt-3 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mt-3 mb-1">
             Delivery Location *
           </label>
           <input
@@ -127,11 +127,11 @@ const OrderRequestComponent: React.FC = () => {
             placeholder="Kathmandu"
             value={deliveryLocation}
             onChange={(e) => setDeliveryLocation(e.target.value)}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
           />
 
           {/* Quantity */}
-          <label className="block text-sm font-medium text-gray-700 mt-3 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mt-3 mb-1">
             Quantity *
           </label>
           <input
@@ -139,11 +139,11 @@ const OrderRequestComponent: React.FC = () => {
             value={quantity}
             min={1}
             onChange={(e) => setQuantity(Number(e.target.value))}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
           />
 
           {/* Mobile */}
-          <label className="block text-sm font-medium text-gray-700 mt-3 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mt-3 mb-1">
             Mobile Number (WhatsApp) *
           </label>
           <input
@@ -151,11 +151,11 @@ const OrderRequestComponent: React.FC = () => {
             value={mobile}
             onChange={(e) => setMobile(e.target.value)}
             placeholder="+97798XXXXXXXX"
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
           />
 
           {/* Notes (Optional) */}
-          <label className="block text-sm font-medium text-gray-700 mt-3 mb-1">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mt-3 mb-1">
             Notes (Optional)
           </label>
           <textarea
@@ -163,7 +163,7 @@ const OrderRequestComponent: React.FC = () => {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Any special instructions? Preferred seller, gift wrap etc."
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none"
+            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none"
           />
 
           {/* Submit */}
@@ -179,7 +179,7 @@ const OrderRequestComponent: React.FC = () => {
             )}
           </button>
 
-          <p className="text-center text-gray-500 text-xs mt-2">
+          <p className="text-center text-gray-500 dark:text-gray-400 text-xs mt-2">
             After submitting, WhatsApp will open with the order details pre-filled.
           </p>
         </div>

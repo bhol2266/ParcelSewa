@@ -521,19 +521,19 @@ export default function InvoicePage() {
   };
 
   const inputCls =
-    "w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 transition placeholder:text-slate-400";
+    "w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 transition placeholder:text-slate-400 dark:placeholder:text-slate-500";
   const labelCls =
-    "block text-xs font-semibold text-slate-500 mb-1 uppercase tracking-wide";
+    "block text-xs font-semibold text-slate-500 dark:text-slate-400 dark:ark:text-slate-500 mb-1 uppercase tracking-wide";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100 font-sans">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 font-sans transition-colors">
       <header className="bg-[#0f2850] text-white px-4 py-4 shadow-lg">
         <div className="max-w-3xl mx-auto flex items-center justify-between">
           <div>
             <h1 className="text-lg font-bold tracking-tight">UK Plastic and Product</h1>
             <p className="text-blue-300 text-xs mt-0.5">Buddhanagar, Kathmandu</p>
           </div>
-          <span className="text-xs bg-white/10 px-3 py-1 rounded-full border border-white/20 hidden sm:inline">
+          <span className="text-xs bg-white/10 dark:bg-gray-900/10 px-3 py-1 rounded-full border border-white/20 hidden sm:inline">
             Invoice Generator
           </span>
         </div>
@@ -542,22 +542,22 @@ export default function InvoicePage() {
       <main className="max-w-3xl mx-auto px-3 sm:px-4 py-6 space-y-5">
 
         {/* ── Rate Editor ─────────────────────────────────────── */}
-        <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+        <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
           <button
             onClick={() => setEditingRates((v) => !v)}
-            className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 transition"
+            className="w-full flex items-center justify-between px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-900 transition"
           >
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-slate-700 uppercase tracking-widest">Rate Settings</span>
-              <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full font-semibold">
+              <span className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-widest">Rate Settings</span>
+              <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 dark:ark:text-slate-500 px-2 py-0.5 rounded-full font-semibold">
                 Wall Rs {fittingRates.wall} · Ceil Rs {fittingRates.ceiling} /sqft
               </span>
             </div>
-            <span className={`text-slate-400 transition-transform duration-200 ${editingRates ? "rotate-180" : ""}`}>▾</span>
+            <span className={`text-slate-400 dark:text-slate-500 transition-transform duration-200 ${editingRates ? "rotate-180" : ""}`}>▾</span>
           </button>
 
           {editingRates && (
-            <div className="border-t border-slate-100 px-5 pb-5 pt-4 space-y-5">
+            <div className="border-t border-slate-100 dark:border-slate-700 px-5 pb-5 pt-4 space-y-5">
               {/* Fitting rates */}
               <div>
                 <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-3">Fitting Rates (Rs/sqft)</p>
@@ -565,7 +565,7 @@ export default function InvoicePage() {
                   <div>
                     <label className={labelCls}>🧱 Wall Rate</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">Rs</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-sm">Rs</span>
                       <input
                         type="number"
                         min="0"
@@ -578,7 +578,7 @@ export default function InvoicePage() {
                   <div>
                     <label className={labelCls}>🔳 Ceiling Rate</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">Rs</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-sm">Rs</span>
                       <input
                         type="number"
                         min="0"
@@ -593,17 +593,17 @@ export default function InvoicePage() {
 
               {/* Product rates */}
               <div>
-                <p className="text-xs font-bold text-blue-700 uppercase tracking-wider mb-3">Product Rates (Rs/pcs)</p>
+                <p className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider mb-3">Product Rates (Rs/pcs)</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {PRODUCT_OPTIONS.map((product) => (
-                    <div key={product} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2 border border-slate-100">
-                      <span className="text-xs text-slate-600 flex-1 min-w-0 truncate">{product}</span>
+                    <div key={product} className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 rounded-lg px-3 py-2 border border-slate-100 dark:border-slate-700">
+                      <span className="text-xs text-slate-600 dark:text-slate-300 flex-1 min-w-0 truncate">{product}</span>
                       <div className="relative w-24 shrink-0">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 text-xs">Rs</span>
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 text-xs">Rs</span>
                         <input
                           type="number"
                           min="0"
-                          className="w-full bg-white border border-slate-200 rounded px-2 py-1.5 text-xs text-right text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 transition pl-7"
+                          className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-slate-700 rounded px-2 py-1.5 text-xs text-right text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 transition pl-7"
                           value={productRateInputs[product]}
                           onChange={(e) =>
                             setProductRateInputs((p) => ({ ...p, [product]: e.target.value }))
@@ -624,7 +624,7 @@ export default function InvoicePage() {
                 </button>
                 <button
                   onClick={cancelRates}
-                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-sm font-semibold rounded-xl transition"
+                  className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-sm font-semibold rounded-xl transition"
                 >
                   Cancel
                 </button>
@@ -634,8 +634,8 @@ export default function InvoicePage() {
         </section>
 
         {/* ── Invoice Details ──────────────────────────────────── */}
-        <section className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-6">
-          <h2 className="text-sm font-bold text-slate-700 uppercase tracking-widest mb-4">Invoice Details</h2>
+        <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-4 sm:p-6">
+          <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-widest mb-4">Invoice Details</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5">
             <div className="space-y-4">
               <div>
@@ -651,10 +651,10 @@ export default function InvoicePage() {
               <div>
                 <label className={labelCls}>Invoice Number</label>
                 <div className="flex gap-2">
-                  <input className={`${inputCls} font-mono font-bold text-blue-700`} value={`#${invoiceNo}`} readOnly />
-                  <button onClick={() => setInvoiceNo(generateInvoiceNo())} title="Regenerate" className="px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-lg text-slate-500 hover:text-slate-700 transition text-base font-bold shrink-0">↻</button>
+                  <input className={`${inputCls} font-mono font-bold text-blue-700 dark:text-blue-300`} value={`#${invoiceNo}`} readOnly />
+                  <button onClick={() => setInvoiceNo(generateInvoiceNo())} title="Regenerate" className="px-3 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 dark:text-slate-400 dark:ark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-300 transition text-base font-bold shrink-0">↻</button>
                 </div>
-                <p className="text-[11px] text-slate-400 mt-1">Auto-generated · click ↻ to refresh</p>
+                <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-1">Auto-generated · click ↻ to refresh</p>
               </div>
               <div>
                 <label className={labelCls}>Invoice Date</label>
@@ -665,9 +665,9 @@ export default function InvoicePage() {
         </section>
 
         {/* ── Items ────────────────────────────────────────────── */}
-        <section className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-6">
+        <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-bold text-slate-700 uppercase tracking-widest">Items</h2>
+            <h2 className="text-sm font-bold text-slate-700 dark:text-slate-300 uppercase tracking-widest">Items</h2>
             <button onClick={addItem} className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-2 rounded-lg transition">
               <span className="text-base leading-none">+</span> Add Row
             </button>
@@ -675,11 +675,11 @@ export default function InvoicePage() {
 
           {/* Desktop header */}
           <div className="hidden md:grid grid-cols-12 gap-2 mb-2 px-1">
-            <div className="col-span-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">#</div>
-            <div className="col-span-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Product</div>
-            <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">Qty</div>
-            <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-center">Rate (Rs)</div>
-            <div className="col-span-2 text-[10px] font-bold text-slate-400 uppercase tracking-wider text-right">Amount</div>
+            <div className="col-span-1 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider text-center">#</div>
+            <div className="col-span-4 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Product</div>
+            <div className="col-span-2 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider text-center">Qty</div>
+            <div className="col-span-2 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider text-center">Rate (Rs)</div>
+            <div className="col-span-2 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider text-right">Amount</div>
             <div className="col-span-1" />
           </div>
 
@@ -691,14 +691,14 @@ export default function InvoicePage() {
                   key={p.id}
                   className={`rounded-xl border p-2 sm:p-3 ${
                     isLinkedGrip
-                      ? "bg-green-50/60 border-green-200"
-                      : "bg-slate-50/70 border-slate-100"
+                      ? "bg-green-50/60 dark:bg-green-950/60 border-green-200 dark:border-green-800"
+                      : "bg-slate-50/70 dark:bg-slate-900/70 border-slate-100 dark:border-slate-700"
                   }`}
                 >
                   {/* Mobile layout */}
                   <div className="md:hidden space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-slate-400">#{idx + 1}</span>
+                      <span className="text-xs font-bold text-slate-400 dark:text-slate-500">#{idx + 1}</span>
                       {!isLinkedGrip && items.length > 1 && (
                         <button
                           onClick={() => {
@@ -707,14 +707,14 @@ export default function InvoicePage() {
                               prev.filter((x) => x.id !== p.id && x.id !== linkedGripId)
                             );
                           }}
-                          className="text-red-400 hover:text-red-600 transition text-lg font-bold leading-none"
+                          className="text-red-400 hover:text-red-600 dark:hover:text-red-400 transition text-lg font-bold leading-none"
                         >
                           ×
                         </button>
                       )}
                     </div>
                     {isLinkedGrip ? (
-                      <div className={`${inputCls} text-green-700 font-medium flex items-center gap-1 text-sm`}>
+                      <div className={`${inputCls} text-green-700 dark:text-green-400 font-medium flex items-center gap-1 text-sm`}>
                         <span className="text-green-500">⚙</span>
                         {p.productName}
                         <span className="ml-auto text-[10px] text-green-500 font-semibold">auto</span>
@@ -733,7 +733,7 @@ export default function InvoicePage() {
                     )}
                     <div className="grid grid-cols-3 gap-2">
                       <div>
-                        <p className="text-[10px] text-slate-400 font-semibold mb-1">Qty (pcs)</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold mb-1">Qty (pcs)</p>
                         <input
                           type="text"
                           inputMode="decimal"
@@ -745,25 +745,25 @@ export default function InvoicePage() {
                         />
                       </div>
                       <div>
-                        <p className="text-[10px] text-slate-400 font-semibold mb-1">Rate (Rs)</p>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold mb-1">Rate (Rs)</p>
                         {productRates[p.productName] === null || p.productName === "" ? (
                           <input
                             type="text"
                             inputMode="decimal"
-                            className={`${inputCls} text-center text-slate-800 text-sm`}
+                            className={`${inputCls} text-center text-slate-800 dark:text-slate-100 text-sm`}
                             placeholder="enter"
                             value={p.rate}
                             onChange={(e) => updateItem(p.id, "rate", e.target.value)}
                           />
                         ) : (
-                          <div className={`${inputCls} text-center text-slate-600 bg-slate-50 text-sm`}>
+                          <div className={`${inputCls} text-center text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900 text-sm`}>
                             {p.computedRate > 0 ? p.computedRate : "—"}
                           </div>
                         )}
                       </div>
                       <div>
-                        <p className="text-[10px] text-slate-400 font-semibold mb-1">Amount</p>
-                        <span className="text-sm font-semibold text-blue-700 bg-blue-50 px-2 py-2 rounded-lg block text-center">
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 font-semibold mb-1">Amount</p>
+                        <span className="text-sm font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950 px-2 py-2 rounded-lg block text-center">
                           Rs {p.amount.toFixed(0)}
                         </span>
                       </div>
@@ -772,10 +772,10 @@ export default function InvoicePage() {
 
                   {/* Desktop layout */}
                   <div className="hidden md:grid grid-cols-12 gap-2 items-center">
-                    <div className="col-span-1 text-center text-xs font-bold text-slate-400">{idx + 1}</div>
+                    <div className="col-span-1 text-center text-xs font-bold text-slate-400 dark:text-slate-500">{idx + 1}</div>
                     <div className="col-span-4">
                       {isLinkedGrip ? (
-                        <div className={`${inputCls} text-green-700 font-medium flex items-center gap-1`}>
+                        <div className={`${inputCls} text-green-700 dark:text-green-400 font-medium flex items-center gap-1`}>
                           <span className="text-green-500 text-xs">⚙</span>
                           {p.productName}
                           <span className="ml-auto text-[10px] text-green-500 font-semibold">auto</span>
@@ -815,13 +815,13 @@ export default function InvoicePage() {
                           onChange={(e) => updateItem(p.id, "rate", e.target.value)}
                         />
                       ) : (
-                        <div className={`${inputCls} text-center text-slate-600 bg-slate-50`}>
+                        <div className={`${inputCls} text-center text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-900`}>
                           Rs {p.computedRate > 0 ? p.computedRate.toFixed(2) : "—"}
                         </div>
                       )}
                     </div>
                     <div className="col-span-2 text-right">
-                      <span className="text-sm font-semibold text-blue-700 bg-blue-50 px-2 py-1.5 rounded-lg block">
+                      <span className="text-sm font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950 px-2 py-1.5 rounded-lg block">
                         Rs {p.amount.toFixed(2)}
                       </span>
                     </div>
@@ -834,7 +834,7 @@ export default function InvoicePage() {
                               prev.filter((x) => x.id !== p.id && x.id !== linkedGripId)
                             );
                           }}
-                          className="text-red-400 hover:text-red-600 transition text-lg font-bold leading-none"
+                          className="text-red-400 hover:text-red-600 dark:hover:text-red-400 transition text-lg font-bold leading-none"
                         >
                           ×
                         </button>
@@ -848,19 +848,19 @@ export default function InvoicePage() {
 
           {/* Items total row */}
           {computedItems.some((p) => p.amount > 0) && (
-            <div className="mt-3 flex justify-between items-center bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5">
-              <span className="text-xs text-blue-600 font-semibold">Products Sub-total</span>
-              <span className="text-sm font-extrabold text-blue-700">Rs {productTotal.toFixed(2)}</span>
+            <div className="mt-3 flex justify-between items-center bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-xl px-4 py-2.5">
+              <span className="text-xs text-blue-600 dark:text-blue-300 font-semibold">Products Sub-total</span>
+              <span className="text-sm font-extrabold text-blue-700 dark:text-blue-300">Rs {productTotal.toFixed(2)}</span>
             </div>
           )}
         </section>
 
         {/* ── Fitting Charges ──────────────────────────────────── */}
-        <section className="bg-white rounded-2xl shadow-sm border border-emerald-100 p-4 sm:p-6">
+        <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-emerald-100 p-4 sm:p-6">
           <div className="flex items-center justify-between mb-1">
             <div>
               <h2 className="text-sm font-bold text-emerald-800 uppercase tracking-widest">Fitting Charges</h2>
-              <p className="text-[11px] text-slate-400 mt-0.5">
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
                 Wall: Rs {fittingRates.wall}/sqft · Ceiling: Rs {fittingRates.ceiling}/sqft
               </p>
             </div>
@@ -873,7 +873,7 @@ export default function InvoicePage() {
           </div>
 
           {fittingSections.length === 0 && (
-            <div className="mt-4 text-center text-slate-400 text-sm py-6 border-2 border-dashed border-slate-200 rounded-xl">
+            <div className="mt-4 text-center text-slate-400 dark:text-slate-500 text-sm py-6 border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl">
               No fitting charges added · click <span className="font-semibold text-emerald-600">+ Section</span> to begin
             </div>
           )}
@@ -884,17 +884,17 @@ export default function InvoicePage() {
                 key={s.id}
                 className={`rounded-xl border p-3 sm:p-4 ${
                   s.type === "wall"
-                    ? "bg-blue-50/40 border-blue-200"
-                    : "bg-purple-50/40 border-purple-200"
+                    ? "bg-blue-50/40 dark:bg-blue-950/40 border-blue-200 dark:border-blue-800"
+                    : "bg-purple-50/40 dark:bg-purple-950/40 border-purple-200"
                 }`}
               >
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 dark:ark:text-slate-500">
                     Section {idx + 1}
                   </span>
                   <button
                     onClick={() => removeFittingSection(s.id)}
-                    className="text-red-400 hover:text-red-600 text-lg font-bold leading-none"
+                    className="text-red-400 hover:text-red-600 dark:hover:text-red-400 text-lg font-bold leading-none"
                   >
                     ×
                   </button>
@@ -906,7 +906,7 @@ export default function InvoicePage() {
                     className={`flex-1 py-2 rounded-lg text-xs font-bold border transition ${
                       s.type === "wall"
                         ? "bg-blue-600 text-white border-blue-600"
-                        : "bg-white text-slate-500 border-slate-200 hover:border-blue-300"
+                        : "bg-white dark:bg-gray-900 text-slate-500 dark:text-slate-400 dark:ark:text-slate-500 border-slate-200 dark:border-slate-700 hover:border-blue-300"
                     }`}
                   >
                     🧱 Wall
@@ -917,7 +917,7 @@ export default function InvoicePage() {
                     className={`flex-1 py-2 rounded-lg text-xs font-bold border transition ${
                       s.type === "ceiling"
                         ? "bg-purple-600 text-white border-purple-600"
-                        : "bg-white text-slate-500 border-slate-200 hover:border-purple-300"
+                        : "bg-white dark:bg-gray-900 text-slate-500 dark:text-slate-400 dark:ark:text-slate-500 border-slate-200 dark:border-slate-700 hover:border-purple-300"
                     }`}
                   >
                     🔳 Ceiling
@@ -931,7 +931,7 @@ export default function InvoicePage() {
                     className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition ${
                       s.inputMode === "dimensions"
                         ? "bg-slate-700 text-white border-slate-700"
-                        : "bg-white text-slate-500 border-slate-200"
+                        : "bg-white dark:bg-gray-900 text-slate-500 dark:text-slate-400 dark:ark:text-slate-500 border-slate-200 dark:border-slate-700"
                     }`}
                   >
                     L × B
@@ -941,7 +941,7 @@ export default function InvoicePage() {
                     className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition ${
                       s.inputMode === "area"
                         ? "bg-slate-700 text-white border-slate-700"
-                        : "bg-white text-slate-500 border-slate-200"
+                        : "bg-white dark:bg-gray-900 text-slate-500 dark:text-slate-400 dark:ark:text-slate-500 border-slate-200 dark:border-slate-700"
                     }`}
                   >
                     Direct Area
@@ -991,8 +991,8 @@ export default function InvoicePage() {
                   <div
                     className={`mt-3 flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold ${
                       s.type === "wall"
-                        ? "bg-blue-100 text-blue-800"
-                        : "bg-purple-100 text-purple-800"
+                        ? "bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300"
+                        : "bg-purple-100 dark:bg-purple-950 text-purple-800"
                     }`}
                   >
                     <span className="text-xs sm:text-sm">{s.computedArea.toFixed(2)} sqft × Rs {s.rate}/sqft</span>
@@ -1027,8 +1027,8 @@ export default function InvoicePage() {
 
         {/* ── Advance + Summary ─────────────────────────────────── */}
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <section className="bg-white rounded-2xl shadow-sm border border-amber-100 p-4 sm:p-6">
-            <h2 className="text-sm font-bold text-amber-700 uppercase tracking-widest mb-4">Advance Deposit</h2>
+          <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-amber-100 p-4 sm:p-6">
+            <h2 className="text-sm font-bold text-amber-700 dark:text-amber-400 uppercase tracking-widest mb-4">Advance Deposit</h2>
             <label className={labelCls}>Amount Received (Rs)</label>
             <input
               type="text"
@@ -1095,10 +1095,10 @@ export default function InvoicePage() {
         </div>
 
         {/* ── Remaining Items ───────────────────────────────────── */}
-        <section className="bg-white rounded-2xl shadow-sm border border-orange-100 p-4 sm:p-6">
+        <section className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-orange-100 p-4 sm:p-6">
           <div className="mb-4">
             <h2 className="text-sm font-bold text-orange-800 uppercase tracking-widest">Remaining Items</h2>
-            <p className="text-[11px] text-slate-400 mt-0.5">For reference only · not included in billing</p>
+            <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">For reference only · not included in billing</p>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             <div>
@@ -1127,12 +1127,12 @@ export default function InvoicePage() {
           {(parseInt(remainingPanels) > 0 || parseInt(remainingChannels) > 0) && (
             <div className="mt-3 flex flex-wrap gap-2">
               {parseInt(remainingPanels) > 0 && (
-                <span className="inline-flex items-center gap-1.5 bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold px-3 py-1.5 rounded-lg">
+                <span className="inline-flex items-center gap-1.5 bg-orange-50 dark:bg-orange-950 border border-orange-200 text-orange-700 dark:text-orange-400 text-xs font-semibold px-3 py-1.5 rounded-lg">
                   📦 Panel: {remainingPanels} pcs
                 </span>
               )}
               {parseInt(remainingChannels) > 0 && (
-                <span className="inline-flex items-center gap-1.5 bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold px-3 py-1.5 rounded-lg">
+                <span className="inline-flex items-center gap-1.5 bg-orange-50 dark:bg-orange-950 border border-orange-200 text-orange-700 dark:text-orange-400 text-xs font-semibold px-3 py-1.5 rounded-lg">
                   📦 U/L Channel: {remainingChannels} pcs
                 </span>
               )}

@@ -40,28 +40,28 @@ export default function Workflow() {
   };
 
   return (
-    <div id="workflow" className="bg-[#F7F7F7]">
+    <div id="workflow" className="bg-[#F7F7F7] dark:bg-gray-900 transition-colors">
 
       <section className="lg:hidden py-12 max-w-2xl mx-auto lg:px-6   px-4 ">
         {/* Tag */}
-        <div className="inline-block bg-blue-100 text-blue-600 px-6 py-2 rounded-full mb-6">
+        <div className="inline-block bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-300 px-6 py-2 rounded-full mb-6">
           How ParcelSewa Works
         </div>
 
         {/* Heading */}
-        <h2 className="text-3xl md:text-4xl font-bold text-themeBlue leading-snug">
+        <h2 className="text-3xl md:text-4xl font-bold text-themeBlue dark:text-blue-200 leading-snug">
           From product link to <br /> delivery in four steps.
         </h2>
 
         {/* Subheading */}
-        <p className="text-secondary mt-4 text-lg leading-relaxed">
+        <p className="text-secondary dark:text-gray-300 mt-4 text-lg leading-relaxed">
           Instead of figuring out customs and shipping yourself, you interact with
           just three simple screens: Create Order, Order Summary and Payment.
         </p>
 
         {/* Steps */}
         <motion.div
-          className="mt-10 border-l-2 border-blue-300 pl-10 space-y-10"
+          className="mt-10 border-l-2 border-blue-300 dark:border-blue-700 pl-10 space-y-10"
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
@@ -70,13 +70,13 @@ export default function Workflow() {
           {steps.map((step, index) => (
             <motion.div key={index} className="relative" variants={stepVariants}>
               {/* Bullet */}
-              <span className="absolute -left-4 top-1.5 w-3 h-3 rounded-full bg-gradient-to-b from-blue-400 to-blue-600 border-2 border-white shadow"></span>
+              <span className="absolute -left-4 top-1.5 w-3 h-3 rounded-full bg-gradient-to-b from-blue-400 to-blue-600 border-2 border-white dark:border-gray-900 shadow"></span>
 
               {/* Text */}
-              <h3 className="font-semibold text-themeBlue text-lg ml-3">
+              <h3 className="font-semibold text-themeBlue dark:text-blue-200 text-lg ml-3">
                 {step.title}
               </h3>
-              <p className="text-secondary mt-1 leading-relaxed text-sm ml-3">
+              <p className="text-secondary dark:text-gray-300 mt-1 leading-relaxed text-sm ml-3">
                 {step.desc}
               </p>
             </motion.div>

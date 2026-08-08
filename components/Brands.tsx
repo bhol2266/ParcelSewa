@@ -9,18 +9,18 @@ const BrandsMarquee: React.FC = () => {
     <div className="w-full py-10 relative overflow-hidden">
 
       {/* Heading (Not affected by fade) */}
-      <h2 className="text-2xl md:text-3xl font-bold text-center mb-10 text-themeBlue tracking-wide">
+      <h2 className="text-2xl md:text-3xl font-bold text-center mb-10 text-themeBlue dark:text-blue-300 tracking-wide">
         Major Online Shopping Stores
       </h2>
 
       {/* Marquee Wrapper (Only this div gets faded edges) */}
       <div className="relative w-full">
-        
+
         {/* Fade Overlay - Left */}
-        <div className="pointer-events-none absolute left-0 top-0 h-full w-10 bg-gradient-to-r from-white to-transparent z-20"></div>
+        <div className="pointer-events-none absolute left-0 top-0 h-full w-10 bg-gradient-to-r from-white dark:from-gray-950 to-transparent z-20"></div>
 
         {/* Fade Overlay - Right */}
-        <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-white to-transparent z-20"></div>
+        <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-white dark:from-gray-950 to-transparent z-20"></div>
 
         {/* Marquee Container */}
         <div className="overflow-hidden [-webkit-mask-image:linear-gradient(to_right,transparent_0%,white_10%,white_90%,transparent_100%)]">

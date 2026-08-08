@@ -285,11 +285,11 @@ const CreateOrder: React.FC = () => {
         <section className="w-full px-6 py-4 flex justify-center">
             <Toaster position="top-center" />
 
-            <div className="w-full max-w-3xl border border-gray-300 rounded-2xl p-6 shadow-sm">
+            <div className="w-full max-w-3xl border border-gray-300 dark:border-gray-600 rounded-2xl p-6 shadow-sm">
                 <h2 className="text-3xl font-bold text-[#002f5c] mb-4">Create Manual Order</h2>
 
                 {/* Customer Name */}
-                <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Customer Name *</label>
                 <div className="relative mb-3">
                     <input
                         value={name}
@@ -304,7 +304,7 @@ const CreateOrder: React.FC = () => {
                     />
 
                     {showSuggestions && nameSuggestions.length > 0 && (
-                        <ul className="absolute z-20 w-full bg-white border border-neutral-200 rounded-lg shadow mt-1">
+                        <ul className="absolute z-20 w-full bg-white dark:bg-gray-900 border border-neutral-200 rounded-lg shadow mt-1">
                             {nameSuggestions.map((o) => (
                                 <li
                                     key={o.id}
@@ -319,10 +319,10 @@ const CreateOrder: React.FC = () => {
                                         setAddress(o.address || "");
                                         setShowSuggestions(false);
                                     }}
-                                    className={`px-3 py-2 cursor-pointer hover:bg-gray-100 ${nameSuggestions.indexOf(o) === nameHighlightedIndex ? "bg-blue-100" : ""
+                                    className={`px-3 py-2 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 ${nameSuggestions.indexOf(o) === nameHighlightedIndex ? "bg-blue-100 dark:bg-blue-950" : ""
                                         }`}                                >
                                     <div className="font-medium">{o.name}</div>
-                                    <div className="text-xs text-gray-500">
+                                    <div className="text-xs text-gray-500 dark:text-gray-400">
                                         {o.mobile} • {o.address}
                                     </div>
                                 </li>
@@ -332,13 +332,13 @@ const CreateOrder: React.FC = () => {
                 </div>
 
                 {/* Mobile */}
-                <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Mobile Number *</label>
                 <div className="flex gap-2 mb-3">
                     <input
                         type="text"
                         value={countryCode}
                         onChange={(e) => setCountryCode(e.target.value)}
-                        className="w-20 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-20 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                     />
                     <div className="relative flex-1">
                         <input
@@ -354,11 +354,11 @@ const CreateOrder: React.FC = () => {
                             onKeyDown={handleMobileKeyDown} // <-- here
 
                             placeholder="9812345678"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                         />
 
                         {showMobileSuggestions && mobileSuggestions.length > 0 && (
-                            <ul className="absolute z-20 w-full bg-white border border-gray-200 rounded-lg shadow mt-1 max-h-48 overflow-auto">
+                            <ul className="absolute z-20 w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow mt-1 max-h-48 overflow-auto">
                                 {mobileSuggestions.map((order) => (
                                     <li
                                         key={order.id}
@@ -368,10 +368,10 @@ const CreateOrder: React.FC = () => {
                                             setMobileNumber(order.mobile?.slice(4) || ""); // remove +977
                                             setShowMobileSuggestions(false);
                                         }}
-                                        className={`px-3 py-2 cursor-pointer hover:bg-blue-50 text-sm ${mobileSuggestions.indexOf(order) === mobileHighlightedIndex ? "bg-blue-100" : ""
+                                        className={`px-3 py-2 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950 text-sm ${mobileSuggestions.indexOf(order) === mobileHighlightedIndex ? "bg-blue-100 dark:bg-blue-950" : ""
                                             }`}                                    >
                                         <div className="font-medium">{order.mobile}</div>
-                                        <div className="text-xs text-gray-500">
+                                        <div className="text-xs text-gray-500 dark:text-gray-400">
                                             {order.name} • {order.address}
                                         </div>
                                     </li>
@@ -382,24 +382,24 @@ const CreateOrder: React.FC = () => {
                 </div>
 
                 {/* Address */}
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Address</label>
                 <textarea
                     rows={3}
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     placeholder="Customer Delivery Address"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 mb-3 text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none"
                 />
 
                 {/* Store Name */}
                 <div className="mb-3">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Store Name *</label>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Store Name *</label>
                     <input
                         list="store-options"
                         value={storeName}
                         onChange={(e) => setStoreName(e.target.value)}
                         placeholder="Type or select a store"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                     />
                     <datalist id="store-options">
                         {brands.map((b: Brand) => (
@@ -409,11 +409,11 @@ const CreateOrder: React.FC = () => {
                 </div>
 
                 {/* Commission */}
-                <label className="block text-sm font-medium text-gray-700 mb-1">Commission Percentage</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Commission Percentage</label>
                 <select
                     value={commission}
                     onChange={(e) => setCommission(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 mb-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 >
                     {["5%", "10%", "15%", "20%", "25%", "30%", "35%", "40%", "45%", "50%", "Flat NPR 600", "Flat NPR 700"].map((c) => (
                         <option key={c} value={c}>{c}</option>
@@ -426,21 +426,21 @@ const CreateOrder: React.FC = () => {
                 <div className="flex gap-4 mb-3">
 
                     <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount (NPR) </label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Total Amount (NPR) </label>
                         <input
                             type="number"
                             value={totalAmount}
                             onChange={(e) => setTotalAmount(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                         />
                     </div>
                     <div className="flex-1">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Advance Payment</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Advance Payment</label>
                         <input
                             type="number"
                             value={advancePayment}
                             onChange={(e) => setAdvancePayment(e.target.value)}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                         />
                     </div>
 
@@ -448,11 +448,11 @@ const CreateOrder: React.FC = () => {
 
 
                 {/* Courier Charge */}
-                <label className="block text-sm font-medium text-gray-700 mb-1">Courier Charge</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Courier Charge</label>
                 <select
                     value={courierCharge}
                     onChange={(e) => setCourierCharge(e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 mb-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                 >
                     {["Included", "Not Included"].map((c) => (
                         <option key={c} value={c}>{c}</option>
@@ -460,7 +460,7 @@ const CreateOrder: React.FC = () => {
                 </select>
 
                 {/* Delivery Status */}
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-3">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
                     <input
                         type="checkbox"
                         checked={deliveryStatus}
@@ -471,19 +471,19 @@ const CreateOrder: React.FC = () => {
                 </label>
 
                 {/* Notes */}
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
                 <textarea
                     rows={3}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Any special instructions?"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 mb-3 text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none"
+                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 mb-3 text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none"
                 />
 
 
 
                 {/* Product URLs */}
-                <label className="block text-sm font-medium text-gray-700 mb-1">Product Image Links</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Product Image Links</label>
                 {productItems.map((item, index) => (
                     <div key={index} className="flex gap-2 mb-2 items-center">
                         <input
@@ -491,15 +491,15 @@ const CreateOrder: React.FC = () => {
                             value={item.url}
                             onChange={(e) => handleItemChange(index, "url", e.target.value)}
                             placeholder="https://www.amazon.in/…"
-                            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="flex-1 border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                         />
                         <div className="flex flex-col items-center">
-                            <span className="text-xs text-gray-500 mb-0.5">Qty</span>
+                            <span className="text-xs text-gray-500 dark:text-gray-400 mb-0.5">Qty</span>
                             <input
                                 type="text"
                                 value={item.quantity}
                                 onChange={(e) => handleItemChange(index, "quantity", e.target.value)}
-                                className="w-14 border border-gray-300 rounded-lg px-2 py-2 text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none"
+                                className="w-14 border border-gray-300 dark:border-gray-600 rounded-lg px-2 py-2 text-sm text-center focus:ring-2 focus:ring-blue-500 outline-none"
                             />
                         </div>
                     </div>
@@ -507,7 +507,7 @@ const CreateOrder: React.FC = () => {
                 <button
                     type="button"
                     onClick={handleAddItem}
-                    className="mb-4 text-blue-600 hover:underline text-sm"
+                    className="mb-4 text-blue-600 dark:text-blue-300 hover:underline text-sm"
                 >
                     + Add more URL
                 </button>

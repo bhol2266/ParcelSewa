@@ -5,6 +5,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import Script from "next/script";
 import { IS_COMPANY_CLOSED } from "@/lib/site-status";
+import { ThemeProvider, themeInitScript } from "@/components/ThemeProvider";
 
 
 const inter = Inter({
@@ -61,7 +62,11 @@ export default function RootLayout({
 
   return (
 
-      <html lang="en">
+      <html lang="en" suppressHydrationWarning>
+
+        <head>
+          <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        </head>
 
         <Script
           strategy="afterInteractive"
@@ -75,15 +80,16 @@ export default function RootLayout({
         gtag('config', 'G-0GMBZ1L7JR');`}
         </Script>
         <body
-          className={`${inter.className}  antialiased`}
+          className={`${inter.className}  antialiased bg-white dark:bg-gray-950 transition-colors`}
         >
+          <ThemeProvider>
+            <div className="pt-[50px]  xl:px-10 3xl:w-1/5 mx-auto ">
+              {!IS_COMPANY_CLOSED && <Navbar />}
 
-          <div className="pt-[50px]  xl:px-10 3xl:w-1/5 mx-auto ">
-            {!IS_COMPANY_CLOSED && <Navbar />}
-
-            {children}
-          </div>
-          {!IS_COMPANY_CLOSED && <Footer />}
+              {children}
+            </div>
+            {!IS_COMPANY_CLOSED && <Footer />}
+          </ThemeProvider>
         </body>
       </html>
 

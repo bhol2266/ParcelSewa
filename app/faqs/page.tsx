@@ -107,26 +107,26 @@ const faqs = [
 
 const FAQPage: React.FC = () => {
   return (
-    <div className="max-w-5xl mx-auto px-6 py-12">
-      <h1 className="text-4xl font-bold text-center text-themeBlue mb-10">
+    <div className="max-w-5xl mx-auto px-6 py-12 dark:bg-gray-950 transition-colors">
+      <h1 className="text-4xl font-bold text-center text-themeBlue dark:text-blue-300 mb-10">
         Frequently Asked Questions
       </h1>
 
       {faqs.map((section, idx) => (
         <div key={idx} className="mb-10">
-          <h2 className="text-2xl font-semibold mb-6 text-themeBlue">
+          <h2 className="text-2xl font-semibold mb-6 text-themeBlue dark:text-blue-300">
             {section.category}
           </h2>
           <div className="space-y-4">
             {section.items.map((item, i) => (
               <div
                 key={i}
-                className="bg-white border border-gray-200 rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow duration-200"
+                className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm p-6 hover:shadow-md transition-shadow duration-200"
               >
-                <h3 className="font-medium text-lg text-gray-800 mb-2">
+                <h3 className="font-medium text-lg text-gray-800 dark:text-gray-100 mb-2">
                   {item.question}
                 </h3>
-                <p className="text-secondary text-sm whitespace-pre-line">{item.answer}</p>
+                <p className="text-secondary dark:text-gray-300 text-sm whitespace-pre-line">{item.answer}</p>
               </div>
             ))}
           </div>

@@ -1,6 +1,10 @@
 @import "tailwindcss";
 
-/* Light mode */
+/* Class-based dark mode: only .dark on <html> activates dark: variants.
+   We do NOT use prefers-color-scheme, so the site always defaults to light. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Light mode (default) */
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -33,24 +37,40 @@
   --font-mono: var(--font-geist-mono);
 }
 
-/* Dark mode */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Dark mode — only applied when <html> has the .dark class */
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
 
-    --primary: #f3f4f6;
-    --themeBlue: #013159;
-    /* same color or different */
-    --secondary: #d1d5db;
-    --muted: #9ca3af;
-    --danger: #f87171;
-    --success: #34d399;
-  }
+  --primary: #f3f4f6;
+  --themeBlue: #013159;
+  /* same color or different */
+  --secondary: #d1d5db;
+  --muted: #9ca3af;
+  --danger: #f87171;
+  --success: #34d399;
 }
 
 body {
-  background: var(--background);
+  /* Background is handled by the bg-white/dark:bg-gray-950 utility classes on <body>
+     in app/layout.tsx — setting it here too would fight those, since this plain rule
+     sits outside Tailwind's cascade layers and would otherwise always win regardless
+     of specificity. */
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Safety-net dark styling for native form fields that don't carry their own
+   dark: background/text classes (most raw <input>/<textarea>/<select> in the app). */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark textarea,
+.dark select {
+  background-color: #111827;
+  color: #f3f4f6;
+  border-color: #4b5563;
+}
+
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #6b7280;
 }
