@@ -20,6 +20,36 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
     </div>
 );
 
+// ── Tiny inline icons (stroke follows currentColor) ───────────────────────────
+const icon = (d: string, extra?: React.ReactNode) => (
+    <svg width="14" height="14" viewBox="0 0 20 20" fill="none" className="shrink-0">
+        <path d={d} stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        {extra}
+    </svg>
+);
+
+const IconStore = icon("M3 7l1-3h12l1 3M3 7h14v9H3V7zm4 9v-5h6v5");
+const IconTag = icon("M3 3h6l8 8-6 6-8-8V3z", <circle cx="6.5" cy="6.5" r="1.2" fill="currentColor" />);
+const IconCalendar = icon("M3 5h14v12H3V5zm4-2v4m6-4v4M3 9h14");
+const IconTruck = icon("M2 5h9v9H2V5zm9 3h4l3 3v3h-7V8z", <><circle cx="6" cy="16" r="1.6" stroke="currentColor" strokeWidth="1.6" /><circle cx="14" cy="16" r="1.6" stroke="currentColor" strokeWidth="1.6" /></>);
+const IconPin = icon("M10 18s6-5.2 6-9.5A6 6 0 004 8.5C4 12.8 10 18 10 18z", <circle cx="10" cy="8.5" r="2.2" stroke="currentColor" strokeWidth="1.6" />);
+const IconBox = icon("M10 2l7 4v8l-7 4-7-4V6l7-4zM3 6l7 4 7-4M10 10v8");
+const IconChevron = (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="shrink-0 text-gray-400 transition-transform duration-200 group-open:rotate-180">
+        <path d="M5 8l5 5 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+);
+
+const Meta = ({ icon: ic, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) => (
+    <div className="flex items-center gap-2 min-w-0">
+        <span className="text-gray-400">{ic}</span>
+        <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 leading-none mb-0.5">{label}</p>
+            <p className="text-sm font-medium text-gray-800 truncate">{value}</p>
+        </div>
+    </div>
+);
+
 function isProductUrl(url: string): boolean {
     if (!url) return false;
     const imageExtensions = /\.(jpg|jpeg|png|webp|gif|avif|svg)(\?.*)?$/i;
@@ -179,76 +209,113 @@ export default function OrderCard({ order, refresh }: OrderProps) {
         }
     };
 
-    const cardStyle = isCancelled ? "border-gray-400 bg-gray-100" : isDelivered ? "border-red-400 bg-red-50" : "border-green-400 bg-green-50";
-    const badgeStyle = isCancelled ? "bg-gray-500 text-white" : isDelivered ? "bg-red-500 text-white" : "bg-green-500 text-white";
-    const badgeLabel = isCancelled ? "Cancelled" : isDelivered ? "Delivered" : "Pending";
+    // ── Status theme — colour lives in the accent bar / pill / avatar, not the whole card ──
+    const theme = isCancelled
+        ? { bar: "from-slate-400 to-slate-500", pill: "bg-white text-slate-700 ring-slate-200", dot: "bg-slate-500", avatar: "from-slate-400 to-slate-600", label: "Cancelled", tint: "from-slate-200 to-slate-100", ring: "ring-slate-300" }
+        : isDelivered
+            ? { bar: "from-rose-400 to-red-500", pill: "bg-white text-rose-700 ring-rose-200", dot: "bg-rose-500", avatar: "from-rose-400 to-red-500", label: "Delivered", tint: "from-rose-100 to-orange-50", ring: "ring-rose-300/70" }
+            : { bar: "from-emerald-400 to-green-500", pill: "bg-white text-emerald-700 ring-emerald-200", dot: "bg-emerald-500", avatar: "from-emerald-400 to-green-500", label: "Pending", tint: "from-emerald-100 to-teal-50", ring: "ring-emerald-300/70" };
+
     const hasProductPageUrls = (order.productUrls || []).some(isProductUrl);
+    const inputCls = "w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-800 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100";
+
+    const initials = (order.name || "?").trim().split(/\s+/).slice(0, 2).map((w: string) => w[0]?.toUpperCase() ?? "").join("");
+    const total = order.totalAmount || 0;
+    const paid = order.advancePayment || 0;
+    const paidPct = total > 0 ? Math.min(100, Math.max(0, Math.round((paid / total) * 100))) : 0;
+    const productCount = order.productUrls?.length ?? 0;
 
     return (
         <>
-            <div data-order-id={order.id} className={`rounded-xl p-5 shadow-md border transition-all overflow-hidden ${cardStyle}`}>
-                <div className="flex justify-between items-center mb-3 gap-2 min-w-0">
-                    <h2 className="font-semibold text-xl text-gray-800 truncate min-w-0">{order.name}</h2>
-                    <span className={`px-3 py-1 text-sm rounded-full font-semibold shrink-0 ${badgeStyle}`}>{badgeLabel}</span>
-                </div>
+            <div
+                data-order-id={order.id}
+                className={`group/card relative overflow-hidden rounded-2xl bg-gradient-to-br ${theme.tint} ring-1 ${theme.ring} shadow-sm hover:shadow-lg transition-all duration-200`}
+            >
+                {/* status accent bar */}
+                <div className={`h-1 w-full bg-gradient-to-r ${theme.bar}`} />
+
+                <div className="p-4">
+                    <div className="flex items-center gap-3 mb-3 min-w-0">
+                        <div className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gradient-to-br ${theme.avatar} text-sm font-bold text-white shadow-sm`}>
+                            {initials || "?"}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <h2 className="truncate text-base font-bold leading-tight text-gray-900">{order.name}</h2>
+                            <p className="truncate text-xs text-gray-500">{order.storeName}</p>
+                        </div>
+                        <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${theme.pill}`}>
+                            <span className={`h-1.5 w-1.5 rounded-full ${theme.dot}`} />
+                            {theme.label}
+                        </span>
+                    </div>
 
                 {isEditing ? (
-                    <div className="space-y-3">
-                        <Field label="Customer Name">
-                            <input className="w-full border p-2 rounded-md" value={editData.name || ""} onChange={(e) => setEditData({ ...editData, name: e.target.value })} placeholder="Customer Name" />
-                        </Field>
-                        <Field label="Mobile Number">
-                            <input className="w-full border p-2 rounded-md" value={editData.mobile || ""} onChange={(e) => setEditData({ ...editData, mobile: e.target.value })} placeholder="Mobile Number" />
-                        </Field>
+                    <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                            <Field label="Customer Name">
+                                <input className={inputCls} value={editData.name || ""} onChange={(e) => setEditData({ ...editData, name: e.target.value })} placeholder="Customer Name" />
+                            </Field>
+                            <Field label="Mobile Number">
+                                <input className={inputCls} value={editData.mobile || ""} onChange={(e) => setEditData({ ...editData, mobile: e.target.value })} placeholder="Mobile Number" />
+                            </Field>
+                        </div>
                         <Field label="Address">
-                            <input className="w-full border p-2 rounded-md" value={editData.address || ""} onChange={(e) => setEditData({ ...editData, address: e.target.value })} placeholder="Address" />
+                            <input className={inputCls} value={editData.address || ""} onChange={(e) => setEditData({ ...editData, address: e.target.value })} placeholder="Address" />
                         </Field>
-                        <Field label="Store Name">
-                            <input className="w-full border p-2 rounded-md" value={editData.storeName || ""} onChange={(e) => setEditData({ ...editData, storeName: e.target.value })} placeholder="Store Name" />
-                        </Field>
-                        <Field label="Commission">
-                            <select className="w-full border p-2 rounded-md" value={editData.commission || ""} onChange={(e) => setEditData({ ...editData, commission: e.target.value })}>
-                                <option value="15%">15%</option>
-                                <option value="20%">20%</option>
-                                <option value="25%">25%</option>
-                                <option value="30%">30%</option>
-                                <option value="35%">35%</option>
-                                <option value="40%">40%</option>
-                            </select>
-                        </Field>
-                        <Field label="Total Amount (Rs.)">
-                            <input type="number" className="w-full border p-2 rounded-md" value={editData.totalAmount || ""} onChange={(e) => setEditData({ ...editData, totalAmount: Number(e.target.value) })} placeholder="Total Amount" />
-                        </Field>
-                        <Field label="Advance Payment (Rs.)">
-                            <input type="number" className="w-full border p-2 rounded-md" value={editData.advancePayment || ""} onChange={(e) => setEditData({ ...editData, advancePayment: Number(e.target.value) })} placeholder="Advance Payment" />
-                        </Field>
-                        <Field label="Ordered Date">
-                            <input type="date" className="w-full border p-2 rounded-md"
-                                value={editData.orderedDate ? editData.orderedDate.toDate().toISOString().split("T")[0] : ""}
-                                onChange={(e) => setEditData({ ...editData, orderedDate: Timestamp.fromDate(new Date(e.target.value)) })}
-                            />
-                        </Field>
-                        <Field label="Delivered Date">
-                            <input type="date" className="w-full border p-2 rounded-md"
-                                value={editData.deliveryDate ? editData.deliveryDate.toDate().toISOString().split("T")[0] : ""}
-                                onChange={(e) => setEditData({ ...editData, deliveryDate: Timestamp.fromDate(new Date(e.target.value)) })}
-                            />
-                        </Field>
-                        <Field label="Delivery Status">
-                            <label className="flex items-center cursor-pointer">
+                        <div className="grid grid-cols-2 gap-2">
+                            <Field label="Store Name">
+                                <input className={inputCls} value={editData.storeName || ""} onChange={(e) => setEditData({ ...editData, storeName: e.target.value })} placeholder="Store Name" />
+                            </Field>
+                            <Field label="Commission">
+                                <select className={inputCls} value={editData.commission || ""} onChange={(e) => setEditData({ ...editData, commission: e.target.value })}>
+                                    <option value="15%">15%</option>
+                                    <option value="20%">20%</option>
+                                    <option value="25%">25%</option>
+                                    <option value="30%">30%</option>
+                                    <option value="35%">35%</option>
+                                    <option value="40%">40%</option>
+                                </select>
+                            </Field>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <Field label="Total Amount (Rs.)">
+                                <input type="number" className={inputCls} value={editData.totalAmount || ""} onChange={(e) => setEditData({ ...editData, totalAmount: Number(e.target.value) })} placeholder="Total Amount" />
+                            </Field>
+                            <Field label="Advance Payment (Rs.)">
+                                <input type="number" className={inputCls} value={editData.advancePayment || ""} onChange={(e) => setEditData({ ...editData, advancePayment: Number(e.target.value) })} placeholder="Advance Payment" />
+                            </Field>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <Field label="Ordered Date">
+                                <input type="date" className={inputCls}
+                                    value={editData.orderedDate ? editData.orderedDate.toDate().toISOString().split("T")[0] : ""}
+                                    onChange={(e) => setEditData({ ...editData, orderedDate: Timestamp.fromDate(new Date(e.target.value)) })}
+                                />
+                            </Field>
+                            <Field label="Delivered Date">
+                                <input type="date" className={inputCls}
+                                    value={editData.deliveryDate ? editData.deliveryDate.toDate().toISOString().split("T")[0] : ""}
+                                    onChange={(e) => setEditData({ ...editData, deliveryDate: Timestamp.fromDate(new Date(e.target.value)) })}
+                                />
+                            </Field>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-3 py-0.5">
+                            <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Delivery Status</span>
+                            <label className="flex items-center gap-2 cursor-pointer">
                                 <div className="relative">
                                     <input type="checkbox" className="sr-only" checked={editData.deliveryStatus === true}
                                         onChange={(e) => setEditData({ ...editData, deliveryStatus: e.target.checked, deliveredBy: e.target.checked ? (editData.deliveredBy || "Ankush") : editData.deliveredBy })}
                                     />
-                                    <div className={`w-12 h-6 rounded-full transition-colors ${editData.deliveryStatus === true ? "bg-green-500" : "bg-gray-300"}`} />
-                                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${editData.deliveryStatus === true ? "translate-x-7" : "translate-x-1"}`} />
+                                    <div className={`w-10 h-5 rounded-full transition-colors ${editData.deliveryStatus === true ? "bg-green-500" : "bg-gray-300"}`} />
+                                    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${editData.deliveryStatus === true ? "translate-x-5" : "translate-x-0.5"}`} />
                                 </div>
-                                <span className="ml-3 font-medium text-gray-700">{editData.deliveryStatus === true ? "Delivered" : "Pending"}</span>
+                                <span className="text-sm font-medium text-gray-700">{editData.deliveryStatus === true ? "Delivered" : "Pending"}</span>
                             </label>
-                        </Field>
+                        </div>
                         {editData.deliveryStatus === true && (
                             <Field label="Delivered By">
-                                <select className="w-full border p-2 rounded-md" value={editData.deliveredBy || ""} onChange={(e) => setEditData({ ...editData, deliveredBy: e.target.value })}>
+                                <select className={inputCls} value={editData.deliveredBy || ""} onChange={(e) => setEditData({ ...editData, deliveredBy: e.target.value })}>
                                     <option value="">Select Delivery Person</option>
                                     <option value="Ankush">Ankush</option>
                                     <option value="Bhola">Bhola</option>
@@ -256,10 +323,10 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             </Field>
                         )}
 
-                        <div className="space-y-2">
+                        <div className="space-y-1.5">
                             <div className="flex justify-between items-center">
                                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Product URLs</p>
-                                <button type="button" className="text-sm px-3 py-1 bg-green-600 text-white rounded-md hover:bg-green-700"
+                                <button type="button" className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-100"
                                     onClick={() => setEditData({ ...editData, productUrls: [...(editData.productUrls || []), ""], productItems: [...(editData.productItems || []), { url: "", quantity: "1" }] })}>
                                     + Add URL
                                 </button>
@@ -267,8 +334,8 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             {editData.productUrls?.map((url: string, i: number) => {
                                 const qty = editData.productItems?.[i]?.quantity ?? "1";
                                 return (
-                                    <div key={i} className="flex gap-2 items-center">
-                                        <input className="flex-1 border p-2 rounded-md" value={url}
+                                    <div key={i} className="flex gap-1.5 items-center">
+                                        <input className={`flex-1 ${inputCls}`} value={url}
                                             onChange={(e) => {
                                                 const updatedUrls = [...editData.productUrls];
                                                 updatedUrls[i] = e.target.value;
@@ -278,17 +345,14 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                             }}
                                             placeholder={`Product URL ${i + 1}`}
                                         />
-                                        <div className="flex flex-col items-center">
-                                            <span className="text-xs text-gray-500 mb-0.5">Qty</span>
-                                            <input type="text" className="w-14 border p-2 rounded-md text-center text-sm" value={qty}
-                                                onChange={(e) => {
-                                                    const updatedItems = [...(editData.productItems || editData.productUrls.map((u: string, idx: number) => ({ url: u, quantity: editData.productItems?.[idx]?.quantity ?? "1" })))];
-                                                    updatedItems[i] = { ...updatedItems[i], quantity: e.target.value };
-                                                    setEditData({ ...editData, productItems: updatedItems });
-                                                }}
-                                            />
-                                        </div>
-                                        <button type="button" className="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600"
+                                        <input type="text" className="w-12 rounded-lg border border-gray-200 px-1 py-1.5 text-center text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100" value={qty} title="Quantity"
+                                            onChange={(e) => {
+                                                const updatedItems = [...(editData.productItems || editData.productUrls.map((u: string, idx: number) => ({ url: u, quantity: editData.productItems?.[idx]?.quantity ?? "1" })))];
+                                                updatedItems[i] = { ...updatedItems[i], quantity: e.target.value };
+                                                setEditData({ ...editData, productItems: updatedItems });
+                                            }}
+                                        />
+                                        <button type="button" className="rounded-lg bg-rose-50 px-2.5 py-1.5 text-sm font-semibold text-rose-600 ring-1 ring-rose-200 transition hover:bg-rose-100"
                                             onClick={() => {
                                                 const updatedUrls = editData.productUrls.filter((_: string, index: number) => index !== i);
                                                 const updatedItems = (editData.productItems || []).filter((_: any, index: number) => index !== i);
@@ -300,12 +364,12 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                         </div>
 
                         <Field label="Notes">
-                            <textarea className="w-full border p-2 rounded-md resize-none" rows={3} value={editData.notes || ""}
+                            <textarea className={`${inputCls} resize-none`} rows={2} value={editData.notes || ""}
                                 onChange={(e) => setEditData({ ...editData, notes: e.target.value })} placeholder="Add any notes about this order…" />
                         </Field>
 
-                        <div className="flex gap-3 pt-2">
-                            <button type="button" className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
+                        <div className="flex gap-2 pt-1">
+                            <button type="button" className="flex-1 rounded-xl bg-blue-600 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]"
                                 onClick={async () => {
                                     const dataToSave = { ...editData, deliveredBy: editData.deliveryStatus ? editData.deliveredBy || "" : "" };
                                     if (editData.deliveryStatus && !editData.deliveryDate) dataToSave.deliveryDate = Timestamp.now();
@@ -313,12 +377,12 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                     setIsEditing(false);
                                     refresh(order.id);
                                 }}>Save</button>
-                            <button type="button" className="flex-1 bg-gray-300 py-2 rounded-md hover:bg-gray-400"
+                            <button type="button" className="flex-1 rounded-xl bg-white py-2 text-sm font-semibold text-gray-700 ring-1 ring-gray-300 transition hover:bg-gray-50 active:scale-[0.99]"
                                 onClick={() => { setEditData(order); setIsEditing(false); }}>Cancel</button>
                         </div>
 
                         {isCancelled && (
-                            <button type="button" className="w-full py-2 rounded-md bg-blue-500 text-white font-semibold hover:bg-blue-600"
+                            <button type="button" className="w-full rounded-xl bg-blue-500 py-2 text-sm font-semibold text-white transition hover:bg-blue-600"
                                 onClick={async () => {
                                     await updateDoc(doc(db, "Confirm Orders", order.id), { deliveryStatus: false });
                                     setIsEditing(false);
@@ -326,55 +390,94 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                 }}>↩️ Reverse Cancellation</button>
                         )}
 
-                        <div className="flex gap-3 pt-1">
+                        <div className="flex gap-2">
                             {!isCancelled && (
-                                <button type="button" className="flex-1 py-2 rounded-md bg-orange-500 text-white font-semibold hover:bg-orange-600"
+                                <button type="button" className="flex-1 rounded-xl bg-amber-50 py-2 text-sm font-semibold text-amber-700 ring-1 ring-amber-200 transition hover:bg-amber-100"
                                     onClick={() => setShowCancelConfirm(true)}>🚫 Cancel Order</button>
                             )}
-                            <button type="button" className="flex-1 py-2 rounded-md bg-red-600 text-white font-semibold hover:bg-red-700"
+                            <button type="button" className="flex-1 rounded-xl bg-rose-50 py-2 text-sm font-semibold text-rose-700 ring-1 ring-rose-200 transition hover:bg-rose-100"
                                 onClick={() => { setDeletePassword(""); setDeleteError(""); setShowDeleteModal(true); }}>🗑️ Delete Order</button>
                         </div>
                     </div>
                 ) : (
                     // VIEW MODE
-                    <div className="space-y-2 text-gray-700">
-                        <div className="flex flex-wrap justify-between gap-x-4 gap-y-1">
-                            <p className="min-w-0 break-words"><b>Store:</b> {order.storeName}</p>
-                            <p className="shrink-0"><b>Commission:</b> {order.commission}</p>
+                    <div className="space-y-3">
+                        {/* ── Payment summary ── */}
+                        <div className="rounded-xl bg-white/80 p-3 shadow-sm ring-1 ring-white backdrop-blur-sm">
+                            <div className="flex items-end justify-between gap-3">
+                                <div className="min-w-0">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 leading-none mb-1">Total</p>
+                                    <p className="text-lg font-bold leading-none text-gray-900">Rs. {total.toLocaleString("en-IN")}</p>
+                                </div>
+                                <div className="min-w-0 text-right">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 leading-none mb-1">Paid</p>
+                                    <p className="text-sm font-semibold leading-none text-gray-700">Rs. {paid.toLocaleString("en-IN")}</p>
+                                </div>
+                                {!isCancelled && (
+                                    <div className="min-w-0 text-right">
+                                        <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 leading-none mb-1">Remaining</p>
+                                        <p className={`text-sm font-bold leading-none ${remaining > 0 ? "text-rose-600" : "text-emerald-600"}`}>
+                                            {remaining > 0 ? `Rs. ${remaining.toLocaleString("en-IN")}` : "Cleared ✓"}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+                            {!isCancelled && (
+                                <div className="mt-2.5 h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+                                    <div
+                                        className={`h-full rounded-full bg-gradient-to-r transition-all duration-500 ${remaining > 0 ? "from-amber-400 to-orange-500" : "from-emerald-400 to-green-500"}`}
+                                        style={{ width: `${paidPct}%` }}
+                                    />
+                                </div>
+                            )}
                         </div>
 
-                        <button type="button" className="w-full text-left bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 truncate"
-                            onClick={() => window.open(`https://wa.me/${order.mobile.replace("+", "")}`, "_blank")}>
-                            📞 WhatsApp: {order.mobile}
+                        {/* ── WhatsApp ── */}
+                        <button
+                            type="button"
+                            className="flex w-full items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-emerald-600 hover:to-green-700 active:scale-[0.99]"
+                            onClick={() => window.open(`https://wa.me/${order.mobile.replace("+", "")}`, "_blank")}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
+                                <path d="M17.5 14.4c-.3-.2-1.7-.9-2-1s-.5-.2-.7.1-.8 1-.9 1.2-.4.2-.7 0a8 8 0 01-2.4-1.5 9 9 0 01-1.6-2c-.2-.4 0-.5.1-.7l.5-.6.4-.6v-.6l-1-2.3c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4-.3.4-1.2 1.2-1.2 2.8s1.2 3.3 1.4 3.5 2.4 3.6 5.7 5c3.3 1.3 3.3.9 3.9.8s1.7-.7 2-1.4.3-1.3.2-1.4zM12 2a10 10 0 00-8.6 15L2 22l5.1-1.3A10 10 0 1012 2z" />
+                            </svg>
+                            <span className="truncate">{order.mobile}</span>
                         </button>
 
-                        <p className="break-words"><b>Address:</b> {order.address}</p>
-                        <p><b>Total Amount:</b> Rs. {order.totalAmount}</p>
-                        <p><b>Advance Paid:</b> Rs. {order.advancePayment}</p>
+                        {/* ── Address ── */}
+                        <div className="flex items-start gap-2 rounded-xl bg-white/70 px-3 py-2 ring-1 ring-white">
+                            <span className="mt-0.5 text-gray-400">{IconPin}</span>
+                            <p className="break-words text-sm leading-snug text-gray-600">{order.address}</p>
+                        </div>
 
-                        {!isCancelled && (
-                            <p className={`font-semibold text-lg ${remaining > 0 ? "text-red-700" : "text-green-700"}`}>
-                                <b>Remaining Payment:</b> Rs. {remaining}
-                                {isDelivered && remaining === 0 && " ✅"}
-                            </p>
-                        )}
-
-                        <p><b>Ordered Date:</b> {formatDate(order.orderedDate)}</p>
-                        {order.deliveryStatus === true && order.deliveryDate && (
-                            <p><b>Delivered Date:</b> {formatDate(order.deliveryDate)}</p>
-                        )}
-                        <p><b>Delivered By:</b> {order.deliveredBy}</p>
+                        {/* ── Meta grid ── */}
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
+                            <Meta icon={IconStore} label="Store" value={order.storeName} />
+                            <Meta icon={IconTag} label="Commission" value={order.commission} />
+                            <Meta icon={IconCalendar} label="Ordered" value={formatDate(order.orderedDate)} />
+                            {order.deliveryStatus === true && order.deliveryDate && (
+                                <Meta icon={IconCalendar} label="Delivered" value={formatDate(order.deliveryDate)} />
+                            )}
+                            {order.deliveredBy && <Meta icon={IconTruck} label="Delivered By" value={order.deliveredBy} />}
+                        </div>
 
                         {order.notes && order.notes.trim() !== "" && (
-                            <div className="bg-yellow-50 border border-yellow-300 rounded-md px-3 py-2">
-                                <p className="text-xs font-semibold text-yellow-700 uppercase tracking-wide mb-1">📝 Notes</p>
-                                <p className="text-sm text-yellow-900 whitespace-pre-wrap">{order.notes}</p>
+                            <div className="rounded-xl border-l-4 border-amber-400 bg-amber-50 px-3 py-2">
+                                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-amber-600">Notes</p>
+                                <p className="whitespace-pre-wrap text-sm leading-snug text-amber-900">{order.notes}</p>
                             </div>
                         )}
 
-                        <details className="bg-white rounded-md p-3 border cursor-pointer">
-                            <summary className="font-semibold text-blue-600">View Products</summary>
-                            <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                        <details className="group overflow-hidden rounded-xl bg-white/70 ring-1 ring-white">
+                            <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 transition hover:bg-white [&::-webkit-details-marker]:hidden">
+                                <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+                                    <span className="text-gray-400">{IconBox}</span>
+                                    Products
+                                    <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] font-bold text-gray-600">{productCount}</span>
+                                </span>
+                                {IconChevron}
+                            </summary>
+                            <div className="grid grid-cols-2 gap-3 border-t border-gray-100 p-3 sm:grid-cols-3 md:grid-cols-4">
                                 {order.productUrls?.map((url: string, i: number) => {
                                     const qty = order.productItems?.[i]?.quantity ?? null;
                                     const isPageLink = isProductUrl(url);
@@ -382,28 +485,27 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                         ? (isProductUrl(order.productPageUrls[i]) ? order.productPageUrls[i] : null)
                                         : (isPageLink ? url : null);
                                     return (
-                                        <div key={i} className="flex flex-col gap-1">
-                                            <a href={url} target="_blank" rel="noopener noreferrer" className="group block">
-                                                <div className="relative w-full aspect-square overflow-hidden rounded-md border bg-gray-100">
+                                        <div key={i} className="flex flex-col gap-1.5">
+                                            <a href={url} target="_blank" rel="noopener noreferrer" className="group/img block">
+                                                <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-gray-100 ring-1 ring-gray-200/70 transition group-hover/img:ring-blue-300">
                                                     {isPageLink ? (
-                                                        <div className="h-full w-full flex flex-col items-center justify-center text-gray-400 text-center p-2">
-                                                            <span className="text-2xl mb-1">🔗</span>
-                                                            <span className="text-xs leading-tight break-all line-clamp-3">{url}</span>
+                                                        <div className="flex h-full w-full flex-col items-center justify-center p-2 text-center text-gray-400">
+                                                            <span className="mb-1 text-xl">🔗</span>
+                                                            <span className="line-clamp-3 break-all text-[10px] leading-tight">{url}</span>
                                                         </div>
                                                     ) : (
                                                         <img src={url} alt={`Product ${i + 1}`} loading="lazy" decoding="async"
-                                                            className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105" />
+                                                            className="h-full w-full object-cover transition-transform duration-300 group-hover/img:scale-110" />
                                                     )}
                                                     {qty && (
-                                                        <span className="absolute bottom-1 right-1 bg-black/70 text-white text-xs font-bold px-2 py-0.5 rounded-full">×{qty}</span>
+                                                        <span className="absolute bottom-1 right-1 rounded-full bg-black/75 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">×{qty}</span>
                                                     )}
                                                 </div>
                                             </a>
                                             {pageUrl && !isPageLink && (
                                                 <a href={pageUrl} target="_blank" rel="noopener noreferrer"
-                                                    className="flex items-center justify-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline bg-blue-50 border border-blue-200 rounded px-2 py-1 truncate"
+                                                    className="flex items-center justify-center gap-1 truncate rounded-lg bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-600 ring-1 ring-blue-100 transition hover:bg-blue-100"
                                                     title={pageUrl}>
-                                                    <span>🛒</span>
                                                     <span className="truncate">View Product</span>
                                                 </a>
                                             )}
@@ -417,15 +519,15 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                         {hasProductPageUrls && (
                             <button
                                 type="button"
-                                className="w-full py-2 rounded-md bg-purple-600 text-white font-semibold hover:bg-purple-700 disabled:opacity-60 flex items-center justify-center gap-2"
+                                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:from-violet-600 hover:to-purple-700 active:scale-[0.99] disabled:opacity-60"
                                 onClick={handleAutoFetchImages}
                                 disabled={isFetchingImages}
                             >
                                 {isFetchingImages ? (
                                     <>
-                                        <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                                        <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
                                         </svg>
                                         Fetching Images…
                                     </>
@@ -435,23 +537,32 @@ export default function OrderCard({ order, refresh }: OrderProps) {
 
                         {/* Progress Log — stays visible until refresh */}
                         {fetchProgress.length > 0 && (
-                            <div className="bg-gray-900 text-green-400 text-xs rounded-md p-3 font-mono space-y-1 max-h-48 overflow-y-auto">
+                            <div className="max-h-48 space-y-1 overflow-y-auto rounded-xl bg-slate-900 p-3 font-mono text-xs text-emerald-400 ring-1 ring-slate-700">
                                 {fetchProgress.map((msg, i) => (
                                     <p key={i}>{msg}</p>
                                 ))}
                             </div>
                         )}
 
-                        <div className="flex gap-3 mt-3">
-                            <button type="button" className="flex-1 py-2 rounded-md bg-black text-white font-semibold hover:bg-gray-800" onClick={() => setIsEditing(true)}>
-                                ✏️ Edit Order
+                        <div className="flex gap-2 pt-0.5">
+                            <button
+                                type="button"
+                                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gray-900 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-gray-800 active:scale-[0.99]"
+                                onClick={() => setIsEditing(true)}
+                            >
+                                ✏️ Edit
                             </button>
-                            <button type="button" className="flex-1 py-2 rounded-md bg-yellow-500 text-white font-semibold hover:bg-yellow-600" onClick={handleCopy}>
+                            <button
+                                type="button"
+                                className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-gray-700 ring-1 ring-gray-300 transition hover:bg-gray-50 active:scale-[0.99]"
+                                onClick={handleCopy}
+                            >
                                 📋 Copy Address
                             </button>
                         </div>
                     </div>
                 )}
+                </div>
             </div>
 
             {/* ── Cancel Modal ── */}
