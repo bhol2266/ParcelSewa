@@ -122,11 +122,12 @@ const OrdersStats: React.FC<StatsProps> = ({
 
     // ── Monthly stats ─────────────────────────────────────────────────────────
     const activeStatOrders = monthStatOrders.filter((o) => o.deliveryStatus !== "cancelled");
-    const deliveredStatOrders = activeStatOrders.filter((o) => o.deliveryStatus === true);
 
-    const totalRevenue = deliveredStatOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
-    const profit = calcProfit(deliveredStatOrders);
-    const estimatedProfit = calcEstimatedProfit(activeStatOrders);
+    // Revenue and profit both count every order placed this month (delivered or not,
+    // paid or not) — excludes only cancelled orders, which never generated real revenue.
+    const totalOrders = activeStatOrders.length;
+    const totalRevenue = activeStatOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    const profit = calcProfit(activeStatOrders);
     const borderCommission = calcBorderCommission(monthDeliveredOrders);
     const remainingPayment = calcRemainingPayment(monthStatOrders);
 
@@ -211,6 +212,12 @@ const OrdersStats: React.FC<StatsProps> = ({
                                 <p className="text-xs text-gray-400 mb-2">{selectedLabel}</p>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                                     <StatCard
+                                        label="Total Orders"
+                                        value={`${totalOrders}`}
+                                        bg="bg-indigo-100"
+                                        textColor="text-indigo-900"
+                                    />
+                                    <StatCard
                                         label="Total Revenue"
                                         value={`Rs. ${formatNumber(totalRevenue)}`}
                                         bg="bg-blue-100"
@@ -221,12 +228,6 @@ const OrdersStats: React.FC<StatsProps> = ({
                                         value={`Rs. ${formatNumber(profit)}`}
                                         bg={profit < 0 ? "bg-red-200" : "bg-purple-100"}
                                         textColor={profit < 0 ? "text-red-900" : "text-purple-900"}
-                                    />
-                                    <StatCard
-                                        label="Estimated Profit"
-                                        value={`Rs. ${formatNumber(estimatedProfit)}`}
-                                        bg={estimatedProfit < 0 ? "bg-red-200" : "bg-teal-100"}
-                                        textColor={estimatedProfit < 0 ? "text-red-900" : "text-teal-900"}
                                     />
                                     <StatCard
                                         label="Border Commission"
