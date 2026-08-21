@@ -2,10 +2,17 @@
 
 import React, { useState } from "react";
 
-const FLAT_BELOW_1500_NPR = 600;
-const FLAT_BELOW_1500_NPR_700 = 700;
+// Flat NPR charges for orders below IC 1500, keyed by option value.
+const FLAT_RATES = {
+    below_1500: 600,
+    below_1500_700: 700,
+    below_1500_1000: 1000,
+} as const;
 
-type CommissionOption = number | "below_1500" | "below_1500_700";
+type FlatOption = keyof typeof FLAT_RATES;
+type CommissionOption = number | FlatOption;
+
+const isFlatOption = (value: string): value is FlatOption => value in FLAT_RATES;
 
 const PriceCalculator: React.FC = () => {
     const [amountINR, setAmountINR] = useState<string>("");
@@ -14,7 +21,7 @@ const PriceCalculator: React.FC = () => {
         nprConverted: number;
         commissionAmount: number;
         total: number;
-        flatRateType: "none" | "600" | "700";
+        flatRateType: "none" | "flat";
     } | null>(null);
 
     const conversionRate = 1.6;
@@ -27,29 +34,17 @@ const PriceCalculator: React.FC = () => {
         let commissionAmount: number;
         let total: number;
         let textToCopy: string;
-        let flatRateType: "none" | "600" | "700" = "none";
+        let flatRateType: "none" | "flat" = "none";
 
-        if (commissionRate === "below_1500") {
-            flatRateType = "600";
-            commissionAmount = FLAT_BELOW_1500_NPR;
+        if (typeof commissionRate === "string") {
+            const flatRate = FLAT_RATES[commissionRate];
+            flatRateType = "flat";
+            commissionAmount = flatRate;
             total = nprConverted + commissionAmount;
 
             textToCopy = `
 🇮🇳 INR ${Math.round(amount).toLocaleString()} x ${conversionRate} = ${nprConverted.toLocaleString()} NPR 🇳🇵
-Below order 1500 charge will be flat 600 + courier charge
-
-**TOTAL = ${total.toLocaleString()} NPR** + courier charge
-
-🏷️ Product + Nepali Custom + Service charge
-`.trim();
-        } else if (commissionRate === "below_1500_700") {
-            flatRateType = "700";
-            commissionAmount = FLAT_BELOW_1500_NPR_700;
-            total = nprConverted + commissionAmount;
-
-            textToCopy = `
-🇮🇳 INR ${Math.round(amount).toLocaleString()} x ${conversionRate} = ${nprConverted.toLocaleString()} NPR 🇳🇵
-Below order 1500 charge will be flat 700 + courier charge
+Below order 1500 charge will be flat ${flatRate} + courier charge
 
 **TOTAL = ${total.toLocaleString()} NPR** + courier charge
 
@@ -86,6 +81,7 @@ NPR ${nprConverted.toLocaleString()} + ${rate}% = ${nprConverted.toLocaleString(
         { label: "50%", value: 50 },
         { label: "Below order IC 1500 (Flat NPR 600)", value: "below_1500" },
         { label: "Below order IC 1500 (Flat NPR 700)", value: "below_1500_700" },
+        { label: "Below order IC 1500 (Flat NPR 1000)", value: "below_1500_1000" },
     ];
 
     return (
@@ -109,7 +105,7 @@ NPR ${nprConverted.toLocaleString()} + ${rate}% = ${nprConverted.toLocaleString(
                     value={commissionRate}
                     onChange={(e) => {
                         const val = e.target.value;
-                        if (val === "below_1500" || val === "below_1500_700") {
+                        if (isFlatOption(val)) {
                             setCommissionRate(val);
                         } else {
                             setCommissionRate(parseInt(val));
