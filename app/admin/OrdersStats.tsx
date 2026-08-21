@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { parseFlatCommission } from "@/lib/commission";
 
 interface Order {
     id: string;
@@ -37,13 +38,10 @@ function calcOrderProfit(o: Order): number {
     const total = o.totalAmount || 0;
     const commission = o.commission || "";
 
-    if (commission === "Flat NPR 600") {
-        const basePrice = total - 600;
-        return 600 - basePrice * 0.07;
-    }
-    if (commission === "Flat NPR 700") {
-        const basePrice = total - 700;
-        return 700 - basePrice * 0.07;
+    const flat = parseFlatCommission(commission);
+    if (flat !== null) {
+        const basePrice = total - flat;
+        return flat - basePrice * 0.07;
     }
 
     const pct = parseCommission(commission);
@@ -66,8 +64,8 @@ function calcBorderCommission(list: Order[]): number {
     return list.reduce((sum, o) => {
         const commission = o.commission || "";
         const total = o.totalAmount || 0;
-        if (commission === "Flat NPR 600") return sum + (total - 600) * 0.07;
-        if (commission === "Flat NPR 700") return sum + (total - 700) * 0.07;
+        const flat = parseFlatCommission(commission);
+        if (flat !== null) return sum + (total - flat) * 0.07;
         const pct = parseCommission(commission);
         if (pct === 0) return sum;
         return sum + (total / (1 + pct)) * 0.07;

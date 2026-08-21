@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { updateDoc, doc, deleteDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
+import { parseFlatCommission } from "@/lib/commission";
 
 interface OrderProps {
     order: any;
@@ -359,10 +360,9 @@ export default function OrderCardAnkush({ order, refresh }: OrderProps) {
                             const total = order.totalAmount || 0;
                             let priceWithoutCommission: number | null = null;
 
-                            if (commission === "Flat NPR 700") {
-                                priceWithoutCommission = total - 700;
-                            } else if (commission === "Flat NPR 600") {
-                                priceWithoutCommission = total - 600;
+                            const flat = parseFlatCommission(commission);
+                            if (flat !== null) {
+                                priceWithoutCommission = total - flat;
                             } else {
                                 const rate = parseFloat(commission.replace("%", "").trim());
                                 if (!isNaN(rate) && rate > 0) {
