@@ -3,6 +3,13 @@
 import React, { useState } from "react";
 import ReactCountryFlag from "react-country-flag";
 
+const CONVERSION_RATE = 1.6;
+
+// Orders below IC 1500 are charged a flat NPR commission instead of a percentage.
+const FLAT_COMMISSION_NPR = 800;
+const FLAT_COMMISSION_THRESHOLD_INR = 1500;
+const PERCENT_TIER_THRESHOLD_INR = 10000;
+
 export default function PriceCalculator() {
   const [price, setPrice] = useState("");
   const [weight, setWeight] = useState("");
@@ -18,8 +25,18 @@ export default function PriceCalculator() {
     const itemPrice = Number(price);
     const weightValue = Number(weight);
 
-    // 20% of item price
-    const serviceFee = itemPrice * 0.20;
+    // Commission by item price:
+    //   below IC 1,500      → flat NPR 800 (converted to INR so the NPR total lands on 800)
+    //   IC 1,500 – 9,999    → 30%
+    //   IC 10,000 and above → 25%
+    let serviceFee: number;
+    if (itemPrice < FLAT_COMMISSION_THRESHOLD_INR) {
+      serviceFee = FLAT_COMMISSION_NPR / CONVERSION_RATE;
+    } else if (itemPrice < PERCENT_TIER_THRESHOLD_INR) {
+      serviceFee = itemPrice * 0.30;
+    } else {
+      serviceFee = itemPrice * 0.25;
+    }
 
     // Weight = Rs. 60 per kg
     const weightCharge = weightValue * 60;
@@ -70,7 +87,7 @@ export default function PriceCalculator() {
 
             {/* Conversion Rate */}
             <div className="text-center text-sm text-gray-600 dark:text-gray-300 mb-3">
-              1 INR = 1.60 NPR
+              1 INR = {CONVERSION_RATE.toFixed(2)} NPR
             </div>
 
             {/* NPR Section */}
@@ -80,7 +97,7 @@ export default function PriceCalculator() {
                 <span className="font-medium text-[#002B5B]">Nepal (NPR)</span>
               </div>
               <span className="text-lg font-bold text-orange-600 dark:text-orange-400">
-                NPR {(total * 1.6).toFixed(2)}
+                NPR {(total * CONVERSION_RATE).toFixed(2)}
               </span>
             </div>
           </div>
