@@ -4,8 +4,6 @@ import React, { useState } from "react";
 
 // Flat NPR charges for orders below IC 1500, keyed by option value.
 const FLAT_RATES = {
-    below_1500: 600,
-    below_1500_700: 700,
     below_1500_1000: 1000,
 } as const;
 
@@ -79,8 +77,6 @@ NPR ${nprConverted.toLocaleString()} + ${rate}% = ${nprConverted.toLocaleString(
         { label: "35%", value: 35 },
         { label: "40%", value: 40 },
         { label: "50%", value: 50 },
-        { label: "Below order IC 1500 (Flat NPR 600)", value: "below_1500" },
-        { label: "Below order IC 1500 (Flat NPR 700)", value: "below_1500_700" },
         { label: "Below order IC 1500 (Flat NPR 1000)", value: "below_1500_1000" },
     ];
 
