@@ -48,8 +48,8 @@ const IconChevron = (
     </svg>
 );
 
-const Meta = ({ icon: ic, label, value, action }: { icon: React.ReactNode; label: string; value: React.ReactNode; action?: React.ReactNode }) => (
-    <div className="flex items-center gap-2 min-w-0">
+const Meta = ({ icon: ic, label, value, action, className = "" }: { icon: React.ReactNode; label: string; value: React.ReactNode; action?: React.ReactNode; className?: string }) => (
+    <div className={`flex items-center gap-2 min-w-0 ${className}`}>
         <span className="text-gray-400">{ic}</span>
         <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 leading-none mb-0.5">{label}</p>
@@ -590,7 +590,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                         <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
                             <Meta icon={IconStore} label="Store" value={order.storeName} />
                             <Meta icon={IconTag} label="Commission" value={order.commission} />
-                            <Meta icon={IconCalendar} label="Ordered" value={formatDate(order.orderedDate)} action={
+                            <Meta icon={IconCalendar} label="Ordered" value={formatDate(order.orderedDate)} className="col-span-2" action={
                                 <span className="flex items-center gap-1">
                                     <button type="button" onClick={handleVerifyTotal} disabled={isVerifying}
                                         title="Check the total against live product prices"
