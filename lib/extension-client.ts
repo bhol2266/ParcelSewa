@@ -20,19 +20,22 @@ function send(message: Record<string, unknown>, replyType: string, timeoutMs: nu
 
 export const hasExtension = async () => !!(await send({ type: "PARCELSEWA_PING" }, "PARCELSEWA_PONG", 600));
 
-/** Returns the product image, or null when the extension is missing or the store gave nothing usable. */
-export async function fetchStoreImageViaExtension(productUrl: string, notes: string): Promise<string | null> {
+/** Returns the product image (or null) plus a short note on what the extension did, for the progress log. */
+export async function fetchStoreImageViaExtension(productUrl: string, notes: string): Promise<{ image: string | null; note: string }> {
     let url: URL;
-    try { url = new URL(productUrl); } catch { return null; }
+    try { url = new URL(productUrl); } catch { return { image: null, note: "" }; }
     const store = isStoreUrl(url, "flipkart.com") ? "flipkart" : isStoreUrl(url, "ajio.com") ? "ajio" : null;
-    if (!store || !(await hasExtension())) return null;
+    if (!store) return { image: null, note: "" };
+    if (!(await hasExtension())) return { image: null, note: "Extension not detected on this page (install it, then refresh); using server" };
+    const tried: string[] = [];
     if (store === "flipkart" && url.hostname === "flipkart.com") url.hostname = "www.flipkart.com";
     // Ajio blocks plain fetches, so it needs a real page load; Flipkart tries the cheap fetches first.
     for (const mode of store === "ajio" ? ["tab"] : ["browser", "crawler", "tab"]) {
         const reply = await send({ type: "PARCELSEWA_FETCH_HTML", url: url.href, mode }, "PARCELSEWA_HTML_RESULT", 45000);
-        if (!reply?.ok || !reply.html) continue;
+        if (!reply?.ok || !reply.html) { tried.push(`${mode}: ${reply ? reply.error || `HTTP ${reply.status}` : "no response"}`); continue; }
         const image = chooseImage(extractStoreImages(reply.html, productUrl, store), notes);
-        if (image) return image;
+        if (image) return { image, note: `Found via extension (${mode})` };
+        tried.push(`${mode}: page had no product image`);
     }
-    return null;
+    return { image: null, note: `Extension found nothing (${tried.join("; ")}); using server` };
 }

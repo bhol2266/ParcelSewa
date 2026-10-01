@@ -68,10 +68,11 @@ function isProductUrl(url: string): boolean {
     }
 }
 
-async function fetchProductImageWithClaude(productUrl: string, notes: string): Promise<string> {
+async function fetchProductImageWithClaude(productUrl: string, notes: string, log: (message: string) => void = () => {}): Promise<string> {
     // Flipkart/Ajio block cloud servers, so try the browser extension (your own connection) first.
     const fromExtension = await fetchStoreImageViaExtension(productUrl, notes);
-    if (fromExtension) return fromExtension;
+    if (fromExtension.note) log(`🧩 ${fromExtension.note}`);
+    if (fromExtension.image) return fromExtension.image;
 
     const response = await fetch("/api/fetch-product-image", {
         method: "POST",
@@ -151,7 +152,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
             setFetchProgress(prev => [...prev, `🔍 Fetching image for product ${i + 1}...`]);
 
             try {
-                const imageUrl = await fetchProductImageWithClaude(url, order.notes || "");
+                const imageUrl = await fetchProductImageWithClaude(url, order.notes || "", message => setFetchProgress(prev => [...prev, message]));
                 updatedPageUrls[i] = url;
                 updatedUrls[i] = imageUrl;
                 updatedItems[i] = { ...updatedItems[i], url: imageUrl };
