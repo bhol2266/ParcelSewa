@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { updateDoc, doc, deleteDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
-import { fetchStoreImageViaExtension } from "@/lib/extension-client";
+import { fetchProductPriceViaExtension, fetchStoreImageViaExtension } from "@/lib/extension-client";
+import { expectedTotal } from "@/lib/product-price-parse";
 
 interface OrderProps {
     order: any;
@@ -41,13 +42,14 @@ const IconChevron = (
     </svg>
 );
 
-const Meta = ({ icon: ic, label, value }: { icon: React.ReactNode; label: string; value: React.ReactNode }) => (
+const Meta = ({ icon: ic, label, value, action }: { icon: React.ReactNode; label: string; value: React.ReactNode; action?: React.ReactNode }) => (
     <div className="flex items-center gap-2 min-w-0">
         <span className="text-gray-400">{ic}</span>
         <div className="min-w-0">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 leading-none mb-0.5">{label}</p>
             <p className="text-sm font-medium text-gray-800 truncate">{value}</p>
         </div>
+        {action && <span className="ml-auto shrink-0">{action}</span>}
     </div>
 );
 
@@ -179,6 +181,56 @@ export default function OrderCard({ order, refresh }: OrderProps) {
 
         // ── Delay refresh so user can read the log ─────────────────────────
         setTimeout(() => { refresh(order.id); }, 3000);
+    };
+
+    // ── Verify the saved total against live product prices ─────────────────────
+    const ERROR_THRESHOLD_NPR = 200;
+    const [isVerifying, setIsVerifying] = useState(false);
+    const [verifyMessage, setVerifyMessage] = useState("");
+
+    const handleVerifyTotal = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsVerifying(true);
+        setVerifyMessage("");
+        try {
+            const pageUrls: string[] = order.productPageUrls?.length ? order.productPageUrls : order.productUrls || [];
+            const items: { url: string; priceInr: number; qty: number }[] = [];
+            for (let i = 0; i < pageUrls.length; i++) {
+                const url = pageUrls[i];
+                if (!isProductUrl(url)) { setVerifyMessage(`Product ${i + 1} has no product page link, so it can't be checked.`); return; }
+                setVerifyMessage(`Reading price ${i + 1} of ${pageUrls.length}…`);
+                const { price, note } = await fetchProductPriceViaExtension(url);
+                if (!price) { setVerifyMessage(`Couldn't read the price for product ${i + 1} (${note}).`); return; }
+                const qty = Number(order.productItems?.[i]?.quantity ?? 1) || 1;
+                items.push({ url, priceInr: price, qty });
+            }
+            if (items.length === 0) { setVerifyMessage("No product links to check."); return; }
+
+            const inr = items.reduce((sum, item) => sum + item.priceInr * item.qty, 0);
+            const expected = expectedTotal(inr, order.commission);
+            if (!expected) { setVerifyMessage(`Can't read this order's commission ("${order.commission ?? ""}").`); return; }
+
+            setVerifyMessage("");
+            const diff = (order.totalAmount || 0) - expected.total;
+            const mismatch = Math.abs(diff) > ERROR_THRESHOLD_NPR;
+            const update: Record<string, unknown> = {
+                totalCheck: { expectedTotal: expected.total, inrProducts: inr, nprProducts: expected.npr, commission: expected.commission, diff, items, checkedAt: Timestamp.now() },
+            };
+            if (mismatch) {
+                const line = `Total mismatch: expected NPR ${expected.total.toLocaleString()}, order has NPR ${(order.totalAmount || 0).toLocaleString()} (${diff > 0 ? "+" : ""}${diff.toLocaleString()})`;
+                const manual = String(order.errorNote || "").split("\n").filter(l => !l.startsWith("Total mismatch")).join("\n").trim();
+                update.hasError = true;
+                update.errorNote = manual ? `${line}\n${manual}` : line;
+            }
+            await updateDoc(doc(db, "Confirm Orders", order.id), update);
+            refresh(order.id);
+        } catch (err) {
+            console.error("Verify failed:", err);
+            setVerifyMessage("Verification failed. Please try again.");
+        } finally {
+            setIsVerifying(false);
+        }
     };
 
     // ── Cancel ────────────────────────────────────────────────────────────────
@@ -497,12 +549,38 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                         <div className="grid grid-cols-2 gap-x-3 gap-y-2.5">
                             <Meta icon={IconStore} label="Store" value={order.storeName} />
                             <Meta icon={IconTag} label="Commission" value={order.commission} />
-                            <Meta icon={IconCalendar} label="Ordered" value={formatDate(order.orderedDate)} />
+                            <Meta icon={IconCalendar} label="Ordered" value={formatDate(order.orderedDate)} action={
+                                <button type="button" onClick={handleVerifyTotal} disabled={isVerifying}
+                                    title="Check the total against live product prices"
+                                    className="rounded-md bg-white px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 ring-1 ring-gray-300 transition hover:bg-gray-50 disabled:opacity-60">
+                                    {isVerifying ? "Checking…" : "✓ Verify"}
+                                </button>
+                            } />
                             {order.deliveryStatus === true && order.deliveryDate && (
                                 <Meta icon={IconCalendar} label="Delivered" value={formatDate(order.deliveryDate)} />
                             )}
                             {order.deliveredBy && <Meta icon={IconTruck} label="Delivered By" value={order.deliveredBy} />}
                         </div>
+
+                        {(verifyMessage || order.totalCheck) && (() => {
+                            const check = order.totalCheck;
+                            const ok = check && Math.abs(check.diff) <= ERROR_THRESHOLD_NPR;
+                            return (
+                                <div className={`rounded-xl px-3 py-2 text-xs leading-snug ring-1 ${verifyMessage ? "bg-gray-50 text-gray-600 ring-gray-200" : ok ? "bg-emerald-50 text-emerald-800 ring-emerald-200" : "bg-orange-50 text-orange-800 ring-orange-200"}`}>
+                                    {verifyMessage ? verifyMessage : (
+                                        <>
+                                            <p className="font-semibold">
+                                                {ok ? "✅ Total matches" : "⚠️ Total differs"} · expected NPR {check.expectedTotal.toLocaleString()} · order NPR {(order.totalAmount || 0).toLocaleString()}
+                                                {check.diff !== 0 && ` (${check.diff > 0 ? "+" : ""}${check.diff.toLocaleString()})`}
+                                            </p>
+                                            <p className="opacity-80">
+                                                ₹{check.inrProducts.toLocaleString()} × 1.6 = {check.nprProducts.toLocaleString()} + commission {check.commission.toLocaleString()} · courier not included
+                                            </p>
+                                        </>
+                                    )}
+                                </div>
+                            );
+                        })()}
 
                         {order.notes && order.notes.trim() !== "" && (
                             <div className="rounded-xl border-l-4 border-amber-400 bg-amber-50 px-3 py-2">

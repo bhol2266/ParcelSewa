@@ -1,4 +1,5 @@
 import { chooseImage, extractStoreImages, isStoreUrl } from "./product-image-parse";
+import { extractPrice } from "./product-price-parse";
 
 // Talks to the ParcelSewa Store Fetcher Chrome extension (see /extension) through its content script.
 type Reply = { ok: boolean; status?: number; html?: string; error?: string };
@@ -38,4 +39,18 @@ export async function fetchStoreImageViaExtension(productUrl: string, notes: str
         tried.push(`${mode}: page had no product image`);
     }
     return { image: null, note: `Extension found nothing (${tried.join("; ")}); using server` };
+}
+
+/** Reads a product's selling price (INR) from any store page, trying cheap fetches before a real page load. */
+export async function fetchProductPriceViaExtension(productUrl: string): Promise<{ price: number | null; note: string }> {
+    if (!(await hasExtension())) return { price: null, note: "Extension not detected (install it, then refresh the page)" };
+    const tried: string[] = [];
+    for (const mode of ["browser", "crawler", "tab"]) {
+        const reply = await send({ type: "PARCELSEWA_FETCH_HTML", url: productUrl, mode }, "PARCELSEWA_HTML_RESULT", 45000);
+        if (!reply?.ok || !reply.html) { tried.push(`${mode}: ${reply ? reply.error || `HTTP ${reply.status}` : "no response"}`); continue; }
+        const price = extractPrice(reply.html);
+        if (price) return { price, note: mode };
+        tried.push(`${mode}: no price on page`);
+    }
+    return { price: null, note: tried.join("; ") };
 }

@@ -1,6 +1,11 @@
 const CRAWLER_UA = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
-const STORE_HOSTS = ["flipkart.com", "ajio.com"];
-const isStore = url => url.protocol === "https:" && STORE_HOSTS.some(host => url.hostname === host || url.hostname.endsWith(`.${host}`));
+// Any public https site is allowed (the admin page decides what to read), but never local-network addresses.
+const isStore = url => url.protocol === "https:"
+    && url.hostname.includes(".")
+    && !/^[\d.]+$/.test(url.hostname)
+    && !url.hostname.includes(":")
+    && !/\.(local|localhost|internal|lan|home)$/i.test(url.hostname);
+const registrableDomain = hostname => hostname.split(".").slice(-2).join(".");
 
 // Requests change a shared header rule, so run them one at a time.
 let queue = Promise.resolve();
@@ -32,7 +37,7 @@ async function readInTab(url) {
 async function fetchPage(rawUrl, mode) {
     let url;
     try { url = new URL(rawUrl); } catch { return { ok: false, error: "Invalid URL" }; }
-    if (!isStore(url)) return { ok: false, error: "Only Flipkart and Ajio pages are allowed" };
+    if (!isStore(url)) return { ok: false, error: "Only public https pages are allowed" };
     if (mode === "tab") return readInTab(url);
     // "crawler" mode: Flipkart serves search-engine crawlers its full page even when it bot-checks browsers.
     if (mode === "crawler") {
@@ -41,7 +46,7 @@ async function fetchPage(rawUrl, mode) {
             addRules: [{
                 id: 1, priority: 1,
                 action: { type: "modifyHeaders", requestHeaders: [{ header: "User-Agent", operation: "set", value: CRAWLER_UA }] },
-                condition: { requestDomains: STORE_HOSTS, resourceTypes: ["xmlhttprequest"], tabIds: [-1] },
+                condition: { requestDomains: [registrableDomain(url.hostname)], resourceTypes: ["xmlhttprequest"], tabIds: [-1] },
             }],
         });
     }

@@ -14,6 +14,7 @@ const load = (file, req) => {
 };
 const parse = load("product-image-parse.ts", require);
 const loaded = load("product-images.ts", id => id === "./product-image-parse" ? parse.exports : require(id));
+const price = load("product-price-parse.ts", require).exports;
 const { extractStoreImages, fetchAjioImage, fetchFlipkartImage, isStoreUrl } = loaded.exports;
 const flipkart = "https://www.flipkart.com/nike-shoes/p/itm123";
 const ajio = "https://www.ajio.com/backpack/p/700737231_blue";
@@ -112,4 +113,20 @@ test("Ajio numeric SKU pages prefer the largest gallery image over the meta thum
     const large = `${root}/b/-1117Wx1400H-469763484-blackgrey-MODEL.jpg`;
     const other = `${root}/c/-1117Wx1400H-111111111-red-MODEL.jpg`;
     assert.deepEqual(extractStoreImages(`<meta property="og:image" content="${small}"><script>"${other}","${large}"</script>`, url, "ajio"), [large, small]);
+});
+
+test("price is read from structured data, Flipkart state, Amazon and meta tags", () => {
+    const ld = p => `<script type="application/ld+json">${JSON.stringify(p)}</script>`;
+    assert.equal(price.extractPrice(ld({ "@type": "Product", offers: { "@type": "Offer", priceCurrency: "INR", price: "1,299.00" } })), 1299);
+    assert.equal(price.extractPrice(ld({ "@graph": [{ "@type": "Organization" }, { "@type": "Product", offers: [{ price: 448 }] }] })), 448);
+    assert.equal(price.extractPrice(ld({ "@type": "Product", offers: { priceCurrency: "USD", price: "10" } })), null);
+    assert.equal(price.extractPrice('<script>{"fsp":448,"finalPrice":460,"mrp":899}</script>'), 448);
+    assert.equal(price.extractPrice('<span class="a-price a-text-price"><span class="a-offscreen">₹999</span></span><span class="a-price aok-align-center"><span class="a-offscreen">₹749.00</span></span>'), 749);
+    assert.equal(price.extractPrice('<meta property="product:price:amount" content="2,499">'), 2499);
+    assert.equal(price.extractPrice("<html>blocked</html>"), null);
+});
+test("expected total matches the quotation calculator and excludes courier", () => {
+    assert.deepEqual(price.expectedTotal(1000, "20%"), { npr: 1600, commission: 320, total: 1920 });
+    assert.deepEqual(price.expectedTotal(1000, "800"), { npr: 1600, commission: 800, total: 2400 });
+    assert.equal(price.expectedTotal(1000, ""), null);
 });
