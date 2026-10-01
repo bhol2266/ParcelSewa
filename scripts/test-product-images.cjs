@@ -164,3 +164,11 @@ test("expected total matches the quotation calculator for every commission optio
         }
     }
 });
+
+test("Amazon layouts with an empty first price block still yield the price to pay", () => {
+    const html = '<span class="a-price aok-align-center priceToPay" data-a-size="xl"><span class="a-offscreen"> </span><span aria-hidden="true">x</span></span>'
+        + '<span class="a-price a-text-price apex-basisprice-value" data-a-strike="true"><span class="a-offscreen">₹2,199</span></span>'
+        + '<span class="a-price aok-align-center apex-pricetopay-value" data-a-size="xl"><span class="a-offscreen">₹599.00</span></span>';
+    assert.equal(price.extractPrice(html), 599);
+    assert.equal(price.extractPrice('<script>{"priceAmount":599.00}</script>'), 599);
+});

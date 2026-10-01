@@ -81,8 +81,13 @@ export function extractPrice(html: string): number | null {
     const flipkart = html.match(/"fsp"\s*:\s*(\d+(?:\.\d+)?)/);
     if (flipkart) return parsePriceNumber(flipkart[1]);
     // 4. Amazon: the price to pay is the first non-struck-through a-price block.
-    const amazon = html.match(/<span class="a-price(?![^"]*a-text-price)[^"]*"[^>]*>\s*<span class="a-offscreen">([^<]+)</i);
-    if (amazon) return parsePriceNumber(amazon[1]);
+    //    Newer layouts put an empty (blank) a-offscreen first, so take the first block that has a number.
+    for (const block of html.matchAll(/<span class="a-price(?![^"]*a-text-price)[^"]*"[^>]*>\s*<span class="a-offscreen">([^<]*)</gi)) {
+        const price = parsePriceNumber(block[1]);
+        if (price) return price;
+    }
+    const amazonState = html.match(/"priceAmount"\s*:\s*(\d+(?:\.\d+)?)/);
+    if (amazonState) return parsePriceNumber(amazonState[1]);
     // 4b. WooCommerce: a screen-reader label always states the current (sale) price.
     const woo = html.match(/Current price is:\s*(?:&#8377;|₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)/i);
     if (woo) return parsePriceNumber(woo[1]);
