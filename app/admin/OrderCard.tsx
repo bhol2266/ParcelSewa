@@ -245,7 +245,9 @@ export default function OrderCard({ order, refresh }: OrderProps) {
 
     // A matching total and status messages hide after 5 seconds. A mismatch stays until "Remove error".
     const check = order.totalCheck;
-    const checkMatches = !!check && Math.abs(check.diff) <= ERROR_THRESHOLD_NPR;
+    // Only an order total that is LOWER than the verified total by more than the threshold is a problem;
+    // charging the customer more than expected is fine.
+    const checkMatches = !!check && check.diff >= -ERROR_THRESHOLD_NPR;
     const checkedMs: number = check?.checkedAt?.toMillis?.() ?? 0;
     const matchKey = `${order.id}:${checkedMs}`;
     const [visibleMatchKey, setVisibleMatchKey] = useState("");
@@ -607,7 +609,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                         className="rounded-md bg-white px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 ring-1 ring-gray-300 transition hover:bg-gray-50 disabled:opacity-60">
                                         {isVerifying ? "Checking…" : "✓ Verify"}
                                     </button>
-                                    {!verifyMessage && order.totalCheck && Math.abs(order.totalCheck.diff) > ERROR_THRESHOLD_NPR && (
+                                    {!verifyMessage && order.totalCheck && order.totalCheck.diff < -ERROR_THRESHOLD_NPR && (
                                         <button type="button" onClick={handleRemoveError} disabled={isRemovingError}
                                             title="Dismiss the total mismatch warning"
                                             className="rounded-md bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700 ring-1 ring-orange-300 transition hover:bg-orange-100 disabled:opacity-60">
@@ -629,7 +631,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                     {verifyMessage ? verifyMessage : (
                                         <>
                                             <p className="font-semibold">
-                                                {ok ? "✅ Total matches" : "⚠️ Total differs"} · expected NPR {check.expectedTotal.toLocaleString()} · order NPR {(order.totalAmount || 0).toLocaleString()}
+                                                {!ok ? "⚠️ Total is lower" : check.diff > ERROR_THRESHOLD_NPR ? "✅ Total is higher (OK)" : "✅ Total matches"} · expected NPR {check.expectedTotal.toLocaleString()} · order NPR {(order.totalAmount || 0).toLocaleString()}
                                                 {check.diff !== 0 && ` (${check.diff > 0 ? "+" : ""}${check.diff.toLocaleString()})`}
                                             </p>
                                             <p className="opacity-80">
