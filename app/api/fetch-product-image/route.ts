@@ -145,11 +145,15 @@ ${candidates.map((u, i) => `${i + 1}. ${u}`).join("\n")}
 
 Reply with ONLY the chosen URL. No explanation.`;
 
+        // Without a key, skip the Claude pick and use the first candidate (usually og:image).
+        const anthropicKey = process.env.ANTHROPIC_API_KEY;
+        if (!anthropicKey) return NextResponse.json({ imageUrl: candidates[0] });
+
         const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "x-api-key": "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",
+                "x-api-key": anthropicKey,
                 "anthropic-version": "2023-06-01",
             },
             body: JSON.stringify({

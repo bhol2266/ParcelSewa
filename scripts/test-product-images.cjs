@@ -130,3 +130,10 @@ test("expected total matches the quotation calculator and excludes courier", () 
     assert.deepEqual(price.expectedTotal(1000, "800"), { npr: 1600, commission: 800, total: 2400 });
     assert.equal(price.expectedTotal(1000, ""), null);
 });
+
+test("Ajio rendered page uses the selling price, not the MRP or coupon price", () => {
+    const html = '<link href="https://www.ajio.com/"><div class="prod-sp">₹1,139</div><div class="prod-cp">MRP <span>₹1,899</span></div><div>Get it for <span>₹797</span></div>';
+    assert.equal(price.extractPrice(html), 1139);
+    assert.equal(price.extractPrice('<link href="https://www.ajio.com/"><div class="x">&#8377;1,139</div><div>Get it for ₹797</div>'), 1139);
+    assert.equal(price.extractPrice("<div>₹500</div>"), null);
+});

@@ -81,7 +81,14 @@ export function extractPrice(html: string): number | null {
     // 7. Microdata price.
     const microdata = html.match(/itemprop\s*=\s*["']price["'][^>]*content\s*=\s*["']([^"']+)["']/i)
         || html.match(/content\s*=\s*["']([^"']+)["'][^>]*itemprop\s*=\s*["']price["']/i);
-    return microdata ? parsePriceNumber(microdata[1]) : null;
+    if (microdata) return parsePriceNumber(microdata[1]);
+    // 8. Last resort for Ajio's rendered page: the first standalone price element is the selling price
+    //    (the "MRP" and "Get it for" coupon prices come after it and are not plain price elements).
+    if (/ajio\.com/i.test(html)) {
+        const standalone = html.match(/>\s*(?:&#8377;|₹)\s?([\d,]+(?:\.\d+)?)\s*</);
+        if (standalone) return parsePriceNumber(standalone[1]);
+    }
+    return null;
 }
 
 // ── Order total ────────────────────────────────────────────────────────────
