@@ -13,9 +13,9 @@ interface OrderProps {
 
 const DELETE_PASSWORD = "5555";
 
-// When each "total matches" result was first shown, so it can disappear 3 seconds later
+// When each "total matches" result was first shown, so it can disappear 5 seconds later
 // even if the list reloads (and the card remounts) in between.
-const MATCH_VISIBLE_MS = 3000;
+const MATCH_VISIBLE_MS = 5000;
 const MATCH_FRESH_MS = 30000;
 const matchFirstShown = new Map<string, number>();
 
@@ -193,6 +193,12 @@ export default function OrderCard({ order, refresh }: OrderProps) {
     const ERROR_THRESHOLD_NPR = 200;
     const [isVerifying, setIsVerifying] = useState(false);
     const [verifyMessage, setVerifyMessage] = useState("");
+    // Status messages ("couldn't read the price", ...) clear after 5 seconds; progress text stays while checking.
+    useEffect(() => {
+        if (!verifyMessage || isVerifying) return;
+        const timer = setTimeout(() => setVerifyMessage(""), MATCH_VISIBLE_MS);
+        return () => clearTimeout(timer);
+    }, [verifyMessage, isVerifying]);
 
     const handleVerifyTotal = async (e: React.MouseEvent) => {
         e.preventDefault();
@@ -233,7 +239,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
 
     const [isRemovingError, setIsRemovingError] = useState(false);
 
-    // A matching total is shown for 3 seconds, then hidden. A mismatch stays until "Remove error".
+    // A matching total and status messages hide after 5 seconds. A mismatch stays until "Remove error".
     const check = order.totalCheck;
     const checkMatches = !!check && Math.abs(check.diff) <= ERROR_THRESHOLD_NPR;
     const checkedMs: number = check?.checkedAt?.toMillis?.() ?? 0;
