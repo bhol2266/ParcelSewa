@@ -21,8 +21,8 @@ interface Order {
     [key: string]: any;
 }
 
-type SortOption = "latest" | "oldest" | "delivered";
-type AllTimeSortOption = "latest" | "oldest" | "delivered";
+type SortOption = "latest" | "oldest" | "delivered" | "errors";
+type AllTimeSortOption = "latest" | "oldest" | "delivered" | "errors";
 
 // ── Build the last 24 months list ─────────────────────────────────────────────
 function buildAvailableMonths(): { month: number; year: number; label: string }[] {
@@ -270,6 +270,7 @@ export default function OrdersPage() {
             }
             return allPendingOrders
                 .filter(matchesSearch)
+                .filter((o) => allTimeSortOption !== "errors" || o.hasError === true)
                 .sort((a, b) => {
                     if (allTimeSortOption === "latest") {
                         return (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0);
@@ -286,6 +287,11 @@ export default function OrdersPage() {
             case "oldest":
                 return monthStatOrders
                     .filter(matchesSearch)
+                    .sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
+            case "errors":
+                return monthStatOrders
+                    .filter(matchesSearch)
+                    .filter((o) => o.hasError === true)
                     .sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
             case "delivered":
                 return monthDeliveredOrders
@@ -353,7 +359,7 @@ export default function OrdersPage() {
                 {/* Sort Buttons — All Pending (All Time) view */}
                 {!selectedMonth && (
                     <div className="flex flex-wrap items-center gap-2 mb-6">
-                        {(["oldest", "latest", "delivered"] as AllTimeSortOption[]).map((option) => (
+                        {(["oldest", "latest", "delivered", "errors"] as AllTimeSortOption[]).map((option) => (
                             <button
                                 key={option}
                                 className={`px-4 py-2 rounded-xl border ${
@@ -366,6 +372,7 @@ export default function OrdersPage() {
                                 {option === "oldest" && "Oldest First"}
                                 {option === "latest" && "Latest First"}
                                 {option === "delivered" && "Delivered Orders"}
+                                {option === "errors" && `⚠️ Errors (${allPendingOrders.filter((o) => o.hasError === true).length})`}
                             </button>
                         ))}
                         {allTimeSortOption === "delivered" && (
@@ -377,7 +384,7 @@ export default function OrdersPage() {
                 {/* Sort Buttons — Monthly view */}
                 {selectedMonth && (
                     <div className="flex flex-wrap items-center gap-2 mb-6">
-                        {(["oldest", "latest", "delivered"] as SortOption[]).map((option) => (
+                        {(["oldest", "latest", "delivered", "errors"] as SortOption[]).map((option) => (
                             <button
                                 key={option}
                                 className={`px-4 py-2 rounded-xl border ${
@@ -390,6 +397,7 @@ export default function OrdersPage() {
                                 {option === "oldest" && "Oldest First"}
                                 {option === "latest" && "Latest First"}
                                 {option === "delivered" && "Delivered Orders"}
+                                {option === "errors" && `⚠️ Errors (${monthStatOrders.filter((o) => o.hasError === true).length})`}
                             </button>
                         ))}
                     </div>

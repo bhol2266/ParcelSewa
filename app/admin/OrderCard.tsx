@@ -106,7 +106,16 @@ export default function OrderCard({ order, refresh }: OrderProps) {
     const [isFetchingImages, setIsFetchingImages] = useState(false);
     const [fetchProgress, setFetchProgress] = useState<string[]>([]);
 
+    // Error mode: flags an order with a problem (bad link, unavailable, wrong size...)
+    const [errorOn, setErrorOn] = useState<boolean>(order.hasError === true);
+    const [errorNote, setErrorNote] = useState<string>(order.errorNote || "");
+    const [errorSaving, setErrorSaving] = useState(false);
+
     useEffect(() => { setEditData(order); }, [order]);
+    useEffect(() => {
+        setErrorOn(order.hasError === true);
+        setErrorNote(order.errorNote || "");
+    }, [order.hasError, order.errorNote]);
 
     const isCancelled = order.deliveryStatus === "cancelled";
     const isDelivered = order.deliveryStatus === true;
@@ -181,6 +190,29 @@ export default function OrderCard({ order, refresh }: OrderProps) {
         setTimeout(() => { refresh(order.id); }, 3000);
     };
 
+    const saveErrorMode = async (next: boolean, note: string, reload: boolean) => {
+        setErrorSaving(true);
+        try {
+            await updateDoc(doc(db, "Confirm Orders", order.id), { hasError: next, errorNote: next ? note.trim() : "" });
+            if (reload) refresh(order.id);
+        } catch (err) {
+            console.error("Failed to save error mode:", err);
+            setErrorOn(order.hasError === true);
+            setErrorNote(order.errorNote || "");
+            alert("Could not save error mode. Please try again.");
+        } finally {
+            setErrorSaving(false);
+        }
+    };
+
+    const handleErrorToggle = () => {
+        const next = !errorOn;
+        setErrorOn(next);
+        if (!next) setErrorNote("");
+        // Turning on keeps the card in place so the note can be typed; turning off refreshes filtered lists.
+        saveErrorMode(next, next ? errorNote : "", !next);
+    };
+
     // ── Cancel ────────────────────────────────────────────────────────────────
     const handleCancelOrder = async () => {
         setIsCancelling(true);
@@ -216,11 +248,16 @@ export default function OrderCard({ order, refresh }: OrderProps) {
     };
 
     // ── Status theme — colour lives in the accent bar / pill / avatar, not the whole card ──
-    const theme = isCancelled
+    const baseTheme = isCancelled
         ? { bar: "from-slate-400 to-slate-500", pill: "bg-white text-slate-700 ring-slate-200", dot: "bg-slate-500", avatar: "from-slate-400 to-slate-600", label: "Cancelled", tint: "from-slate-200 to-slate-100", ring: "ring-slate-300" }
         : isDelivered
             ? { bar: "from-rose-400 to-red-500", pill: "bg-white text-rose-700 ring-rose-200", dot: "bg-rose-500", avatar: "from-rose-400 to-red-500", label: "Delivered", tint: "from-rose-100 to-orange-50", ring: "ring-rose-300/70" }
             : { bar: "from-emerald-400 to-green-500", pill: "bg-white text-emerald-700 ring-emerald-200", dot: "bg-emerald-500", avatar: "from-emerald-400 to-green-500", label: "Pending", tint: "from-emerald-100 to-teal-50", ring: "ring-emerald-300/70" };
+
+    // Error mode overrides the colours so flagged orders stand out from every status.
+    const theme = errorOn
+        ? { bar: "from-orange-500 to-orange-500", pill: "bg-white text-orange-700 ring-orange-300", dot: "bg-orange-500", avatar: "from-orange-500 to-amber-600", label: isDelivered ? "Error · Delivered" : isCancelled ? "Error · Cancelled" : "Error · Pending", tint: "from-orange-100 to-yellow-50", ring: "ring-2 ring-orange-400" }
+        : baseTheme;
 
     const hasProductPageUrls = (order.productUrls || []).some(isProductUrl);
     const inputCls = "w-full rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-800 outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100";
@@ -235,10 +272,14 @@ export default function OrderCard({ order, refresh }: OrderProps) {
         <>
             <div
                 data-order-id={order.id}
-                className={`group/card relative overflow-hidden rounded-2xl bg-gradient-to-br ${theme.tint} ring-1 ${theme.ring} shadow-sm hover:shadow-lg transition-all duration-200`}
+                className={`group/card relative overflow-hidden rounded-2xl bg-gradient-to-br ${theme.tint} ${errorOn ? "" : "ring-1"} ${theme.ring} shadow-sm hover:shadow-lg transition-all duration-200`}
             >
                 {/* status accent bar */}
-                <div className={`h-1 w-full bg-gradient-to-r ${theme.bar}`} />
+                {errorOn ? (
+                    <div className="h-2 w-full" style={{ backgroundImage: "repeating-linear-gradient(45deg, #f97316 0 10px, #1f2937 10px 20px)" }} />
+                ) : (
+                    <div className={`h-1 w-full bg-gradient-to-r ${theme.bar}`} />
+                )}
 
                 <div className="p-4">
                     <div className="flex items-center gap-3 mb-3 min-w-0">
@@ -473,6 +514,27 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                 <p className="whitespace-pre-wrap text-sm leading-snug text-amber-900">{order.notes}</p>
                             </div>
                         )}
+
+                        <div className={`rounded-xl px-3 py-2.5 ring-1 transition ${errorOn ? "bg-orange-50 ring-orange-300" : "bg-white/70 ring-white"}`}>
+                            <label className="flex cursor-pointer items-center justify-between gap-3">
+                                <span className={`text-sm font-semibold ${errorOn ? "text-orange-700" : "text-gray-600"}`}>⚠️ Error mode</span>
+                                <span className="relative">
+                                    <input type="checkbox" className="sr-only" checked={errorOn} disabled={errorSaving} onChange={handleErrorToggle} aria-label="Error mode" />
+                                    <span className={`block h-5 w-10 rounded-full transition-colors ${errorOn ? "bg-orange-500" : "bg-gray-300"}`} />
+                                    <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${errorOn ? "translate-x-5" : "translate-x-0.5"}`} />
+                                </span>
+                            </label>
+                            {errorOn && (
+                                <textarea
+                                    className="mt-2 w-full resize-none rounded-lg border border-orange-200 bg-white px-2.5 py-1.5 text-sm text-gray-800 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                                    rows={2}
+                                    value={errorNote}
+                                    placeholder="What's wrong? e.g. link not working, out of stock, size unavailable..."
+                                    onChange={(e) => setErrorNote(e.target.value)}
+                                    onBlur={() => { if (errorNote.trim() !== (order.errorNote || "")) saveErrorMode(true, errorNote, false); }}
+                                />
+                            )}
+                        </div>
 
                         <details className="group overflow-hidden rounded-xl bg-white/70 ring-1 ring-white">
                             <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 transition hover:bg-white [&::-webkit-details-marker]:hidden">
