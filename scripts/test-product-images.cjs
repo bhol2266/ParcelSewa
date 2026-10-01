@@ -150,3 +150,17 @@ test("generic stores expose the main image through og:image, resolving relative 
     assert.deepEqual(parseImg.extractGenericImages('<meta property="og:image" content="/uploads/book.jpeg">', "https://shop.example.in/product/book/"), ["https://shop.example.in/uploads/book.jpeg"]);
     assert.deepEqual(parseImg.extractGenericImages('<meta property="og:image" content="https://shop.example.in/logo.png">', "https://shop.example.in/p/1"), []);
 });
+
+test("expected total matches the quotation calculator for every commission option", () => {
+    const options = { "5%": 5, "10%": 10, "15%": 15, "20%": 20, "25%": 25, "30%": 30, "35%": 35, "40%": 40, "50%": 50 };
+    const flats = { "Flat NPR 700": 700, "Flat NPR 800": 800, "Flat NPR 1000": 1000, "below_1500_800": 800, "below_1500_1000": 1000, "Below order IC 1500 (Flat NPR 800)": 800 };
+    for (const inr of [1, 100, 499, 999.5, 1234.5, 1499, 5000, 12345, 99999.99, 0.3]) {
+        const npr = Math.round(inr * 1.6);
+        for (const [text, rate] of Object.entries(options)) {
+            assert.equal(price.expectedTotal(inr, text).total, npr + Math.round((npr * rate) / 100), `${text} on ${inr}`);
+        }
+        for (const [text, fee] of Object.entries(flats)) {
+            assert.equal(price.expectedTotal(inr, text).total, npr + fee, `${text} on ${inr}`);
+        }
+    }
+});

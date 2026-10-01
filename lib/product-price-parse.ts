@@ -115,7 +115,10 @@ export function commissionAmount(commission: unknown, nprProducts: number): numb
     const text = String(commission ?? "").trim();
     const percent = text.match(/^(\d+(?:\.\d+)?)\s*%$/);
     if (percent) return Math.round((nprProducts * Number(percent[1])) / 100);
-    const flat = text.match(/^(?:flat\s*)?(?:npr\s*)?(\d+(?:\.\d+)?)$/i);
+    // Orders store flat commissions as "Flat NPR 800"; also accept a bare number and the calculator's option names.
+    const flat = text.match(/^(?:flat\s*)?(?:npr\s*)?(\d+(?:\.\d+)?)$/i)
+        || text.match(/^below_1500_(\d+)$/i)
+        || text.match(/\(flat\s*npr\s*(\d+)\)/i);
     return flat ? Number(flat[1]) : null;
 }
 
