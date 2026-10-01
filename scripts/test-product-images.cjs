@@ -14,6 +14,7 @@ const load = (file, req) => {
 };
 const parse = load("product-image-parse.ts", require);
 const loaded = load("product-images.ts", id => id === "./product-image-parse" ? parse.exports : require(id));
+const parseImg = parse.exports;
 const price = load("product-price-parse.ts", require).exports;
 const { extractStoreImages, fetchAjioImage, fetchFlipkartImage, isStoreUrl } = loaded.exports;
 const flipkart = "https://www.flipkart.com/nike-shoes/p/itm123";
@@ -136,4 +137,16 @@ test("Ajio rendered page uses the selling price, not the MRP or coupon price", (
     assert.equal(price.extractPrice(html), 1139);
     assert.equal(price.extractPrice('<link href="https://www.ajio.com/"><div class="x">&#8377;1,139</div><div>Get it for ₹797</div>'), 1139);
     assert.equal(price.extractPrice("<div>₹500</div>"), null);
+});
+
+test("WooCommerce sale price is read from the priceSpecification array and screen-reader text", () => {
+    const ld = { "@type": "Product", offers: [{ "@type": "Offer", priceSpecification: [
+        { "@type": "UnitPriceSpecification", price: "2000.00", priceCurrency: "INR", priceType: "https://schema.org/ListPrice" },
+        { "@type": "UnitPriceSpecification", price: "1600.00", priceCurrency: "INR" }] }] };
+    assert.equal(price.extractPrice(`<script type="application/ld+json">${JSON.stringify(ld)}</script>`), 1600);
+    assert.equal(price.extractPrice('<del>&#8377;2,000.00</del><span class="screen-reader-text">Current price is: &#8377;1,600.00.</span>'), 1600);
+});
+test("generic stores expose the main image through og:image, resolving relative URLs", () => {
+    assert.deepEqual(parseImg.extractGenericImages('<meta property="og:image" content="/uploads/book.jpeg">', "https://shop.example.in/product/book/"), ["https://shop.example.in/uploads/book.jpeg"]);
+    assert.deepEqual(parseImg.extractGenericImages('<meta property="og:image" content="https://shop.example.in/logo.png">', "https://shop.example.in/p/1"), []);
 });

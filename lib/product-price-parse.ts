@@ -9,6 +9,19 @@ export function parsePriceNumber(value: unknown): number | null {
     return Number.isFinite(number) && number > 0 ? number : null;
 }
 
+// WooCommerce lists [ListPrice, sale price] as an array; the list price is the struck-through one.
+function specPrice(spec: unknown): number | null {
+    const specs = (Array.isArray(spec) ? spec : [spec]).filter((item): item is Record<string, unknown> => !!item && typeof item === "object");
+    const current = specs.filter(item => !/ListPrice|Strikethrough|SRP|MSRP/i.test(String(item.priceType ?? "")));
+    for (const item of current.length ? current : specs) {
+        const currency = item.priceCurrency;
+        if (typeof currency === "string" && currency.toUpperCase() !== "INR") continue;
+        const price = parsePriceNumber(item.price);
+        if (price) return price;
+    }
+    return null;
+}
+
 function offerPrice(offer: unknown): number | null {
     if (Array.isArray(offer)) {
         for (const item of offer) {
@@ -21,9 +34,8 @@ function offerPrice(offer: unknown): number | null {
     const object = offer as Record<string, unknown>;
     const currency = object.priceCurrency;
     if (typeof currency === "string" && currency.toUpperCase() !== "INR") return null;
-    const spec = object.priceSpecification as Record<string, unknown> | undefined;
     return parsePriceNumber(object.price) ?? parsePriceNumber(object.lowPrice)
-        ?? (spec ? parsePriceNumber(spec.price) : null) ?? offerPrice(object.offers);
+        ?? specPrice(object.priceSpecification) ?? offerPrice(object.offers);
 }
 
 function productPrice(value: unknown): number | null {
@@ -71,6 +83,9 @@ export function extractPrice(html: string): number | null {
     // 4. Amazon: the price to pay is the first non-struck-through a-price block.
     const amazon = html.match(/<span class="a-price(?![^"]*a-text-price)[^"]*"[^>]*>\s*<span class="a-offscreen">([^<]+)</i);
     if (amazon) return parsePriceNumber(amazon[1]);
+    // 4b. WooCommerce: a screen-reader label always states the current (sale) price.
+    const woo = html.match(/Current price is:\s*(?:&#8377;|₹|Rs\.?)\s*([\d,]+(?:\.\d+)?)/i);
+    if (woo) return parsePriceNumber(woo[1]);
     // 5. Myntra page state: "discounted" is the selling price.
     const myntra = html.match(/"discounted"\s*:\s*(\d+(?:\.\d+)?)/);
     if (myntra) return parsePriceNumber(myntra[1]);

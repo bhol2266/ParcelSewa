@@ -1,4 +1,4 @@
-import { chooseImage, extractStoreImages, isStoreUrl, storeImageUrl } from "./product-image-parse";
+import { chooseImage, extractGenericImages, extractStoreImages, isStoreUrl, storeImageUrl } from "./product-image-parse";
 
 export { extractStoreImages, isStoreUrl };
 
@@ -108,4 +108,10 @@ export async function fetchFlipkartImage(productUrl: string, notes: string, back
     const fromBackend = await backendImages(productUrl, backendUrl, "flipkart");
     diag?.push(`backend ${fromBackend.length} images`);
     return chooseImage(fromBackend, notes);
+}
+
+/** Any other store: read the page directly (og:image / structured data). Null when the page is blocked or has no image. */
+export async function fetchGenericImage(productUrl: string, notes: string): Promise<string | null> {
+    const html = await readPublicPage(productUrl);
+    return html ? chooseImage(extractGenericImages(html, productUrl), notes) : null;
 }

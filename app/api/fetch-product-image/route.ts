@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { fetchAjioImage, fetchFlipkartImage, isStoreUrl } from "@/lib/product-images";
+import { fetchAjioImage, fetchFlipkartImage, fetchGenericImage, isStoreUrl } from "@/lib/product-images";
 
 // The configured store scraper can take up to a minute on blocked product pages.
 export const maxDuration = 180;
@@ -84,6 +84,10 @@ export async function POST(req: NextRequest) {
                 { status: 422 }
             );
         }
+
+        // ── Step 0: most stores publish og:image; read it directly before using the scraper ──
+        const direct = await fetchGenericImage(productUrl, typeof notes === "string" ? notes : "");
+        if (direct) return NextResponse.json({ imageUrl: direct });
 
         // ── Step 1: Get image candidates from scraper ─────────────────────────
         let candidates: string[] = [];

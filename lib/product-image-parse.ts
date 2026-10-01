@@ -103,3 +103,29 @@ export function chooseImage(images: string[], notes: string): string | null {
     const hints = notes.toLowerCase().match(/\b(?:black|white|blue|red|green|grey|gray|pink|yellow|brown|beige|navy)\b/g) || [];
     return images.find(image => hints.some(hint => image.toLowerCase().includes(hint))) || images[0] || null;
 }
+
+/** Main product images from any store page: og:image / twitter:image first, then Product structured data. */
+export function extractGenericImages(html: string, pageUrl: string): string[] {
+    const candidates: string[] = [];
+    for (const tag of html.matchAll(/<meta\b[^>]*>/gi)) {
+        const attrs = Object.fromEntries([...tag[0].matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)]
+            .map(match => [match[1].toLowerCase(), match[2] ?? match[3]]));
+        if (/^(og:image(?::secure_url)?|twitter:image(?::src)?)$/i.test(attrs.property || attrs.name || "") && attrs.content) {
+            candidates.push(attrs.content);
+        }
+    }
+    for (const script of html.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
+        try {
+            const visit = (value: unknown): void => {
+                if (Array.isArray(value)) { value.forEach(visit); return; }
+                if (!value || typeof value !== "object") return;
+                const object = value as Record<string, unknown>;
+                const types = Array.isArray(object["@type"]) ? object["@type"] : [object["@type"]];
+                if (types.includes("Product")) candidates.push(...collectImages(object.image));
+                if (object["@graph"]) visit(object["@graph"]);
+            };
+            visit(JSON.parse(script[1]));
+        } catch { /* Some pages contain malformed structured data. */ }
+    }
+    return [...new Set(candidates.map(value => imageUrl(value, pageUrl)).filter((value): value is string => value !== null))];
+}
