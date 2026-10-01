@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { updateDoc, doc, deleteDoc, Timestamp } from "firebase/firestore";
+import { updateDoc, doc, deleteDoc, deleteField, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { fetchProductPriceViaExtension, fetchStoreImageViaExtension } from "@/lib/extension-client";
 import { expectedTotal } from "@/lib/product-price-parse";
@@ -213,23 +213,41 @@ export default function OrderCard({ order, refresh }: OrderProps) {
 
             setVerifyMessage("");
             const diff = (order.totalAmount || 0) - expected.total;
-            const mismatch = Math.abs(diff) > ERROR_THRESHOLD_NPR;
-            const update: Record<string, unknown> = {
+            await updateDoc(doc(db, "Confirm Orders", order.id), {
                 totalCheck: { expectedTotal: expected.total, inrProducts: inr, nprProducts: expected.npr, commission: expected.commission, diff, items, checkedAt: Timestamp.now() },
-            };
-            if (mismatch) {
-                const line = `Total mismatch: expected NPR ${expected.total.toLocaleString()}, order has NPR ${(order.totalAmount || 0).toLocaleString()} (${diff > 0 ? "+" : ""}${diff.toLocaleString()})`;
-                const manual = String(order.errorNote || "").split("\n").filter(l => !l.startsWith("Total mismatch")).join("\n").trim();
-                update.hasError = true;
-                update.errorNote = manual ? `${line}\n${manual}` : line;
-            }
-            await updateDoc(doc(db, "Confirm Orders", order.id), update);
+            });
             refresh(order.id);
         } catch (err) {
             console.error("Verify failed:", err);
             setVerifyMessage("Verification failed. Please try again.");
         } finally {
             setIsVerifying(false);
+        }
+    };
+
+    const [isRemovingError, setIsRemovingError] = useState(false);
+
+    const handleRemoveError = async (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsRemovingError(true);
+        try {
+            const update: Record<string, unknown> = { totalCheck: deleteField() };
+            // Older automatic checks switched error mode on with a "Total mismatch" note; clear that too.
+            const note = String(order.errorNote || "");
+            if (note.startsWith("Total mismatch")) {
+                const manual = note.split("\n").filter(l => !l.startsWith("Total mismatch")).join("\n").trim();
+                update.errorNote = manual;
+                if (!manual) update.hasError = false;
+            }
+            await updateDoc(doc(db, "Confirm Orders", order.id), update);
+            setVerifyMessage("");
+            refresh(order.id);
+        } catch (err) {
+            console.error("Remove error failed:", err);
+            setVerifyMessage("Could not remove the error. Please try again.");
+        } finally {
+            setIsRemovingError(false);
         }
     };
 
@@ -550,11 +568,20 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             <Meta icon={IconStore} label="Store" value={order.storeName} />
                             <Meta icon={IconTag} label="Commission" value={order.commission} />
                             <Meta icon={IconCalendar} label="Ordered" value={formatDate(order.orderedDate)} action={
-                                <button type="button" onClick={handleVerifyTotal} disabled={isVerifying}
-                                    title="Check the total against live product prices"
-                                    className="rounded-md bg-white px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 ring-1 ring-gray-300 transition hover:bg-gray-50 disabled:opacity-60">
-                                    {isVerifying ? "Checking…" : "✓ Verify"}
-                                </button>
+                                <span className="flex items-center gap-1">
+                                    <button type="button" onClick={handleVerifyTotal} disabled={isVerifying}
+                                        title="Check the total against live product prices"
+                                        className="rounded-md bg-white px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 ring-1 ring-gray-300 transition hover:bg-gray-50 disabled:opacity-60">
+                                        {isVerifying ? "Checking…" : "✓ Verify"}
+                                    </button>
+                                    {!verifyMessage && order.totalCheck && Math.abs(order.totalCheck.diff) > ERROR_THRESHOLD_NPR && (
+                                        <button type="button" onClick={handleRemoveError} disabled={isRemovingError}
+                                            title="Dismiss the total mismatch warning"
+                                            className="rounded-md bg-orange-50 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700 ring-1 ring-orange-300 transition hover:bg-orange-100 disabled:opacity-60">
+                                            {isRemovingError ? "Removing…" : "✕ Remove error"}
+                                        </button>
+                                    )}
+                                </span>
                             } />
                             {order.deliveryStatus === true && order.deliveryDate && (
                                 <Meta icon={IconCalendar} label="Delivered" value={formatDate(order.deliveryDate)} />
@@ -574,7 +601,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                                 {check.diff !== 0 && ` (${check.diff > 0 ? "+" : ""}${check.diff.toLocaleString()})`}
                                             </p>
                                             <p className="opacity-80">
-                                                ₹{check.inrProducts.toLocaleString()} × 1.6 = {check.nprProducts.toLocaleString()} + commission {check.commission.toLocaleString()} · courier not included
+                                                ₹{check.inrProducts.toLocaleString()} × 1.6 = {check.nprProducts.toLocaleString()} + commission {check.commission.toLocaleString()}
                                             </p>
                                         </>
                                     )}
