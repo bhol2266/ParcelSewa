@@ -13,6 +13,12 @@ interface OrderProps {
 
 const DELETE_PASSWORD = "5555";
 
+// When each "total matches" result was first shown, so it can disappear 3 seconds later
+// even if the list reloads (and the card remounts) in between.
+const MATCH_VISIBLE_MS = 3000;
+const MATCH_FRESH_MS = 30000;
+const matchFirstShown = new Map<string, number>();
+
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div className="space-y-1">
         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -226,6 +232,23 @@ export default function OrderCard({ order, refresh }: OrderProps) {
     };
 
     const [isRemovingError, setIsRemovingError] = useState(false);
+
+    // A matching total is shown for 3 seconds, then hidden. A mismatch stays until "Remove error".
+    const check = order.totalCheck;
+    const checkMatches = !!check && Math.abs(check.diff) <= ERROR_THRESHOLD_NPR;
+    const checkedMs: number = check?.checkedAt?.toMillis?.() ?? 0;
+    const matchKey = `${order.id}:${checkedMs}`;
+    const [visibleMatchKey, setVisibleMatchKey] = useState("");
+    useEffect(() => {
+        if (!checkMatches || Date.now() - checkedMs > MATCH_FRESH_MS) return;
+        if (!matchFirstShown.has(matchKey)) matchFirstShown.set(matchKey, Date.now());
+        const left = MATCH_VISIBLE_MS - (Date.now() - (matchFirstShown.get(matchKey) as number));
+        if (left <= 0) return;
+        setVisibleMatchKey(matchKey);
+        const timer = setTimeout(() => setVisibleMatchKey(""), left);
+        return () => clearTimeout(timer);
+    }, [checkMatches, checkedMs, matchKey]);
+    const showMatch = checkMatches && visibleMatchKey === matchKey;
 
     const handleRemoveError = async (e: React.MouseEvent) => {
         e.preventDefault();
@@ -589,9 +612,8 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             {order.deliveredBy && <Meta icon={IconTruck} label="Delivered By" value={order.deliveredBy} />}
                         </div>
 
-                        {(verifyMessage || order.totalCheck) && (() => {
-                            const check = order.totalCheck;
-                            const ok = check && Math.abs(check.diff) <= ERROR_THRESHOLD_NPR;
+                        {(verifyMessage || (check && !checkMatches) || showMatch) && (() => {
+                            const ok = checkMatches;
                             return (
                                 <div className={`rounded-xl px-3 py-2 text-xs leading-snug ring-1 ${verifyMessage ? "bg-gray-50 text-gray-600 ring-gray-200" : ok ? "bg-emerald-50 text-emerald-800 ring-emerald-200" : "bg-orange-50 text-orange-800 ring-orange-200"}`}>
                                     {verifyMessage ? verifyMessage : (
