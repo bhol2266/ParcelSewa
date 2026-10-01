@@ -106,16 +106,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
     const [isFetchingImages, setIsFetchingImages] = useState(false);
     const [fetchProgress, setFetchProgress] = useState<string[]>([]);
 
-    // Error mode: flags an order with a problem (bad link, unavailable, wrong size...)
-    const [errorOn, setErrorOn] = useState<boolean>(order.hasError === true);
-    const [errorNote, setErrorNote] = useState<string>(order.errorNote || "");
-    const [errorSaving, setErrorSaving] = useState(false);
-
     useEffect(() => { setEditData(order); }, [order]);
-    useEffect(() => {
-        setErrorOn(order.hasError === true);
-        setErrorNote(order.errorNote || "");
-    }, [order.hasError, order.errorNote]);
 
     const isCancelled = order.deliveryStatus === "cancelled";
     const isDelivered = order.deliveryStatus === true;
@@ -190,29 +181,6 @@ export default function OrderCard({ order, refresh }: OrderProps) {
         setTimeout(() => { refresh(order.id); }, 3000);
     };
 
-    const saveErrorMode = async (next: boolean, note: string, reload: boolean) => {
-        setErrorSaving(true);
-        try {
-            await updateDoc(doc(db, "Confirm Orders", order.id), { hasError: next, errorNote: next ? note.trim() : "" });
-            if (reload) refresh(order.id);
-        } catch (err) {
-            console.error("Failed to save error mode:", err);
-            setErrorOn(order.hasError === true);
-            setErrorNote(order.errorNote || "");
-            alert("Could not save error mode. Please try again.");
-        } finally {
-            setErrorSaving(false);
-        }
-    };
-
-    const handleErrorToggle = () => {
-        const next = !errorOn;
-        setErrorOn(next);
-        if (!next) setErrorNote("");
-        // Turning on keeps the card in place so the note can be typed; turning off refreshes filtered lists.
-        saveErrorMode(next, next ? errorNote : "", !next);
-    };
-
     // ── Cancel ────────────────────────────────────────────────────────────────
     const handleCancelOrder = async () => {
         setIsCancelling(true);
@@ -253,6 +221,8 @@ export default function OrderCard({ order, refresh }: OrderProps) {
         : isDelivered
             ? { bar: "from-rose-400 to-red-500", pill: "bg-white text-rose-700 ring-rose-200", dot: "bg-rose-500", avatar: "from-rose-400 to-red-500", label: "Delivered", tint: "from-rose-100 to-orange-50", ring: "ring-rose-300/70" }
             : { bar: "from-emerald-400 to-green-500", pill: "bg-white text-emerald-700 ring-emerald-200", dot: "bg-emerald-500", avatar: "from-emerald-400 to-green-500", label: "Pending", tint: "from-emerald-100 to-teal-50", ring: "ring-emerald-300/70" };
+
+    const errorOn = order.hasError === true;
 
     // Error mode overrides the colours so flagged orders stand out from every status.
     const theme = errorOn
@@ -415,10 +385,36 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                 onChange={(e) => setEditData({ ...editData, notes: e.target.value })} placeholder="Add any notes about this order…" />
                         </Field>
 
+                        <div className={`rounded-xl px-3 py-2.5 ring-1 transition ${editData.hasError === true ? "bg-orange-50 ring-orange-300" : "bg-gray-50 ring-gray-200"}`}>
+                            <label className="flex cursor-pointer items-center justify-between gap-3">
+                                <span className={`text-xs font-semibold uppercase tracking-wide ${editData.hasError === true ? "text-orange-700" : "text-gray-500"}`}>⚠️ Error mode</span>
+                                <span className="relative">
+                                    <input type="checkbox" className="sr-only" checked={editData.hasError === true} aria-label="Error mode"
+                                        onChange={(e) => setEditData({ ...editData, hasError: e.target.checked })} />
+                                    <span className={`block h-5 w-10 rounded-full transition-colors ${editData.hasError === true ? "bg-orange-500" : "bg-gray-300"}`} />
+                                    <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${editData.hasError === true ? "translate-x-5" : "translate-x-0.5"}`} />
+                                </span>
+                            </label>
+                            {editData.hasError === true && (
+                                <textarea
+                                    className="mt-2 w-full resize-none rounded-lg border border-orange-200 bg-white px-2.5 py-1.5 text-sm text-gray-800 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                                    rows={2}
+                                    value={editData.errorNote || ""}
+                                    placeholder="What's wrong? e.g. link not working, out of stock, size unavailable..."
+                                    onChange={(e) => setEditData({ ...editData, errorNote: e.target.value })}
+                                />
+                            )}
+                        </div>
+
                         <div className="flex gap-2 pt-1">
                             <button type="button" className="flex-1 rounded-xl bg-blue-600 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.99]"
                                 onClick={async () => {
-                                    const dataToSave = { ...editData, deliveredBy: editData.deliveryStatus ? editData.deliveredBy || "" : "" };
+                                    const dataToSave = {
+                                        ...editData,
+                                        deliveredBy: editData.deliveryStatus ? editData.deliveredBy || "" : "",
+                                        hasError: editData.hasError === true,
+                                        errorNote: editData.hasError === true ? (editData.errorNote || "").trim() : "",
+                                    };
                                     if (editData.deliveryStatus && !editData.deliveryDate) dataToSave.deliveryDate = Timestamp.now();
                                     await updateDoc(doc(db, "Confirm Orders", order.id), dataToSave);
                                     setIsEditing(false);
@@ -515,26 +511,12 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             </div>
                         )}
 
-                        <div className={`rounded-xl px-3 py-2.5 ring-1 transition ${errorOn ? "bg-orange-50 ring-orange-300" : "bg-white/70 ring-white"}`}>
-                            <label className="flex cursor-pointer items-center justify-between gap-3">
-                                <span className={`text-sm font-semibold ${errorOn ? "text-orange-700" : "text-gray-600"}`}>⚠️ Error mode</span>
-                                <span className="relative">
-                                    <input type="checkbox" className="sr-only" checked={errorOn} disabled={errorSaving} onChange={handleErrorToggle} aria-label="Error mode" />
-                                    <span className={`block h-5 w-10 rounded-full transition-colors ${errorOn ? "bg-orange-500" : "bg-gray-300"}`} />
-                                    <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${errorOn ? "translate-x-5" : "translate-x-0.5"}`} />
-                                </span>
-                            </label>
-                            {errorOn && (
-                                <textarea
-                                    className="mt-2 w-full resize-none rounded-lg border border-orange-200 bg-white px-2.5 py-1.5 text-sm text-gray-800 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
-                                    rows={2}
-                                    value={errorNote}
-                                    placeholder="What's wrong? e.g. link not working, out of stock, size unavailable..."
-                                    onChange={(e) => setErrorNote(e.target.value)}
-                                    onBlur={() => { if (errorNote.trim() !== (order.errorNote || "")) saveErrorMode(true, errorNote, false); }}
-                                />
-                            )}
-                        </div>
+                        {errorOn && (
+                            <div className="rounded-xl border-l-4 border-orange-500 bg-orange-50 px-3 py-2">
+                                <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-orange-600">⚠️ Error</p>
+                                <p className="whitespace-pre-wrap text-sm leading-snug text-orange-900">{order.errorNote?.trim() || "No details added."}</p>
+                            </div>
+                        )}
 
                         <details className="group overflow-hidden rounded-xl bg-white/70 ring-1 ring-white">
                             <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-2.5 transition hover:bg-white [&::-webkit-details-marker]:hidden">
