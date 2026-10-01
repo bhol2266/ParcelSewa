@@ -27,7 +27,10 @@ export async function POST(req: NextRequest) {
 
       const response = await anthropic.messages.create({
         model: "claude-sonnet-5-5",
-        max_tokens: 1024,
+        // Sonnet 5.5 thinks by default; low effort keeps this extraction fast, and the larger
+        // limit leaves room for the JSON even if some of it is spent thinking.
+        max_tokens: 4096,
+        output_config: { effort: "low" },
         messages: [
           {
             role: "user",
@@ -75,7 +78,9 @@ Rules:
         ],
       });
 
-      const text = response.content[0].type === "text" ? response.content[0].text : "";
+      // The response can start with a thinking block, so read the text block explicitly.
+      const textBlock = response.content.find((block) => block.type === "text");
+      const text = textBlock && textBlock.type === "text" ? textBlock.text : "";
       const cleaned = text.replace(/```json|```/g, "").trim();
 
       try {
