@@ -108,7 +108,7 @@ async function proxyDispatcher(): Promise<object | undefined> {
     return new ProxyAgent(proxy);
 }
 
-async function readPublicPage(url: string, userAgent = HEADERS["User-Agent"]): Promise<string | null> {
+async function readPublicPage(url: string, userAgent = HEADERS["User-Agent"], diag?: string[]): Promise<string | null> {
     try {
         const dispatcher = await proxyDispatcher();
         const response = await fetch(url, {
@@ -116,10 +116,15 @@ async function readPublicPage(url: string, userAgent = HEADERS["User-Agent"]): P
             headers: { ...HEADERS, "User-Agent": userAgent, Accept: "text/html", Referer: `${new URL(url).origin}/` },
             signal: AbortSignal.timeout(12000),
             cache: "no-store",
-            redirect: "error",
+            // Store links often redirect (non-www, dl.flipkart.com); verify the final host below.
+            redirect: "follow",
         });
-        return response.ok ? await response.text() : null;
-    } catch {
+        const final = new URL(response.url || url);
+        const trusted = ["flipkart.com", "ajio.com"].some(domain => isStoreUrl(final, domain));
+        diag?.push(`direct ${response.status}${trusted ? "" : ` redirected to ${final.hostname}`}`);
+        return response.ok && trusted ? await response.text() : null;
+    } catch (error) {
+        diag?.push(`direct failed: ${error instanceof Error ? error.message : "unknown"}`);
         return null;
     }
 }
@@ -168,21 +173,27 @@ function chooseImage(images: string[], notes: string): string | null {
     return images.find(image => hints.some(hint => image.toLowerCase().includes(hint))) || images[0] || null;
 }
 
-export async function fetchAjioImage(productUrl: string, notes: string, backendUrl: string): Promise<string | null> {
+export async function fetchAjioImage(productUrl: string, notes: string, backendUrl: string, diag?: string[]): Promise<string | null> {
     if (!isStoreUrl(new URL(productUrl), "ajio.com")) return null;
     // Ajio blocks datacenter IPs, so a direct fetch only works through STORE_PROXY_URL.
     if (process.env.STORE_PROXY_URL) {
-        const html = await readPublicPage(productUrl);
+        const html = await readPublicPage(productUrl, HEADERS["User-Agent"], diag);
         const images = html ? extractStoreImages(html, productUrl, "ajio") : [];
         if (images.length) return chooseImage(images, notes);
     }
     return chooseImage(await backendImages(productUrl, backendUrl, "ajio"), notes);
 }
 
-export async function fetchFlipkartImage(productUrl: string, notes: string, backendUrl: string): Promise<string | null> {
+export async function fetchFlipkartImage(productUrl: string, notes: string, backendUrl: string, diag?: string[]): Promise<string | null> {
     if (!isStoreUrl(new URL(productUrl), "flipkart.com")) return null;
-    const html = await readPublicPage(productUrl, CRAWLER_UA);
+    // The apex domain does not accept connections; Flipkart only serves www.
+    const pageUrl = new URL(productUrl);
+    if (pageUrl.hostname === "flipkart.com") pageUrl.hostname = "www.flipkart.com";
+    const html = await readPublicPage(pageUrl.href, CRAWLER_UA, diag);
     const images = html ? extractStoreImages(html, productUrl, "flipkart") : [];
+    if (html) diag?.push(`direct page had ${images.length} product images`);
     if (images.length) return chooseImage(images, notes);
-    return chooseImage(await backendImages(productUrl, backendUrl, "flipkart"), notes);
+    const fromBackend = await backendImages(productUrl, backendUrl, "flipkart");
+    diag?.push(`backend ${fromBackend.length} images`);
+    return chooseImage(fromBackend, notes);
 }

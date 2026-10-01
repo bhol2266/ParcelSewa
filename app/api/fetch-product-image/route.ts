@@ -63,10 +63,12 @@ export async function POST(req: NextRequest) {
         const isFlipkart = isStoreUrl(parsedUrl, "flipkart.com");
         if (isAjio || isFlipkart) {
             const fetchImage = isAjio ? fetchAjioImage : fetchFlipkartImage;
-            const imageUrl = await fetchImage(productUrl, typeof notes === "string" ? notes : "", CRONJOB_API);
+            const diag: string[] = [];
+            const imageUrl = await fetchImage(productUrl, typeof notes === "string" ? notes : "", CRONJOB_API, diag);
             if (imageUrl) return NextResponse.json({ imageUrl });
             return NextResponse.json({
                 error: `Could not fetch image from ${isAjio ? "Ajio" : "Flipkart"}. The site may be blocking access or the product may be unavailable.`,
+                detail: diag,
             }, { status: 422 });
         }
 
