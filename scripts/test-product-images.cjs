@@ -172,3 +172,9 @@ test("Amazon layouts with an empty first price block still yield the price to pa
     assert.equal(price.extractPrice(html), 599);
     assert.equal(price.extractPrice('<script>{"priceAmount":599.00}</script>'), 599);
 });
+
+test("Amazon pages without og:image expose the main high-resolution image", () => {
+    const html = '<img id="landingImage" data-old-hires="https://m.media-amazon.com/images/I/617PDdtPDJL._SL1500_.jpg"><img data-old-hires="https://m.media-amazon.com/images/I/61W107uiJJL._SL1500_.jpg">';
+    assert.deepEqual(parseImg.extractGenericImages(html, "https://www.amazon.in/dp/B07BYX6L4M"), ["https://m.media-amazon.com/images/I/617PDdtPDJL._SL1500_.jpg"]);
+    assert.deepEqual(parseImg.extractGenericImages('<script>{"hiRes":"https://m.media-amazon.com/images/I/aaa._SL1500_.jpg"}</script>', "https://www.amazon.in/dp/X"), ["https://m.media-amazon.com/images/I/aaa._SL1500_.jpg"]);
+});

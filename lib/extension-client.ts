@@ -47,6 +47,11 @@ export async function fetchStoreImageViaExtension(productUrl: string, notes: str
 export async function fetchProductPriceViaExtension(productUrl: string): Promise<{ price: number | null; note: string }> {
     if (!(await hasExtension())) return { price: null, note: "Extension not detected (install it, then refresh the page)" };
     const tried: string[] = [];
+    // The bare flipkart.com domain does not serve pages; only www does.
+    try {
+        const parsed = new URL(productUrl);
+        if (parsed.hostname === "flipkart.com") { parsed.hostname = "www.flipkart.com"; productUrl = parsed.href; }
+    } catch { /* an invalid URL fails below */ }
     for (const mode of ["browser", "crawler", "tab"]) {
         const reply = await send({ type: "PARCELSEWA_FETCH_HTML", url: productUrl, mode }, "PARCELSEWA_HTML_RESULT", 45000);
         if (!reply?.ok || !reply.html) { tried.push(`${mode}: ${reply ? reply.error || `HTTP ${reply.status}` : "no response"}`); continue; }

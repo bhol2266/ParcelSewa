@@ -127,5 +127,8 @@ export function extractGenericImages(html: string, pageUrl: string): string[] {
             visit(JSON.parse(script[1]));
         } catch { /* Some pages contain malformed structured data. */ }
     }
+    // Amazon has no og:image; its main picture is the first high-resolution gallery entry.
+    const amazon = html.match(/data-old-hires="(https:\/\/[^"]+)"/) || html.match(/"hiRes"\s*:\s*"(https:[^"]+)"/);
+    if (amazon) candidates.push(amazon[1]);
     return [...new Set(candidates.map(value => imageUrl(value, pageUrl)).filter((value): value is string => value !== null))];
 }
