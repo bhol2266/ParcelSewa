@@ -3,6 +3,8 @@ import { fetchAjioImage, fetchFlipkartImage, isStoreUrl } from "@/lib/product-im
 
 // The configured store scraper can take up to a minute on blocked product pages.
 export const maxDuration = 180;
+// Flipkart and Ajio block most non-Indian datacenter IPs, so run the function in Mumbai.
+export const preferredRegion = "bom1";
 
 const CRONJOB_API = process.env.CRONJOB_API_URL || "https://backend.uktechdeveloper.co.uk/parcelsewa";
 // const CRONJOB_API = process.env.CRONJOB_API_URL || "http://localhost:4001/parcelsewa";

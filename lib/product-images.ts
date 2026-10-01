@@ -100,9 +100,19 @@ export function extractStoreImages(html: string, productUrl: string, store: "aji
         .filter((value): value is string => value !== null))];
 }
 
+// Optional proxy with an Indian exit IP (e.g. http://user:pass@host:port). Both stores block most datacenter IPs.
+async function proxyDispatcher(): Promise<object | undefined> {
+    const proxy = process.env.STORE_PROXY_URL;
+    if (!proxy) return undefined;
+    const { ProxyAgent } = await import("undici");
+    return new ProxyAgent(proxy);
+}
+
 async function readPublicPage(url: string, userAgent = HEADERS["User-Agent"]): Promise<string | null> {
     try {
+        const dispatcher = await proxyDispatcher();
         const response = await fetch(url, {
+            ...(dispatcher ? { dispatcher } : {}),
             headers: { ...HEADERS, "User-Agent": userAgent, Accept: "text/html", Referer: `${new URL(url).origin}/` },
             signal: AbortSignal.timeout(12000),
             cache: "no-store",
@@ -160,7 +170,12 @@ function chooseImage(images: string[], notes: string): string | null {
 
 export async function fetchAjioImage(productUrl: string, notes: string, backendUrl: string): Promise<string | null> {
     if (!isStoreUrl(new URL(productUrl), "ajio.com")) return null;
-    // The backend uses the existing India-region scraping service; direct Ajio fetches are blocked.
+    // Ajio blocks datacenter IPs, so a direct fetch only works through STORE_PROXY_URL.
+    if (process.env.STORE_PROXY_URL) {
+        const html = await readPublicPage(productUrl);
+        const images = html ? extractStoreImages(html, productUrl, "ajio") : [];
+        if (images.length) return chooseImage(images, notes);
+    }
     return chooseImage(await backendImages(productUrl, backendUrl, "ajio"), notes);
 }
 
