@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import OrderCard from "./OrderCard";
+import { ADMIN_COOKIE, ADMIN_PASSWORD } from "@/lib/admin-access";
 import Cookies from "js-cookie";
 import OrdersStats from "./OrdersStats";
 import ClickableTiles from "@/components/ClickableTiles";
@@ -69,8 +70,8 @@ export default function OrdersPage() {
     const [globalSearchLoading, setGlobalSearchLoading] = useState(false);
     const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const PASSWORD = "2266";
-    const COOKIE_NAME = "admin_access";
+    const PASSWORD = ADMIN_PASSWORD;
+    const COOKIE_NAME = ADMIN_COOKIE;
 
     // ── Fetch all pending orders (all time) ───────────────────────────────────
     const fetchAllPendingOrders = useCallback(async () => {

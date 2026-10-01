@@ -26,6 +26,9 @@ const Navbar = () => {
 
   const pathname = usePathname();
   const router = useRouter();
+  // The Stats button belongs to the admin area only, so it is hidden on every other page.
+  const inAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
+  const statsActive = pathname.startsWith("/admin/stats");
 
   if (
     pathname === "/huggai-delete-account" ||
@@ -76,6 +79,15 @@ const Navbar = () => {
 
                 {/* Action buttons */}
                 <div className="gap-4 items-center hidden lg:flex">
+                  {inAdmin && (
+                    <Link
+                      href={statsActive ? "/admin" : "/admin/stats"}
+                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition ${statsActive ? "bg-themeBlue text-white" : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-800"}`}
+                    >
+                      <span aria-hidden>📊</span>
+                      {statsActive ? "Orders" : "Stats"}
+                    </Link>
+                  )}
                   <ThemeToggle />
                   <Link href="/login" className="px-3 py-2 rounded-md text-sm font-medium text-primary dark:text-gray-200 hover:underline">
                     Login
@@ -91,6 +103,15 @@ const Navbar = () => {
 
                 {/* Mobile menu button */}
                 <div className="lg:hidden flex items-center gap-2">
+                  {inAdmin && (
+                    <Link
+                      href={statsActive ? "/admin" : "/admin/stats"}
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-800"
+                    >
+                      <span aria-hidden>📊</span>
+                      {statsActive ? "Orders" : "Stats"}
+                    </Link>
+                  )}
                   <ThemeToggle />
                   <Disclosure.Button className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 dark:text-gray-300 hover:text-white hover:bg-themeBlue focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
                     {open ? <FaTimes size={24} /> : <FaBars size={24} />}
