@@ -321,6 +321,14 @@ export default function OrdersPage() {
         };
     }, [search, filteredOrders.length, searchAllOrders]);
 
+    // The Errors filter only exists while at least one order is flagged.
+    const errorCount = (selectedMonth ? monthStatOrders : allPendingOrders).filter((o) => o.hasError === true).length;
+    useEffect(() => {
+        if (errorCount > 0) return;
+        if (allTimeSortOption === "errors") setAllTimeSortOption("oldest");
+        if (sortOption === "errors") setSortOption("oldest");
+    }, [errorCount, allTimeSortOption, sortOption]);
+
     const isLoading = !selectedMonth
         ? (allTimeSortOption === "delivered" ? allDeliveredLoading : allPendingLoading)
         : monthOrdersLoading;
@@ -359,7 +367,7 @@ export default function OrdersPage() {
                 {/* Sort Buttons — All Pending (All Time) view */}
                 {!selectedMonth && (
                     <div className="flex flex-wrap items-center gap-2 mb-6">
-                        {(["oldest", "latest", "delivered", "errors"] as AllTimeSortOption[]).map((option) => (
+                        {(["oldest", "latest", "delivered", ...(errorCount > 0 ? ["errors"] : [])] as AllTimeSortOption[]).map((option) => (
                             <button
                                 key={option}
                                 className={`px-4 py-2 rounded-xl border ${
@@ -372,7 +380,7 @@ export default function OrdersPage() {
                                 {option === "oldest" && "Oldest First"}
                                 {option === "latest" && "Latest First"}
                                 {option === "delivered" && "Delivered Orders"}
-                                {option === "errors" && `⚠️ Errors (${allPendingOrders.filter((o) => o.hasError === true).length})`}
+                                {option === "errors" && `⚠️ Errors (${errorCount})`}
                             </button>
                         ))}
                         {allTimeSortOption === "delivered" && (
@@ -384,7 +392,7 @@ export default function OrdersPage() {
                 {/* Sort Buttons — Monthly view */}
                 {selectedMonth && (
                     <div className="flex flex-wrap items-center gap-2 mb-6">
-                        {(["oldest", "latest", "delivered", "errors"] as SortOption[]).map((option) => (
+                        {(["oldest", "latest", "delivered", ...(errorCount > 0 ? ["errors"] : [])] as SortOption[]).map((option) => (
                             <button
                                 key={option}
                                 className={`px-4 py-2 rounded-xl border ${
@@ -397,7 +405,7 @@ export default function OrdersPage() {
                                 {option === "oldest" && "Oldest First"}
                                 {option === "latest" && "Latest First"}
                                 {option === "delivered" && "Delivered Orders"}
-                                {option === "errors" && `⚠️ Errors (${monthStatOrders.filter((o) => o.hasError === true).length})`}
+                                {option === "errors" && `⚠️ Errors (${errorCount})`}
                             </button>
                         ))}
                     </div>
