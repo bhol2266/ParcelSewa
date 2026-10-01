@@ -631,7 +631,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                     {verifyMessage ? verifyMessage : (
                                         <>
                                             <p className="font-semibold">
-                                                {!ok ? "⚠️ Total is lower" : check.diff > ERROR_THRESHOLD_NPR ? "✅ Total is higher (OK)" : "✅ Total matches"} · expected NPR {check.expectedTotal.toLocaleString()} · order NPR {(order.totalAmount || 0).toLocaleString()}
+                                                {!ok ? "⚠️ Total is lower" : check.diff > 0 ? "✅ Total is higher than verified (OK)" : "✅ Total matches"} · expected NPR {check.expectedTotal.toLocaleString()} · order NPR {(order.totalAmount || 0).toLocaleString()}
                                                 {check.diff !== 0 && ` (${check.diff > 0 ? "+" : ""}${check.diff.toLocaleString()})`}
                                             </p>
                                             <p className="opacity-80">
