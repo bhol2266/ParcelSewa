@@ -39,7 +39,7 @@ test("Flipkart uses backend fallback when direct fetch contains a promotion", as
             return new Response(url.endsWith("/html") ? JSON.stringify({ candidates: [promo, shoe] }) : `<meta property="og:image" content="${promo}">`);
         };
         assert.equal(await fetchFlipkartImage(flipkart, "", "https://backend.test"), shoeLarge);
-        assert.deepEqual(calls, [flipkart, "https://backend.test/html"]);
+        assert.deepEqual(calls, [flipkart, flipkart, flipkart, flipkart, "https://backend.test/html"]);
     } finally { global.fetch = originalFetch; }
 });
 test("Ajio calls backend directly and preserves the requested variant", async () => {

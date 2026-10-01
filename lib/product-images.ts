@@ -3,7 +3,12 @@ const HEADERS = {
     "Accept-Language": "en-IN,en;q=0.9",
 };
 // Flipkart serves a 500 bot-check page to browser user agents but full HTML to crawlers.
-const CRAWLER_UA = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
+const CRAWLER_UAS = [
+    "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+    "Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)",
+    "facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)",
+    "Mozilla/5.0 (Linux; Android 6.0.1; Nexus 5X Build/MMB29P) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Mobile Safari/537.36 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)",
+];
 
 export function isStoreUrl(url: URL, domain: string): boolean {
     return url.hostname === domain || url.hostname.endsWith(`.${domain}`);
@@ -189,10 +194,13 @@ export async function fetchFlipkartImage(productUrl: string, notes: string, back
     // The apex domain does not accept connections; Flipkart only serves www.
     const pageUrl = new URL(productUrl);
     if (pageUrl.hostname === "flipkart.com") pageUrl.hostname = "www.flipkart.com";
-    const html = await readPublicPage(pageUrl.href, CRAWLER_UA, diag);
-    const images = html ? extractStoreImages(html, productUrl, "flipkart") : [];
-    if (html) diag?.push(`direct page had ${images.length} product images`);
-    if (images.length) return chooseImage(images, notes);
+    // Which crawler identity Flipkart accepts varies by source IP, so try several.
+    for (const userAgent of CRAWLER_UAS) {
+        const html = await readPublicPage(pageUrl.href, userAgent, diag);
+        const images = html ? extractStoreImages(html, productUrl, "flipkart") : [];
+        if (html) diag?.push(`direct page had ${images.length} product images`);
+        if (images.length) return chooseImage(images, notes);
+    }
     const fromBackend = await backendImages(productUrl, backendUrl, "flipkart");
     diag?.push(`backend ${fromBackend.length} images`);
     return chooseImage(fromBackend, notes);
