@@ -14,13 +14,14 @@ const flipkart = "https://www.flipkart.com/nike-shoes/p/itm123";
 const ajio = "https://www.ajio.com/backpack/p/700737231_blue";
 const shoe = "https://rukminim2.flixcart.com/image/1500/1500/shoe/main.jpeg";
 const promo = "https://rukminim1.flixcart.com/www/800/800/promos/2025/sale.png";
+const shoeLarge = "https://rukminim2.flixcart.com/image/832/832/shoe/main.jpeg?q=90";
 const bag = "https://assets.ajio.com/medias/root/-473Wx593H-700737231-blue-MODEL.jpg";
 
 test("block-page metadata and recommendations do not produce a Flipkart image", () => {
     assert.deepEqual(extractStoreImages(`<meta property="og:image" content="${promo}"><img src="${shoe}">`, flipkart, "flipkart"), []);
 });
 test("valid main image accepts reordered attributes and decodes entities", () => {
-    assert.deepEqual(extractStoreImages(`<meta content="${shoe}?q=90&amp;x=1" property="og:image">`, flipkart, "flipkart"), [`${shoe}?q=90&x=1`]);
+    assert.deepEqual(extractStoreImages(`<meta content="${shoe}?q=90&amp;x=1" property="og:image">`, flipkart, "flipkart"), [`${shoeLarge}&x=1`]);
 });
 test("Ajio rejects other products and colors", () => {
     assert.deepEqual(extractStoreImages(`<img src="${bag}"><img src="${bag.replace('-blue-', '-red-')}"><img src="${bag.replace('700737231', '999999999')}">`, ajio, "ajio"), [bag]);
@@ -37,7 +38,7 @@ test("Flipkart uses backend fallback when direct fetch contains a promotion", as
             calls.push(url);
             return new Response(url.endsWith("/html") ? JSON.stringify({ candidates: [promo, shoe] }) : `<meta property="og:image" content="${promo}">`);
         };
-        assert.equal(await fetchFlipkartImage(flipkart, "", "https://backend.test"), shoe);
+        assert.equal(await fetchFlipkartImage(flipkart, "", "https://backend.test"), shoeLarge);
         assert.deepEqual(calls, [flipkart, "https://backend.test/html"]);
     } finally { global.fetch = originalFetch; }
 });
@@ -84,5 +85,17 @@ test("backend jobs poll until complete before returning the validated product im
         };
         assert.equal(await fetchAjioImage(ajio, "", "https://backend.test"), bag);
         assert.equal(polls, 2);
+    } finally { global.fetch = originalFetch; }
+});
+
+test("Flipkart direct fetch uses a crawler user agent and upsizes the thumbnail", async () => {
+    const originalFetch = global.fetch;
+    try {
+        global.fetch = async (url, options) => {
+            assert.equal(url, flipkart);
+            assert.match(options.headers["User-Agent"], /Googlebot/);
+            return new Response(`<meta property="og:image" content="https://rukminim2.flixcart.com/image/300/300/shoe/main.jpeg">`);
+        };
+        assert.equal(await fetchFlipkartImage(flipkart, "", "https://backend.test"), shoeLarge);
     } finally { global.fetch = originalFetch; }
 });

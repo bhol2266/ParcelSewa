@@ -2,6 +2,8 @@ const HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
     "Accept-Language": "en-IN,en;q=0.9",
 };
+// Flipkart serves a 500 bot-check page to browser user agents but full HTML to crawlers.
+const CRAWLER_UA = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)";
 
 export function isStoreUrl(url: URL, domain: string): boolean {
     return url.hostname === domain || url.hostname.endsWith(`.${domain}`);
@@ -35,8 +37,11 @@ function storeImageUrl(value: string, productUrl: string, store: "ajio" | "flipk
     if (!normalized) return null;
     const url = new URL(normalized);
     if (store === "flipkart") {
-        return /^rukminim\d*\.flixcart\.com$/i.test(url.hostname) && url.pathname.startsWith("/image/")
-            ? normalized : null;
+        if (!/^rukminim\d*\.flixcart\.com$/i.test(url.hostname) || !url.pathname.startsWith("/image/")) return null;
+        // og:image is a 300px thumbnail; the CDN serves any requested size.
+        url.pathname = url.pathname.replace(/^\/image\/\d+\/\d+\//, "/image/832/832/");
+        url.searchParams.set("q", "90");
+        return url.href;
     }
     const product = new URL(productUrl).pathname.match(/\/p\/([^/]+)/)?.[1] || "";
     const [code, ...colorParts] = product.split("_");
@@ -95,10 +100,10 @@ export function extractStoreImages(html: string, productUrl: string, store: "aji
         .filter((value): value is string => value !== null))];
 }
 
-async function readPublicPage(url: string): Promise<string | null> {
+async function readPublicPage(url: string, userAgent = HEADERS["User-Agent"]): Promise<string | null> {
     try {
         const response = await fetch(url, {
-            headers: { ...HEADERS, Accept: "text/html", Referer: `${new URL(url).origin}/` },
+            headers: { ...HEADERS, "User-Agent": userAgent, Accept: "text/html", Referer: `${new URL(url).origin}/` },
             signal: AbortSignal.timeout(12000),
             cache: "no-store",
             redirect: "error",
@@ -161,7 +166,7 @@ export async function fetchAjioImage(productUrl: string, notes: string, backendU
 
 export async function fetchFlipkartImage(productUrl: string, notes: string, backendUrl: string): Promise<string | null> {
     if (!isStoreUrl(new URL(productUrl), "flipkart.com")) return null;
-    const html = await readPublicPage(productUrl);
+    const html = await readPublicPage(productUrl, CRAWLER_UA);
     const images = html ? extractStoreImages(html, productUrl, "flipkart") : [];
     if (images.length) return chooseImage(images, notes);
     return chooseImage(await backendImages(productUrl, backendUrl, "flipkart"), notes);
