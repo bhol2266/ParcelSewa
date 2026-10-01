@@ -61,3 +61,28 @@ test("backend errors and promotion-only results remain failures", async () => {
         assert.equal(await fetchAjioImage(ajio, "", "https://backend.test"), null);
     } finally { global.fetch = originalFetch; }
 });
+
+test("Ajio numeric SKU URLs accept the image style ID", () => {
+    const url = "https://luxe.ajio.com/nike/p/469763484007";
+    const image = "https://assets.ajio.com/medias/root/-473Wx593H-469763484-blackgrey-MODEL.jpg";
+    assert.deepEqual(extractStoreImages(`<meta property="og:image" content="${image}">`, url, "ajio"), [image]);
+});
+
+test("backend jobs poll until complete before returning the validated product image", async () => {
+    const originalFetch = global.fetch;
+    let polls = 0;
+    try {
+        global.fetch = async (url, options) => {
+            if (url.endsWith("/html")) {
+                assert.equal(JSON.parse(options.body).async, true);
+                return new Response(JSON.stringify({ jobId: "job-123" }), { status: 202 });
+            }
+            assert.equal(url, "https://backend.test/image-jobs/job-123");
+            polls++;
+            return polls === 1 ? new Response(JSON.stringify({ status: "pending" }), { status: 202 })
+                : new Response(JSON.stringify({ candidates: [bag] }));
+        };
+        assert.equal(await fetchAjioImage(ajio, "", "https://backend.test"), bag);
+        assert.equal(polls, 2);
+    } finally { global.fetch = originalFetch; }
+});

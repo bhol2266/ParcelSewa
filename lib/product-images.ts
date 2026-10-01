@@ -40,9 +40,11 @@ function storeImageUrl(value: string, productUrl: string, store: "ajio" | "flipk
     }
     const product = new URL(productUrl).pathname.match(/\/p\/([^/]+)/)?.[1] || "";
     const [code, ...colorParts] = product.split("_");
+    // Ajio numeric SKU IDs append a size suffix to the nine-digit image style code.
+    const codes = /^\d{12}$/.test(code) ? [code, code.slice(0, 9)] : [code];
     const color = colorParts.join("-").toLowerCase();
     return url.hostname === "assets.ajio.com" && url.pathname.startsWith("/medias/")
-        && code && url.pathname.includes(`-${code}-`)
+        && code && codes.some(candidate => url.pathname.includes(`-${candidate}-`))
         && (!color || url.pathname.toLowerCase().includes(`-${code}-${color}-`)) ? normalized : null;
 }
 
@@ -112,11 +114,27 @@ async function backendImages(productUrl: string, backendUrl: string, store: "aji
         const response = await fetch(`${backendUrl}/html`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url: productUrl }),
-            signal: AbortSignal.timeout(85000),
+            body: JSON.stringify({ url: productUrl, async: true }),
+            signal: AbortSignal.timeout(10000),
         });
         if (!response.ok) return [];
-        const data = await response.json();
+        let data = await response.json();
+        if (response.status === 202) {
+            if (typeof data.jobId !== "string" || !/^[\w-]+$/.test(data.jobId)) return [];
+            const jobUrl = `${backendUrl}/image-jobs/${encodeURIComponent(data.jobId)}`;
+            const deadline = Date.now() + 150000;
+            let complete = false;
+            while (Date.now() < deadline) {
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                const poll = await fetch(jobUrl, { signal: AbortSignal.timeout(10000), cache: "no-store" });
+                if (!poll.ok) return [];
+                if (poll.status === 202) continue;
+                data = await poll.json();
+                complete = true;
+                break;
+            }
+            if (!complete) return [];
+        }
         if (data.error) return [];
         const candidates = Array.isArray(data.candidates) ? data.candidates : [];
         const images = candidates.filter((value: unknown): value is string => typeof value === "string")

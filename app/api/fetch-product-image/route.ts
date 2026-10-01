@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { fetchAjioImage, fetchFlipkartImage, isStoreUrl } from "@/lib/product-images";
 
 // The configured store scraper can take up to a minute on blocked product pages.
-export const maxDuration = 120;
+export const maxDuration = 180;
 
 const CRONJOB_API = process.env.CRONJOB_API_URL || "https://backend.uktechdeveloper.co.uk/parcelsewa";
 // const CRONJOB_API = process.env.CRONJOB_API_URL || "http://localhost:4001/parcelsewa";
