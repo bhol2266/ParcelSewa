@@ -59,6 +59,10 @@ const Meta = ({ icon: ic, label, value, action, className = "" }: { icon: React.
     </div>
 );
 
+function hostLabel(url: string): string {
+    try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url.slice(0, 30); }
+}
+
 function isProductUrl(url: string): boolean {
     if (!url) return false;
     const imageExtensions = /\.(jpg|jpeg|png|webp|gif|avif|svg)(\?.*)?$/i;
@@ -631,6 +635,26 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                             <p className="opacity-80">
                                                 ₹{check.inrProducts.toLocaleString()} × 1.6 = {check.nprProducts.toLocaleString()} + commission {check.commission.toLocaleString()}
                                             </p>
+                                            {Array.isArray(check.items) && check.items.length > 0 && (
+                                                <details className="mt-1.5 group/prices">
+                                                    <summary className="flex cursor-pointer list-none items-center gap-1 font-semibold [&::-webkit-details-marker]:hidden">
+                                                        <span className="inline-block transition-transform group-open/prices:rotate-90">▸</span>
+                                                        Product prices (₹) · {check.items.length}
+                                                    </summary>
+                                                    <ul className="mt-1 space-y-0.5">
+                                                        {check.items.map((item: { url: string; priceInr: number; qty: number }, i: number) => (
+                                                            <li key={i} className="flex items-baseline justify-between gap-2">
+                                                                <a href={item.url} target="_blank" rel="noopener noreferrer" className="min-w-0 truncate underline decoration-dotted underline-offset-2" title={item.url}>
+                                                                    {i + 1}. {hostLabel(item.url)}
+                                                                </a>
+                                                                <span className="shrink-0 font-medium">
+                                                                    ₹{item.priceInr.toLocaleString()}{item.qty !== 1 && ` × ${item.qty} = ₹${(item.priceInr * item.qty).toLocaleString()}`}
+                                                                </span>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </details>
+                                            )}
                                         </>
                                     )}
                                 </div>
