@@ -4,11 +4,16 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const ts = require("typescript");
-const source = ts.transpileModule(fs.readFileSync(path.join(__dirname, "../lib/product-images.ts"), "utf8"), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
-}).outputText;
-const loaded = { exports: {} };
-new Function("exports", "require", "module", source)(loaded.exports, require, loaded);
+const load = (file, req) => {
+    const code = ts.transpileModule(fs.readFileSync(path.join(__dirname, "../lib", file), "utf8"), {
+        compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+    }).outputText;
+    const mod = { exports: {} };
+    new Function("exports", "require", "module", code)(mod.exports, req, mod);
+    return mod;
+};
+const parse = load("product-image-parse.ts", require);
+const loaded = load("product-images.ts", id => id === "./product-image-parse" ? parse.exports : require(id));
 const { extractStoreImages, fetchAjioImage, fetchFlipkartImage, isStoreUrl } = loaded.exports;
 const flipkart = "https://www.flipkart.com/nike-shoes/p/itm123";
 const ajio = "https://www.ajio.com/backpack/p/700737231_blue";
@@ -98,4 +103,13 @@ test("Flipkart direct fetch uses a crawler user agent and upsizes the thumbnail"
         };
         assert.equal(await fetchFlipkartImage(flipkart, "", "https://backend.test"), shoeLarge);
     } finally { global.fetch = originalFetch; }
+});
+
+test("Ajio numeric SKU pages prefer the largest gallery image over the meta thumbnail", () => {
+    const url = "https://www.ajio.com/nike/p/469763484007";
+    const root = "https://assets.ajio.com/medias/sys_master/root/20250714/uiUa";
+    const small = `${root}/a/-78Wx98H-469763484-blackgrey-MODEL.jpg`;
+    const large = `${root}/b/-1117Wx1400H-469763484-blackgrey-MODEL.jpg`;
+    const other = `${root}/c/-1117Wx1400H-111111111-red-MODEL.jpg`;
+    assert.deepEqual(extractStoreImages(`<meta property="og:image" content="${small}"><script>"${other}","${large}"</script>`, url, "ajio"), [large, small]);
 });

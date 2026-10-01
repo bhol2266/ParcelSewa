@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { updateDoc, doc, deleteDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
+import { fetchStoreImageViaExtension } from "@/lib/extension-client";
 
 interface OrderProps {
     order: any;
@@ -68,6 +69,10 @@ function isProductUrl(url: string): boolean {
 }
 
 async function fetchProductImageWithClaude(productUrl: string, notes: string): Promise<string> {
+    // Flipkart/Ajio block cloud servers, so try the browser extension (your own connection) first.
+    const fromExtension = await fetchStoreImageViaExtension(productUrl, notes);
+    if (fromExtension) return fromExtension;
+
     const response = await fetch("/api/fetch-product-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

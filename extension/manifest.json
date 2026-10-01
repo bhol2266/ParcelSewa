@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "ParcelSewa Store Fetcher",
+  "version": "1.0.0",
+  "description": "Lets the ParcelSewa admin page read Flipkart and Ajio product pages using your own connection.",
+  "permissions": ["declarativeNetRequestWithHostAccess", "scripting"],
+  "host_permissions": [
+    "https://*.flipkart.com/*",
+    "https://*.ajio.com/*"
+  ],
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.parcelsewa.com/*",
+        "https://parcelsewa.com/*",
+        "http://localhost/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    }
+  ]
+}
