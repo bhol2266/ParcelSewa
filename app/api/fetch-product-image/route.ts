@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { fetchAjioImage, fetchFlipkartImage, isStoreUrl } from "@/lib/product-images";
 
 const CRONJOB_API = process.env.CRONJOB_API_URL || "https://backend.uktechdeveloper.co.uk/parcelsewa";
 // const CRONJOB_API = process.env.CRONJOB_API_URL || "http://localhost:4001/parcelsewa";
@@ -41,6 +42,27 @@ export async function POST(req: NextRequest) {
 
         if (!productUrl) {
             return NextResponse.json({ error: "Missing productUrl" }, { status: 400 });
+        }
+
+        let parsedUrl: URL;
+        try {
+            if (typeof productUrl !== "string") throw new Error("Invalid URL");
+            parsedUrl = new URL(productUrl);
+            if (!["http:", "https:"].includes(parsedUrl.protocol)) throw new Error("Invalid protocol");
+        } catch {
+            return NextResponse.json({ error: "Invalid productUrl" }, { status: 400 });
+        }
+
+        // Dedicated store extractors bypass the generic scraper/Claude selection.
+        const isAjio = isStoreUrl(parsedUrl, "ajio.com");
+        const isFlipkart = isStoreUrl(parsedUrl, "flipkart.com");
+        if (isAjio || isFlipkart) {
+            const fetchImage = isAjio ? fetchAjioImage : fetchFlipkartImage;
+            const imageUrl = await fetchImage(productUrl, typeof notes === "string" ? notes : "", CRONJOB_API);
+            if (imageUrl) return NextResponse.json({ imageUrl });
+            return NextResponse.json({
+                error: `Could not fetch image from ${isAjio ? "Ajio" : "Flipkart"}. The site may be blocking access or the product may be unavailable.`,
+            }, { status: 422 });
         }
 
         // ── Myntra early-exit: use backend scraper (internal Myntra API) ───────
