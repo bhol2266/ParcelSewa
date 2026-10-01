@@ -17,7 +17,7 @@ function imageUrl(value: string, base: string): string | null {
     try {
         const url = new URL(decode(value), base);
         if (url.protocol !== "https:" && url.protocol !== "http:") return null;
-        if (/placeholder|sprite|logo|banner/i.test(url.pathname)) return null;
+        if (/placeholder|sprite|logo|banner|\/promos\//i.test(url.pathname)) return null;
         // Flipkart embeds size placeholders in its page state.
         return url.href.replace(/\{(?:@)?width\}/g, "1500")
             .replace(/\{(?:@)?height\}/g, "1500")
@@ -28,6 +28,22 @@ function imageUrl(value: string, base: string): string | null {
     } catch {
         return null;
     }
+}
+
+function storeImageUrl(value: string, productUrl: string, store: "ajio" | "flipkart"): string | null {
+    const normalized = imageUrl(value, productUrl);
+    if (!normalized) return null;
+    const url = new URL(normalized);
+    if (store === "flipkart") {
+        return /^rukminim\d*\.flixcart\.com$/i.test(url.hostname) && url.pathname.startsWith("/image/")
+            ? normalized : null;
+    }
+    const product = new URL(productUrl).pathname.match(/\/p\/([^/]+)/)?.[1] || "";
+    const [code, ...colorParts] = product.split("_");
+    const color = colorParts.join("-").toLowerCase();
+    return url.hostname === "assets.ajio.com" && url.pathname.startsWith("/medias/")
+        && code && url.pathname.includes(`-${code}-`)
+        && (!color || url.pathname.toLowerCase().includes(`-${code}-${color}-`)) ? normalized : null;
 }
 
 function collectImages(value: unknown): string[] {
@@ -65,23 +81,22 @@ export function extractStoreImages(html: string, productUrl: string, store: "aji
     }
     // CDN URLs in embedded state/lazy-loaded galleries are a last resort.
     const decoded = decode(html);
-    const cdn = store === "ajio"
-        ? /https?:\/\/assets\.ajio\.com\/medias\/[^\s"'<>\\]+/gi
-        : /https?:\/\/rukminim\d*\.flixcart\.com\/image\/[^\s"'<>\\]+/gi;
+    // Flipkart's raw page state includes recommendations. Only trust its product metadata.
+    const cdn = /https?:\/\/assets\.ajio\.com\/medias\/[^\s"'<>\\]+/gi;
     const productCode = new URL(productUrl).pathname.match(/\/p\/([^/]+)/)?.[1]?.split("_")[0];
     for (const match of decoded.matchAll(cdn)) {
         // Ajio recommendation images share the same CDN; retain this product only.
-        if (store === "ajio" && productCode && !match[0].includes(productCode)) continue;
+        if (store !== "ajio" || (productCode && !match[0].includes(productCode))) continue;
         candidates.push(match[0]);
     }
-    return [...new Set(candidates.map(value => imageUrl(value, productUrl))
+    return [...new Set(candidates.map(value => storeImageUrl(value, productUrl, store))
         .filter((value): value is string => value !== null))];
 }
 
-async function readPublicPage(url: string, json = false): Promise<string | null> {
+async function readPublicPage(url: string): Promise<string | null> {
     try {
         const response = await fetch(url, {
-            headers: { ...HEADERS, Accept: json ? "application/json" : "text/html", Referer: `${new URL(url).origin}/` },
+            headers: { ...HEADERS, Accept: "text/html", Referer: `${new URL(url).origin}/` },
             signal: AbortSignal.timeout(12000),
             cache: "no-store",
             redirect: "error",
@@ -98,14 +113,14 @@ async function backendImages(productUrl: string, backendUrl: string, store: "aji
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ url: productUrl }),
-            signal: AbortSignal.timeout(35000),
+            signal: AbortSignal.timeout(85000),
         });
         if (!response.ok) return [];
         const data = await response.json();
         if (data.error) return [];
         const candidates = Array.isArray(data.candidates) ? data.candidates : [];
         const images = candidates.filter((value: unknown): value is string => typeof value === "string")
-            .map((value: string) => imageUrl(value, productUrl))
+            .map((value: string) => storeImageUrl(value, productUrl, store))
             .filter((value: string | null): value is string => value !== null);
         // A backend that returns raw HTML can also use the dedicated parser.
         if (typeof data.html === "string") images.unshift(...extractStoreImages(data.html, productUrl, store));
@@ -121,25 +136,8 @@ function chooseImage(images: string[], notes: string): string | null {
 }
 
 export async function fetchAjioImage(productUrl: string, notes: string, backendUrl: string): Promise<string | null> {
-    const url = new URL(productUrl);
-    if (!isStoreUrl(url, "ajio.com")) return null;
-    const code = url.pathname.match(/\/p\/([^/]+)/)?.[1];
-    if (code) {
-        const body = await readPublicPage(`${url.origin}/api/p/${encodeURIComponent(code)}`, true);
-        if (body) {
-            try {
-                const data = JSON.parse(body);
-                const images = collectImages({ images: data.images, galleryImages: data.galleryImages,
-                    primaryImage: data.primaryImage, image: data.image, imageUrl: data.imageUrl })
-                    .map(value => imageUrl(value, productUrl))
-                    .filter((value): value is string => value !== null);
-                if (images.length) return chooseImage(images, notes);
-            } catch { /* Fall through to the product page and backend. */ }
-        }
-    }
-    const html = await readPublicPage(productUrl);
-    const images = html ? extractStoreImages(html, productUrl, "ajio") : [];
-    if (images.length) return chooseImage(images, notes);
+    if (!isStoreUrl(new URL(productUrl), "ajio.com")) return null;
+    // The backend uses the existing India-region scraping service; direct Ajio fetches are blocked.
     return chooseImage(await backendImages(productUrl, backendUrl, "ajio"), notes);
 }
 
