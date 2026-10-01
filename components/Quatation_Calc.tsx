@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 
 // Flat NPR charges for orders below IC 1500, keyed by option value.
 const FLAT_RATES = {
@@ -13,6 +13,11 @@ type CommissionOption = number | FlatOption;
 
 const isFlatOption = (value: string): value is FlatOption => value in FLAT_RATES;
 
+// The amount decides the default commission: below INR 1500 is a flat NPR 1000, otherwise 30%.
+const AUTO_THRESHOLD_INR = 1500;
+const AUTO_BELOW: CommissionOption = "below_1500_1000";
+const AUTO_ABOVE: CommissionOption = 30;
+
 const PriceCalculator: React.FC = () => {
     const [amountINR, setAmountINR] = useState<string>("");
     const [commissionRate, setCommissionRate] = useState<CommissionOption>(20);
@@ -24,6 +29,17 @@ const PriceCalculator: React.FC = () => {
     } | null>(null);
 
     const conversionRate = 1.6;
+
+    // Applies the default only when the amount crosses the INR 1500 line, so a manual choice
+    // made afterwards is kept while editing the amount within the same range.
+    const amountBand = useRef<"below" | "above" | null>(null);
+    const handleAmountChange = (value: string) => {
+        setAmountINR(value);
+        const amount = parseFloat(value);
+        const band = isNaN(amount) ? null : amount < AUTO_THRESHOLD_INR ? "below" : "above";
+        if (band && band !== amountBand.current) setCommissionRate(band === "below" ? AUTO_BELOW : AUTO_ABOVE);
+        amountBand.current = band;
+    };
 
     const handleCalculate = () => {
         const amount = parseFloat(amountINR);
@@ -91,7 +107,7 @@ NPR ${nprConverted.toLocaleString()} + ${rate}% = ${nprConverted.toLocaleString(
                 <input
                     type="number"
                     value={amountINR}
-                    onChange={(e) => setAmountINR(e.target.value)}
+                    onChange={(e) => handleAmountChange(e.target.value)}
                     className="w-full border px-3 py-2 rounded"
                     placeholder="Enter amount in INR"
                 />
@@ -117,6 +133,9 @@ NPR ${nprConverted.toLocaleString()} + ${rate}% = ${nprConverted.toLocaleString(
                         </option>
                     ))}
                 </select>
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Set automatically from the amount (below INR 1,500: flat NPR 1,000, otherwise 30%). You can still change it.
+                </p>
             </div>
 
             <button
