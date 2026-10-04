@@ -8,6 +8,7 @@ import Link from "next/link";
 import React, { useState } from "react";
 import { easeInOut, motion, useMotionValueEvent, useScroll } from "motion/react";
 import ThemeToggle from "@/components/ThemeToggle";
+import BrandLogo from "@/components/BrandLogo";
 
 const navigation = [
   { name: "Home", href: "/" },
@@ -56,7 +57,7 @@ const Navbar = () => {
                 {/* Logo */}
                 <div className="flex-shrink-0">
                   <Link href="/">
-                    <img src="/logo.png" alt="Logo" className="w-[180px]" />
+                    <BrandLogo className="w-[180px]" />
                   </Link>
                 </div>
 

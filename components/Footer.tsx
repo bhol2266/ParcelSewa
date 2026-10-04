@@ -4,6 +4,7 @@ import React from "react";
 import { MapPinIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import BrandLogo from "@/components/BrandLogo";
 
 
 const Footer = () => {
@@ -23,11 +24,7 @@ const Footer = () => {
         <div className="flex flex-col items-center text-center md:items-start md:text-left md:flex-row md:justify-between gap-10">
           {/* Logo + Description + Address */}
           <div className="max-w-md">
-            <img
-              src="/logo.png"
-              alt="ParcelSewa Logo"
-              className="w-44 mb-5"
-            />
+            <BrandLogo surface="dark" className="w-44 mb-5" />
             <p className="text-gray-300 text-sm leading-relaxed mb-3">
               A seamless bridge between Indian e-commerce and Nepalese shoppers.
               We buy, process, and deliver your favorite products.
