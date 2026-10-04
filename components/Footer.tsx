@@ -1,95 +1,24 @@
 "use client";
 
-import React from "react";
-import { MapPinIcon } from "@heroicons/react/24/outline";
+import WhatsAppLink from "@/components/WhatsAppLink";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { MapPinIcon } from "@heroicons/react/24/outline";
 import BrandLogo from "@/components/BrandLogo";
 
-
-const Footer = () => {
+export default function Footer() {
   const pathname = usePathname();
-
-  if (
-    pathname === "/huggai-delete-account" ||
-    pathname === "/huggai-privacy-policy" ||
-    pathname === "/vixoai-delete-account" ||
-    pathname === "/vixoai-privacy-policy"
-  ) return null;
-
+  if (["/huggai-delete-account", "/huggai-privacy-policy", "/vixoai-delete-account", "/vixoai-privacy-policy", "/admin/quotation-calculator"].includes(pathname)) return null;
   return (
-    <footer className="bg-gradient-to-r from-[#0A2F4E] to-[#06203A] text-white py-16 px-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Top Section */}
-        <div className="flex flex-col items-center text-center md:items-start md:text-left md:flex-row md:justify-between gap-10">
-          {/* Logo + Description + Address */}
-          <div className="max-w-md">
-            <BrandLogo surface="dark" className="w-44 mb-5" />
-            <p className="text-gray-300 text-sm leading-relaxed mb-3">
-              A seamless bridge between Indian e-commerce and Nepalese shoppers.
-              We buy, process, and deliver your favorite products.
-            </p>
-            <p className="text-gray-400 text-sm flex items-center gap-2">
-              <MapPinIcon className="w-5 h-5 text-green-400" />
-              Office: Buddhanagar, Kathmandu 44600, Nepal
-            </p>
-          </div>
-
-          {/* Links */}
-          <div className="flex flex-col sm:flex-row gap-12">
-            {/* Company */}
-            <div>
-              <h3 className="font-semibold text-lg mb-4">Company</h3>
-              <ul className="space-y-2 text-gray-400 text-sm">
-                <li className="hover:text-white transition-colors">
-                  <Link href="/about">About</Link>
-                </li>
-                <li className="hover:text-white transition-colors">
-                  <Link href="/terms">Terms & Conditions</Link>
-                </li>
-                <li className="hover:text-white transition-colors">
-                  <Link href="/returnsPolicy">Refund & Return Policy</Link>
-                </li>
-              </ul>
-            </div>
-
-            {/* Support */}
-            <div>
-              <h3 className="font-semibold text-lg mb-4">Support</h3>
-              <ul className="space-y-2 text-gray-400 text-sm">
-                <li className="hover:text-white transition-colors">
-                  <a href="mailto:ukdevelopers007@gmail.com">Email Us</a>
-                </li>
-                <li className="hover:text-white transition-colors">
-                  <Link href="/faqs">Help / FAQs</Link>
-                </li>
-                <li>
-                  <a
-                    href="https://wa.me/9779713889720"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-green-400 transition-colors"
-                  >
-                    WhatsApp Support
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
+    <footer className="site-footer">
+      <div className="page-container">
+        <div className="footer-grid">
+          <div className="footer-brand"><Link href="/" aria-label="ParcelSewa home"><BrandLogo surface="dark" className="w-48" /></Link><p>Great finds from India, closer to home in Nepal. We help with the purchase, handling, and delivery.</p><span className="footer-location"><MapPinIcon className="size-4" aria-hidden="true" />Buddhanagar, Kathmandu 44600, Nepal</span></div>
+          <div><h2>Explore</h2><Link href="/about">About ParcelSewa</Link><Link href="/offers">Festival picks</Link><Link href="/price-calculator">Price calculator</Link><Link href="/order">Start an order</Link></div>
+          <div><h2>Here to help</h2><Link href="/faqs">Questions & answers</Link><Link href="/returnsPolicy">Returns & refunds</Link><a href="mailto:ukdevelopers007@gmail.com">Email support</a><WhatsAppLink>WhatsApp support</WhatsAppLink></div>
         </div>
-
-        {/* Bottom Copyright */}
-        <Link href="/createOrder">
-          <div className="mt-12 border-t border-white/20 pt-6 text-gray-400 text-sm flex flex-col md:flex-row justify-between items-center">
-            <p>© 2025 ParcelSewa. All rights reserved.</p>
-            <p className="mt-2 md:mt-0 text-xs text-gray-500">
-              Designed with ❤️ in Nepal
-            </p>
-          </div>
-        </Link>
+        <div className="footer-bottom"><p>© {new Date().getFullYear()} ParcelSewa. All rights reserved.</p><p>From India, with care. Made for Nepal.</p></div>
       </div>
     </footer>
   );
-};
-
-export default Footer;
+}

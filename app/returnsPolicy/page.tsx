@@ -58,18 +58,19 @@ const returnsPolicy = [
 
 const ReturnsPage: React.FC = () => {
   return (
-    <div className="max-w-5xl mx-auto px-6 py-12 dark:bg-gray-950 transition-colors">
-      <h1 className="text-4xl font-bold text-center text-themeBlue dark:text-blue-300 mb-10">
+    <div className="storefront page-container inner-page max-w-4xl">
+      <p className="eyebrow">Order care & support</p>
+      <h1 className="text-3xl sm:text-4xl font-bold text-themeBlue dark:text-blue-200 mb-10">
         Returns & Refund Policy
       </h1>
 
       {returnsPolicy.map((section, idx) => (
-        <div key={idx} className="mb-8">
-          <h2 className="text-2xl font-semibold mb-3 text-themeBlue dark:text-blue-300">
+        <section key={idx} className="mb-8 surface-panel">
+          <h2 className="font-semibold mb-3 text-themeBlue dark:text-blue-200" style={{ fontSize: "22px" }}>
             {section.title}
           </h2>
           <p className="text-secondary dark:text-gray-300 text-sm whitespace-pre-line">{section.content}</p>
-        </div>
+        </section>
       ))}
     </div>
   );

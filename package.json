@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:product-images": "node --test scripts/test-product-images.cjs",
-    "test:stats": "node --test scripts/test-order-stats.cjs"
+    "test:stats": "node --test scripts/test-order-stats.cjs",
+    "test:storefront": "node --test scripts/test-storefront.cjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.106.0",

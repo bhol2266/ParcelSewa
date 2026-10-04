@@ -1,186 +1,69 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import { useRef, useState, type FormEvent } from "react";
+import { CalculatorIcon, CheckIcon, ClipboardDocumentIcon } from "@heroicons/react/24/outline";
+import { ESTIMATE_CONVERSION_RATE, getDefaultServiceRate } from "@/lib/storefront-estimate";
+import { calculateAdminQuotation, commissionOptions, type CommissionOption } from "@/lib/quotation-estimate";
 
-// Flat NPR charges for orders below IC 1500, keyed by option value.
-const FLAT_RATES = {
-    below_1500_800: 800,
-    below_1500_1000: 1000,
-} as const;
+const formatNPR = (amount: number) => `NPR ${amount.toLocaleString("en-IN")}`;
 
-type FlatOption = keyof typeof FLAT_RATES;
-type CommissionOption = number | FlatOption;
+export default function QuotationCalculator() {
+  const [amountINR, setAmountINR] = useState("");
+  const [commissionRate, setCommissionRate] = useState<CommissionOption>("below_1500_1000");
+  const [result, setResult] = useState<ReturnType<typeof calculateAdminQuotation> | null>(null);
+  const [error, setError] = useState("");
+  const [copyStatus, setCopyStatus] = useState("");
+  const [copying, setCopying] = useState(false);
+  const amountBand = useRef<CommissionOption | null>(null);
 
-const isFlatOption = (value: string): value is FlatOption => value in FLAT_RATES;
+  const clearResult = () => { setResult(null); setError(""); setCopyStatus(""); };
+  const changeAmount = (value: string) => {
+    setAmountINR(value);
+    clearResult();
+    const amount = Number(value);
+    const band = value !== "" && Number.isFinite(amount) && amount > 0 ? getDefaultServiceRate(amount) : null;
+    // Keep a manual selection while the price stays within the same service tier.
+    if (band !== null && band !== amountBand.current) setCommissionRate(band);
+    amountBand.current = band;
+  };
 
-// The amount decides the default commission: below INR 1500 is a flat NPR 1000, otherwise 30%.
-const AUTO_THRESHOLD_INR = 1500;
-const AUTO_BELOW: CommissionOption = "below_1500_1000";
-const AUTO_ABOVE: CommissionOption = 30;
+  const calculate = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setCopyStatus("");
+    try { const quotation = calculateAdminQuotation(Number(amountINR), commissionRate); setResult(quotation); setError(""); await copyQuotation(quotation); }
+    catch (error) { setResult(null); setError(error instanceof Error ? error.message : "Please check the product price."); }
+  };
 
-const PriceCalculator: React.FC = () => {
-    const [amountINR, setAmountINR] = useState<string>("");
-    const [commissionRate, setCommissionRate] = useState<CommissionOption>(20);
-    const [result, setResult] = useState<{
-        nprConverted: number;
-        commissionAmount: number;
-        total: number;
-        flatRateType: "none" | "flat";
-    } | null>(null);
+  const copyQuotation = async (quotation: ReturnType<typeof calculateAdminQuotation>) => {
+    if (copying) return;
+    setCopying(true);
+    try { await navigator.clipboard.writeText(quotation.message); setCopyStatus("Quotation copied. Ready to share with your customer."); }
+    catch { setCopyStatus("Clipboard access is unavailable. Open the customer message below and copy it manually."); }
+    finally { setCopying(false); }
+  };
 
-    const conversionRate = 1.6;
+  const reset = () => { setAmountINR(""); setCommissionRate("below_1500_1000"); amountBand.current = null; clearResult(); };
 
-    // Applies the default only when the amount crosses the INR 1500 line, so a manual choice
-    // made afterwards is kept while editing the amount within the same range.
-    const amountBand = useRef<"below" | "above" | null>(null);
-    const handleAmountChange = (value: string) => {
-        setAmountINR(value);
-        const amount = parseFloat(value);
-        const band = isNaN(amount) ? null : amount < AUTO_THRESHOLD_INR ? "below" : "above";
-        if (band && band !== amountBand.current) setCommissionRate(band === "below" ? AUTO_BELOW : AUTO_ABOVE);
-        amountBand.current = band;
-    };
-
-    const handleCalculate = () => {
-        const amount = parseFloat(amountINR);
-        if (isNaN(amount)) return;
-
-        const nprConverted = Math.round(amount * conversionRate);
-        let commissionAmount: number;
-        let total: number;
-        let textToCopy: string;
-        let flatRateType: "none" | "flat" = "none";
-
-        if (typeof commissionRate === "string") {
-            const flatRate = FLAT_RATES[commissionRate];
-            flatRateType = "flat";
-            commissionAmount = flatRate;
-            total = nprConverted + commissionAmount;
-
-            textToCopy = `
-🇮🇳 INR ${Math.round(amount).toLocaleString()} x ${conversionRate} = ${nprConverted.toLocaleString()} NPR 🇳🇵
-Below order 1500 charge will be flat ${flatRate} + courier charge
-
-**TOTAL = ${total.toLocaleString()} NPR** + courier charge
-
-🏷️ Product + Nepali Custom + Service charge
-`.trim();
-        } else {
-            const rate = commissionRate as number;
-            commissionAmount = Math.round((nprConverted * rate) / 100);
-            total = nprConverted + commissionAmount;
-
-            textToCopy = `
-🇮🇳 INR ${Math.round(amount).toLocaleString()} x ${conversionRate} = ${nprConverted.toLocaleString()} NPR 🇳🇵
-NPR ${nprConverted.toLocaleString()} + ${rate}% = ${nprConverted.toLocaleString()} + ${commissionAmount.toLocaleString()}
-
-**TOTAL = ${total.toLocaleString()} NPR**
-
-🏷️ Product + Nepali Custom + Service charge
-`.trim();
-        }
-
-        setResult({ nprConverted, commissionAmount, total, flatRateType });
-        navigator.clipboard.writeText(textToCopy);
-    };
-
-    const commissionOptions: { label: string; value: CommissionOption }[] = [
-        { label: "5%", value: 5 },
-        { label: "10%", value: 10 },
-        { label: "15%", value: 15 },
-        { label: "20%", value: 20 },
-        { label: "25%", value: 25 },
-        { label: "30%", value: 30 },
-        { label: "35%", value: 35 },
-        { label: "40%", value: 40 },
-        { label: "50%", value: 50 },
-        { label: "Below order IC 1500 (Flat NPR 800)", value: "below_1500_800" },
-        { label: "Below order IC 1500 (Flat NPR 1000)", value: "below_1500_1000" },
-    ];
-
-    return (
-        <div className="max-w-md mx-auto p-4 border rounded shadow">
-            <h2 className="text-xl font-semibold mb-4">Price Calculator</h2>
-
-            <div className="mb-4">
-                <label className="block mb-1 font-medium">Amount (INR):</label>
-                <input
-                    type="number"
-                    value={amountINR}
-                    onChange={(e) => handleAmountChange(e.target.value)}
-                    className="w-full border px-3 py-2 rounded"
-                    placeholder="Enter amount in INR"
-                />
-            </div>
-
-            <div className="mb-4">
-                <label className="block mb-1 font-medium">Commission Rate (%):</label>
-                <select
-                    value={commissionRate}
-                    onChange={(e) => {
-                        const val = e.target.value;
-                        if (isFlatOption(val)) {
-                            setCommissionRate(val);
-                        } else {
-                            setCommissionRate(parseInt(val));
-                        }
-                    }}
-                    className="w-full border px-3 py-2 rounded"
-                >
-                    {commissionOptions.map((opt) => (
-                        <option key={String(opt.value)} value={opt.value}>
-                            {opt.label}
-                        </option>
-                    ))}
-                </select>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    Set automatically from the amount (below INR 1,500: flat NPR 1,000, otherwise 30%). You can still change it.
-                </p>
-            </div>
-
-            <button
-                onClick={handleCalculate}
-                className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
-            >
-                Calculate &amp; Copy
-            </button>
-
-            {result && (
-                <div className="mt-6 p-4 border rounded bg-gray-50 dark:bg-gray-900">
-                    <p>
-                        INR {parseFloat(amountINR).toLocaleString()} x {conversionRate} ={" "}
-                        {result.nprConverted.toLocaleString()} NPR
-                    </p>
-
-                    {result.flatRateType !== "none" ? (
-                        <>
-                            <p className="mt-1">
-                                Below order 1500 — flat charge:{" "}
-                                <strong>NPR {result.commissionAmount.toLocaleString()}</strong>
-                            </p>
-                            <p className="mt-1">
-                                Total + courier charge:{" "}
-                                <strong>{result.total.toLocaleString()} NPR</strong>
-                            </p>
-                            <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 italic">
-                                Below order 1500 charge will be flat {result.commissionAmount} + courier charge
-                            </p>
-                        </>
-                    ) : (
-                        <p>
-                            NPR {result.nprConverted.toLocaleString()} + {commissionRate}% ={" "}
-                            {result.nprConverted.toLocaleString()} +{" "}
-                            {result.commissionAmount.toLocaleString()} ={" "}
-                            <strong>{result.total.toLocaleString()} NPR</strong>
-                        </p>
-                    )}
-
-                    <p className="mt-2 font-medium">Product + Nepali Custom + Service charge</p>
-                    <p className="mt-1 text-xs text-green-600 dark:text-green-400">✓ Copied to clipboard</p>
-                </div>
-            )}
-        </div>
-    );
-};
-
-export default PriceCalculator;
+  return (
+    <>
+      <div className="surface-panel quotation-compact">
+        <form onSubmit={calculate} className="form-panel">
+          <div className="form-row">
+          <div className="form-field"><label htmlFor="quotation-price">Product price (INR / IC)</label><input id="quotation-price" type="number" inputMode="decimal" required min="0.01" step="0.01" value={amountINR} onChange={event => changeAmount(event.target.value)} placeholder="e.g. 2499" /><p>1 INR = {ESTIMATE_CONVERSION_RATE.toFixed(2)} NPR</p></div>
+          <div className="form-field"><label htmlFor="quotation-rate">Service fee</label><select id="quotation-rate" value={commissionRate} onChange={event => { const option = commissionOptions.find(option => String(option.value) === event.target.value); if (option) setCommissionRate(option.value); clearResult(); }}>{commissionOptions.map(option => <option key={String(option.value)} value={option.value}>{option.label}</option>)}</select><p>Suggested by price. Change if needed.</p></div>
+          </div>
+          {error && <p className="form-error" role="alert">{error}</p>}
+          <button type="submit" className="button-primary" disabled={copying}><CalculatorIcon className="size-5" aria-hidden="true" />{copying ? "Copying quotation…" : "Calculate & copy quotation"}</button>
+        </form>
+        {result && <section className="quotation-result" aria-live="polite" aria-atomic="true">
+            <div className="estimate-line"><span>Product converted to NPR</span><strong>{formatNPR(result.productNPR)}</strong></div>
+            <div className="estimate-line"><span>Service & handling · {result.serviceLabel}</span><strong>{formatNPR(result.serviceNPR)}</strong></div>
+            <div className="quotation-total"><p>Quotation subtotal</p><strong>{formatNPR(result.totalNPR)}</strong><p>+ courier charge, confirmed separately</p></div>
+            <div className="button-row mt-6"><button type="button" className="button-primary" disabled={copying} onClick={() => copyQuotation(result)}>{copyStatus.startsWith("Quotation copied") ? <CheckIcon className="size-5" aria-hidden="true" /> : <ClipboardDocumentIcon className="size-5" aria-hidden="true" />}{copying ? "Copying…" : "Copy quotation"}</button><button type="button" className="button-secondary" onClick={reset}>New quote</button></div>
+            {copyStatus && <p className="copy-status" role="status">{copyStatus}</p>}
+            <details className="quotation-preview" open={copyStatus.startsWith("Clipboard access")}><summary>Preview customer message</summary><pre>{result.message}</pre></details>
+        </section>}
+      </div>
+    </>
+  );
+}

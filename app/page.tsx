@@ -1,167 +1,66 @@
-import BottomSection from "@/components/BottomSection";
-import Brands from "@/components/Brands";
-import Faqs from "@/components/Faqs";
-import PricingWorkflow from "@/components/PricingWorkflow";
-import Services from "@/components/Services";
-import TopLayerLandingPage from "@/components/TopLayerLandingPage";
-import UserRating from "@/components/UserRating";
-import Workflow from "@/components/Workflow";
-import Workflow2 from "@/components/Workflow2";
-import ReactCountryFlag from "react-country-flag";
+import WhatsAppLink from "@/components/WhatsAppLink";
+import Image from "next/image";
 import Link from "next/link";
+import { ArrowRightIcon, ArrowUpRightIcon, ChatBubbleLeftRightIcon, CheckIcon, CurrencyRupeeIcon, ShoppingBagIcon, TruckIcon } from "@heroicons/react/24/outline";
+import FestivalBanner from "@/components/FestivalBanner";
+import ShoppingEdits from "@/components/ShoppingEdits";
+import Faqs from "@/components/Faqs";
+import { brands } from "@/constants/brands";
+import { shoppingSteps } from "@/lib/storefront";
 import { IS_COMPANY_CLOSED } from "@/lib/site-status";
 
 export const metadata = {
-  title: "ParcelSewa | Buy from Indian Online Stores & Get Delivered in Nepal",
-  description:
-    "ParcelSewa lets you shop from Amazon, Flipkart, Myntra, and other Indian online stores from home. Pay in Nepali currency and get your products delivered straight to your doorstep hassle-free.",
-  openGraph: {
-    title: "ParcelSewa | Buy from Indian Online Stores & Get Delivered in Nepal",
-    description:
-      "ParcelSewa lets you shop from Amazon, Flipkart, Myntra, and other Indian online stores from home. Pay in Nepali currency and get your products delivered straight to your doorstep hassle-free.",
-    url: "https://www.parcelsewa.com/",
-    siteName: "ParcelSewa",
-    images: [
-      {
-        url: "https://www.parcelsewa.com/og-image.jpg",
-        width: 1200,
-        height: 630,
-        alt: "ParcelSewa - Shop from India, Delivered in Nepal",
-      },
-    ],
-    locale: "en_US",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "ParcelSewa | Buy from Indian Online Stores & Get Delivered in Nepal",
-    description:
-      "ParcelSewa lets you shop from Amazon, Flipkart, Myntra, and other Indian online stores from home. Pay in Nepali currency and get your products delivered straight to your doorstep hassle-free.",
-    images: ["https://www.parcelsewa.com/og-image.jpg"],
-  },
+  title: "ParcelSewa | Shop India. Delivered to Nepal.",
+  description: "Shop from Amazon India, Flipkart, Myntra, and other Indian stores. Request your quote in NPR and let ParcelSewa coordinate purchase and delivery to Nepal.",
 };
-
-
-function ClosedNotice() {
-  return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-white dark:bg-gray-950">
-      <div className="max-w-md text-center">
-        <img
-          src="/landingPage/box4.png"
-          alt=""
-          className="w-40 mx-auto mb-6 opacity-80"
-        />
-        <h1 className="text-2xl font-semibold text-themeBlue dark:text-blue-300 mb-3">
-          We're temporarily closed
-        </h1>
-        <p className="text-gray-600 dark:text-gray-300 mb-2">
-          ParcelSewa is currently not accepting new orders. We'll be back
-          soon — thank you for your patience.
-        </p>
-        <p className="text-gray-500 dark:text-gray-400 text-sm">
-          For urgent queries, please reach out to our support team.
-        </p>
-      </div>
-    </div>
-  );
-}
 
 export default function Home() {
   if (IS_COMPANY_CLOSED) {
-    return <ClosedNotice />;
+    return <section className="page-container storefront closed-notice"><h1>We’re temporarily closed</h1><p>We’re currently not accepting new orders. Please contact support for urgent queries.</p><WhatsAppLink>WhatsApp support</WhatsAppLink></section>;
   }
 
   return (
-    <div className="dark:bg-gray-950 transition-colors">
-
-      <div className="lg:px-6   px-4 mt-6 lg:mt-12">
-
-        <div className="flex lg:justify-start justify-center w-full my-4 text-[#2460E9] dark:text-blue-300">
-          <span className="py-2 px-4 bg-[#DDEBFE] dark:bg-blue-950 rounded-3xl text-sm flex items-center gap-2">
-
-            <ReactCountryFlag countryCode="IN" svg style={{ width: "1.5em", height: "1.5em" }} />
-
-            <span>→</span>
-
-            <ReactCountryFlag countryCode="NP" svg style={{ width: "1.5em", height: "1.5em" }} />
-
-            Order from any Indian site, pay in NPR
-          </span>
-
-
+    <div className="storefront">
+      <section className="hero-section page-container">
+        <div className="hero-copy">
+          <p className="route-badge"><span aria-hidden="true">🇮🇳</span> Shop in India <ArrowRightIcon className="size-3.5" aria-hidden="true" /><span aria-hidden="true">🇳🇵</span> Pay in NPR</p>
+          <h1>India’s favourites.<br /><span>At your doorstep</span><br />in Nepal.</h1>
+          <p className="hero-description">That outfit, gadget, or home find you’ve had your eye on? Send us the product link. We handle the buying and delivery, so you can enjoy the shopping.</p>
+          <div className="button-row"><Link href="/order" className="button-primary">Start your order <ArrowUpRightIcon className="size-4" aria-hidden="true" /></Link><Link href="/price-calculator" className="button-secondary">Estimate the cost</Link></div>
+          <div className="hero-assurance"><CheckIcon className="size-4" aria-hidden="true" /> Review your quote before purchase. No app needed.</div>
         </div>
-
-
-        <TopLayerLandingPage />
-
-        <div className="flex items-center justify-between">
-
-
-          <div>
-
-
-
-            <div className="lg:w-4/5">
-
-              <span className="text-themeBlue dark:text-blue-300 font-medium ">Paste the product link from Amazon, Flipkart, Myntra or any Indian store. We handle buying, customs and shipping — you pay once in NPR and relax.</span>
-            </div>
-
-
-            {/* Buttons */}
-            <div className="flex items-center justify-between gap-2 my-8 max-w-[600px] sm:gap-12">
-
-              <Link
-                href="/order"
-                className="bg-themeBlue text-white flex-1 py-3 rounded-[26px] text-sm cursor-pointer inline-flex justify-center items-center"
-                style={{
-                  boxShadow: '0 4px 6px rgba(1, 49, 89, 0.5)' // themeBlue rgba with 50% opacity
-                }}
-              >
-                Create your first order
-              </Link>
-
-
-              <Link
-                href="/price-calculator"
-                className="bg-[#F8862A] text-white flex-1 py-3 rounded-[26px] text-sm cursor-pointer inline-flex justify-center items-center"
-                style={{
-                  boxShadow: '0 4px 6px rgba(248, 134, 42, 0.5)',
-                }}
-              >
-                Try cost calculator
-              </Link>
-
-
-            </div>
-          </div>
-
-          <img className=" max-w-[500px] xl:max-w-[600px] 2xl:max-w-[700px] 3xl:max-w-[800px] lg:flex hidden" src="/landingPage/box4.png" alt="" />
-
+        <div className="hero-visual">
+          <div className="hero-orbit" aria-hidden="true" />
+          <div className="hero-image-wrap"><Image src="/landingPage/box4.png" alt="Shopping parcels and a delivery rider bringing Indian store purchases to Nepal" width={2816} height={1536} priority sizes="(max-width: 767px) 90vw, (max-width: 1300px) 45vw, 600px" /></div>
+          <div className="hero-stamp"><TruckIcon aria-hidden="true" /><div><strong>From link to doorstep</strong><span>Your shopping, made simpler</span></div></div>
+          <div className="hero-tag"><span aria-hidden="true">✦</span> A world of finds, closer to home.</div>
         </div>
+      </section>
 
+      <section className="store-strip page-container" aria-label="Shop from Indian stores">
+        <p>Your favourite stores.<br /><strong>One helpful partner.</strong></p>
+        <div>{brands.slice(0, 4).map((brand) => <a key={brand.name} href={brand.url} target="_blank" rel="noopener noreferrer" aria-label={`Shop ${brand.name} (opens a new tab)`}><Image src={brand.image} alt={brand.name} width={140} height={52} sizes="140px" /></a>)}</div>
+        <a className="text-link" href="#shopping-edits">Find your next favourite <ArrowRightIcon className="size-4" aria-hidden="true" /></a>
+      </section>
 
-        {/* Customer Stats  */}
-        <UserRating />
+      <div className="page-container festival-home"><FestivalBanner /></div>
 
-      </div>
+      <section className="page-container store-section" id="how-it-works">
+        <div className="section-heading"><div><p className="eyebrow">A simple way to shop across the border</p><h2>You find it.<br />We bring it home.</h2></div><p>From the first product link to your delivery in Nepal, our team helps you through every step.</p></div>
+        <div className="steps-grid">{shoppingSteps.map((step, index) => <article key={step.title}><span className="step-number">0{index + 1}</span><h3>{step.title}</h3><p>{step.description}</p></article>)}</div>
+      </section>
 
-      {/* <Services /> */}
+      <section className="edits-section" id="shopping-edits"><div className="page-container store-section"><div className="section-heading"><div><p className="eyebrow">The festive shortlist</p><h2>Good finds for<br />every kind of celebration.</h2></div><Link href="/offers" className="text-link">Explore the festival edit <ArrowRightIcon className="size-4" aria-hidden="true" /></Link></div><ShoppingEdits /></div></section>
 
-      <Workflow2 />
+      <section className="page-container store-section pricing-section">
+        <div><p className="eyebrow">A clearer picture of your cost</p><h2>Plan your shopping.<br /><span className="accent-text">Know your budget.</span></h2><p className="section-description">Get an estimate in NPR, then share your product link for a confirmed quote. You can check the details before deciding to buy.</p><ul className="check-list"><li><CheckIcon aria-hidden="true" />Product cost converted to NPR</li><li><CheckIcon aria-hidden="true" />Service and delivery estimate</li><li><CheckIcon aria-hidden="true" />Final details confirmed by our team</li></ul><Link href="/price-calculator" className="button-primary">Open the price calculator <ArrowRightIcon className="size-4" aria-hidden="true" /></Link></div>
+        <div className="cost-guide surface-panel"><span className="eyebrow">What goes into your quote</span><h3>Every part, explained.</h3>{[{Icon: ShoppingBagIcon, title: "Your product", detail: "The retailer’s item price and selected variant."}, {Icon: CurrencyRupeeIcon, title: "Service & handling", detail: "The cost of coordinating your purchase and cross-border handling."}, {Icon: TruckIcon, title: "Delivery to Nepal", detail: "Shipping and local courier charges for your order."}].map(({Icon, title, detail}) => <div className="cost-guide-row" key={title}><span><Icon aria-hidden="true" /></span><div><h4>{title}</h4><p>{detail}</p></div></div>)}<p className="small-note">Calculator results are estimates. Confirm the payable amount and delivery timing before purchase.</p></div>
+      </section>
 
-      <Brands />
-      <Workflow />
+      <section className="page-container store-section why-section"><div className="section-heading"><div><p className="eyebrow">Shopping with a little more support</p><h2>More than moving a parcel.</h2></div></div><div className="benefits-grid"><article><CurrencyRupeeIcon aria-hidden="true" /><h3>Think in Nepali rupees</h3><p>Plan your budget in the currency you use every day, with the amount confirmed before purchase.</p></article><article><ChatBubbleLeftRightIcon aria-hidden="true" /><h3>A team you can talk to</h3><p>Need help with a seller, variant, or delivery location? Share the details with us on WhatsApp.</p></article><article><ShoppingBagIcon aria-hidden="true" /><h3>Your choice of store</h3><p>Browse Indian stores yourself. Send the exact link and we’ll check whether we can bring it to you.</p></article></div></section>
 
-
-      <div className="bg-gradient-to-b from-white to-[#EEF1F5] dark:from-gray-950 dark:to-gray-900">
-        <PricingWorkflow />
-        <Faqs />
-        <BottomSection />
-      </div>
-
-
-
- 
+      <section className="page-container store-section"><Faqs compact /></section>
+      <section className="page-container support-callout"><div><p className="eyebrow">Your next find is one link away</p><h2>Let’s bring it home.</h2><p>Start with a product link. We’ll help you take it from there.</p></div><div className="button-row"><Link href="/order" className="button-primary">Request a quote <ArrowUpRightIcon className="size-4" aria-hidden="true" /></Link><WhatsAppLink>Chat on WhatsApp</WhatsAppLink></div></section>
     </div>
   );
-}  
+}

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
+import { Inter } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -12,40 +12,41 @@ const inter = Inter({
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
   display: "swap",
+  variable: "--font-inter",
 });
 
 export const metadata: Metadata = {
-  title: "ParcelSewa — Fast & Reliable Parcel Delivery Nepal",
+  title: "ParcelSewa | Shop India. Delivered to Nepal.",
   description:
-    "ParcelSewa is a leading courier & parcel delivery service in Nepal. Track, book, and send parcels across Nepal quickly, affordably, and securely.",
+    "Shop from Indian online stores and request your quote in NPR. ParcelSewa coordinates purchase, cross-border handling, and delivery to Nepal.",
   metadataBase: new URL("https://parcelsewa.com"),
   icons: {
     icon: "/favicon-32x32.png",
     shortcut: "/favicon.ico",
   },
   openGraph: {
-    title: "ParcelSewa — Parcels Made Easy",
+    title: "ParcelSewa | Shop India. Delivered to Nepal.",
     description:
-      "Send and track parcels across Nepal with ParcelSewa. Affordable pricing, door‑to‑door delivery, real‑time tracking and reliable service.",
+      "Discover your favourite Indian stores and let ParcelSewa help bring your purchases to Nepal.",
     url: "https://parcelsewa.com",
     siteName: "ParcelSewa",
     images: [
       {
-        url: "https://parcelsewa.com/og-image.png",  // replace with actual OG image path
-        width: 1200,
-        height: 630,
-        alt: "ParcelSewa — Nepal Courier & Parcel Service",
+        url: "/logo.png",
+        width: 605,
+        height: 195,
+        alt: "ParcelSewa - Shop India. Delivered to Nepal.",
       },
     ],
     locale: "en_US",
     type: "website",
   },
   twitter: {
-    card: "summary_large_image",
-    title: "ParcelSewa — Fast & Reliable Parcel Delivery Nepal",
+    card: "summary",
+    title: "ParcelSewa | Shop India. Delivered to Nepal.",
     description:
-      "ParcelSewa courier & parcel delivery service in Nepal. Book & track parcels easily online.",
-    images: ["https://parcelsewa.com/og-image.png"],  // same as og image
+      "Shop from Indian stores. Request a quote in NPR for purchase and delivery to Nepal.",
+    images: ["/logo.png"],
   },
   // Optionally: add keywords, authors, viewport override etc.
   // keywords: ["ParcelSewa", "Nepal courier", "parcel delivery", "send parcel Nepal"],
@@ -57,8 +58,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-
-  const GA_MEASUREMENT_ID = "G-0GMBZ1L7JR"; // put GA ID in .env
 
   return (
 
@@ -80,14 +79,14 @@ export default function RootLayout({
         gtag('config', 'G-0GMBZ1L7JR');`}
         </Script>
         <body
-          className={`${inter.className}  antialiased bg-white dark:bg-gray-950 transition-colors`}
+          className={`${inter.className} ${inter.variable} antialiased bg-white dark:bg-gray-950 transition-colors`}
         >
           <ThemeProvider>
-            <div className="pt-[50px]  xl:px-10 3xl:w-1/5 mx-auto ">
+            <a href="#main-content" className="skip-link">Skip to content</a>
               {!IS_COMPANY_CLOSED && <Navbar />}
-
+            <main id="main-content" className={!IS_COMPANY_CLOSED ? "site-main" : ""}>
               {children}
-            </div>
+            </main>
             {!IS_COMPANY_CLOSED && <Footer />}
           </ThemeProvider>
         </body>

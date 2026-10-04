@@ -1,170 +1,47 @@
 "use client";
 
-import { Fragment } from "react";
-import { Disclosure, Transition } from "@headlessui/react";
-import { FaBars, FaTimes } from "react-icons/fa";
-import { usePathname, useRouter } from "next/navigation";
+import WhatsAppLink from "@/components/WhatsAppLink";
+import { Disclosure } from "@headlessui/react";
+import { Bars3Icon, XMarkIcon, ArrowUpRightIcon } from "@heroicons/react/24/outline";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
-import React, { useState } from "react";
-import { easeInOut, motion, useMotionValueEvent, useScroll } from "motion/react";
 import ThemeToggle from "@/components/ThemeToggle";
 import BrandLogo from "@/components/BrandLogo";
 
 const navigation = [
   { name: "Home", href: "/" },
-  { name: "Price-Calculator", href: "/price-calculator" },
+  { name: "How it works", href: "/#how-it-works" },
+  { name: "Festival picks", href: "/offers" },
+  { name: "Price calculator", href: "/price-calculator" },
   { name: "FAQs", href: "/faqs" },
-  { name: "WhatsApp Support", href: "https://wa.me/9779713889720" },
 ];
+const hiddenPaths = ["/huggai-delete-account", "/huggai-privacy-policy", "/vixoai-delete-account", "/vixoai-privacy-policy"];
 
-const Navbar = () => {
-  const { scrollY } = useScroll();
-  const [scrolled, setScrolled] = useState<boolean>(false);
-
-  useMotionValueEvent(scrollY, "change", (latest) => {
-    setScrolled(latest > 10);
-  });
-
+export default function Navbar() {
   const pathname = usePathname();
-  const router = useRouter();
-  // The Stats button belongs to the admin area only, so it is hidden on every other page.
   const inAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
   const statsActive = pathname.startsWith("/admin/stats");
-
-  if (
-    pathname === "/huggai-delete-account" ||
-    pathname === "/huggai-privacy-policy" ||
-    pathname === "/vixoai-delete-account" ||
-    pathname === "/vixoai-privacy-policy"
-  ) return null;
+  if (hiddenPaths.includes(pathname)) return null;
 
   return (
-    <motion.div
-      animate={{
-        boxShadow: scrolled ? "var(--shadow-acertinity)" : "none",
-        width: scrolled ? "90%" : "100%",
-        borderRadius: scrolled ? "26px" : "0px",
-        y: scrolled ? 10 : 0,
-      }}
-      transition={{ duration: 0.3, ease: easeInOut }}
-      className="fixed z-50 inset-x-0 top-0 mx-auto bg-white dark:bg-gray-900 transition-colors"
-    >
-      <Disclosure as="nav">
-        {({ open, close }) => (
-          <>
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex justify-between h-16 items-center">
-                {/* Logo */}
-                <div className="flex-shrink-0">
-                  <Link href="/">
-                    <BrandLogo className="w-[180px]" />
-                  </Link>
-                </div>
-
-                {/* Desktop nav links */}
-                <div className="hidden lg:flex space-x-4">
-                  {navigation.map((item) => {
-                    const isCurrent = item.href === pathname && !item.href.startsWith("https://wa");
-                    return (
-                      <Link
-                        key={item.name}
-                        href={item.href}
-                        className={`px-3 py-2 rounded-md text-sm font-medium ${isCurrent ? "text-white bg-themeBlue" : "text-primary dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-800"
-                          }`}
-                      >
-                        {item.name}
-                      </Link>
-                    );
-                  })}
-                </div>
-
-                {/* Action buttons */}
-                <div className="gap-4 items-center hidden lg:flex">
-                  {inAdmin && (
-                    <Link
-                      href={statsActive ? "/admin" : "/admin/stats"}
-                      className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition ${statsActive ? "bg-themeBlue text-white" : "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 hover:bg-emerald-100 dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-800"}`}
-                    >
-                      <span aria-hidden>📊</span>
-                      {statsActive ? "Orders" : "Stats"}
-                    </Link>
-                  )}
-                  <ThemeToggle />
-                  <Link href="/login" className="px-3 py-2 rounded-md text-sm font-medium text-primary dark:text-gray-200 hover:underline">
-                    Login
-                  </Link>
-                  <Link
-                    href="/order"
-                    className="bg-themeBlue text-white flex-1 py-3 rounded-[26px] text-sm cursor-pointer inline-flex justify-center items-center px-6"
-                    style={{ boxShadow: "0 4px 6px rgba(1, 49, 89, 0.5)" }}
-                  >
-                    Create your first order
-                  </Link>
-                </div>
-
-                {/* Mobile menu button */}
-                <div className="lg:hidden flex items-center gap-2">
-                  {inAdmin && (
-                    <Link
-                      href={statsActive ? "/admin" : "/admin/stats"}
-                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:ring-emerald-800"
-                    >
-                      <span aria-hidden>📊</span>
-                      {statsActive ? "Orders" : "Stats"}
-                    </Link>
-                  )}
-                  <ThemeToggle />
-                  <Disclosure.Button className="inline-flex items-center justify-center p-2 rounded-md text-gray-700 dark:text-gray-300 hover:text-white hover:bg-themeBlue focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
-                    {open ? <FaTimes size={24} /> : <FaBars size={24} />}
-                  </Disclosure.Button>
-                </div>
-              </div>
-            </div>
-
-            {/* Mobile menu */}
-            <Transition
-              as={Fragment}
-              enter="transition duration-200 ease-out"
-              enterFrom="transform opacity-0 -translate-y-2"
-              enterTo="transform opacity-100 translate-y-0"
-              leave="transition duration-150 ease-in"
-              leaveFrom="transform opacity-100 translate-y-0"
-              leaveTo="transform opacity-0 -translate-y-2"
-            >
-              <Disclosure.Panel className="lg:hidden bg-white dark:bg-gray-900 transition-colors">
-                <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-                  {navigation.map((item) => {
-                    const isCurrent = item.href === pathname && !item.href.startsWith("https://wa");
-
-                    return (
-                      <button
-                        key={item.name}
-                        onClick={() => {
-                          close(); // close menu first
-                          setTimeout(() => {
-                            // navigate after menu closes
-                            if (item.href.startsWith("https://")) {
-                              window.location.href = item.href; // external links
-                            } else {
-                              router.push(item.href); // internal links SPA-style
-                            }
-                          }, 200); // match transition duration
-                        }}
-                        className={`block w-full text-left px-3 py-2 rounded-md text-base ${isCurrent ? "text-white bg-themeBlue" : "text-secondary dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800"
-                          }`}
-                      >
-                        {item.name}
-                      </button>
-                    );
-                  })}
-                </div>
-              </Disclosure.Panel>
-            </Transition>
-          </>
-        )}
-      </Disclosure>
-    </motion.div>
+    <Disclosure as="header" className="site-header">
+      {({ open, close }) => <>
+        <div className="header-inner">
+          <Link href="/" aria-label="ParcelSewa home"><BrandLogo className="w-[150px] sm:w-[170px]" /></Link>
+          <nav className="desktop-navigation" aria-label="Main navigation">
+            {navigation.map((item) => <Link key={item.href} href={item.href} aria-current={pathname === item.href ? "page" : undefined} className={pathname === item.href ? "active" : ""}>{item.name}{item.href === "/offers" && <span className="nav-dot" aria-hidden="true" />}</Link>)}
+          </nav>
+          <div className="header-actions">
+            {inAdmin && <Link className="admin-navigation" href={statsActive ? "/admin" : "/admin/stats"}>{statsActive ? "Orders" : "Stats"}</Link>}
+            <ThemeToggle />
+            <Link href="/order" className="header-order">Start an order <ArrowUpRightIcon className="size-4" aria-hidden="true" /></Link>
+            <Disclosure.Button className="mobile-menu-button" aria-label={open ? "Close navigation menu" : "Open navigation menu"}>{open ? <XMarkIcon /> : <Bars3Icon />}</Disclosure.Button>
+          </div>
+        </div>
+        <Disclosure.Panel className="mobile-navigation">
+          <nav aria-label="Mobile navigation">{navigation.map((item) => <Link key={item.href} href={item.href} onClick={() => close()} aria-current={pathname === item.href ? "page" : undefined}>{item.name}</Link>)}<Link href="/order" className="mobile-order-link" onClick={() => close()}>Start an order</Link><WhatsAppLink onClick={() => close()}>WhatsApp support</WhatsAppLink></nav>
+        </Disclosure.Panel>
+      </>}
+    </Disclosure>
   );
-};
-
-export default Navbar;
+}

@@ -1,23 +1,17 @@
 // app/admin/quotation-calculator/page.tsx
 import Quatation_Calc from "@/components/Quatation_Calc";
+import Link from "next/link";
 
 export const metadata = {
   title: "Quotation Calculator | ParcelSewa Admin",
   description: "Internal admin tool for generating product quotations.",
+  robots: { index: false, follow: false },
 };
 
 export default function AdminQuotationCalculatorPage() {
   return (
-    <div className="w-full mx-auto px-4 py-8 dark:bg-gray-950 transition-colors">
-      {/* Badge */}
-      <div className="inline-block bg-orange-100 dark:bg-orange-950 text-orange-700 dark:text-orange-300 px-5 py-1.5 rounded-full text-sm font-medium mb-4">
-        Admin Tool
-      </div>
-
-      <h1 className="text-[24px] md:text-[32px] font-semibold text-[#002B5B] dark:text-blue-200 mb-6">
-        Quotation Calculator
-      </h1>
-
+    <div className="storefront page-container inner-page quotation-page">
+      <div className="quotation-heading"><h1>Quotation calculator</h1><Link href="/admin" className="text-link">← Orders</Link></div>
       <Quatation_Calc />
     </div>
   );

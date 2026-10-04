@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./storefront.css";
 
 /* Class-based dark mode: only .dark on <html> activates dark: variants.
    We do NOT use prefers-color-scheme, so the site always defaults to light. */
@@ -33,7 +34,7 @@
   /* IMPORTANT: Register themeBlue here */
   --color-themeBlue: var(--themeBlue);
 
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-inter), Arial, sans-serif;
   --font-mono: var(--font-geist-mono);
 }
 
@@ -57,7 +58,7 @@ body {
      sits outside Tailwind's cascade layers and would otherwise always win regardless
      of specificity. */
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
 }
 
 /* Safety-net dark styling for native form fields that don't carry their own

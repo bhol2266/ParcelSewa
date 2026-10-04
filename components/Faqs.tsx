@@ -1,98 +1,14 @@
-"use client";
+import WhatsAppLink from "@/components/WhatsAppLink";
+import Link from "next/link";
+import { PlusIcon } from "@heroicons/react/24/outline";
+import { storefrontFaqs } from "@/lib/storefront";
 
-import { useState } from "react";
-import { IoAdd, IoRemove } from "react-icons/io5";
-
-interface FAQItem {
-  question: string;
-  answer: string;
-}
-
-const faqData: FAQItem[] = [
-  {
-    question: "Which Indian websites do you support?",
-    answer:
-      "Any trusted Indian e-commerce site including Amazon, Flipkart, Myntra, Ajio, Nykaa and more. If you're unsure, send us the link and we'll confirm.",
-  },
-  {
-    question: "How long does delivery usually take?",
-    answer:
-      "Delivery typically takes 7–10 days depending on shipping speed and product availability.",
-  },
-  {
-    question: "What if my product is damaged or lost?",
-    answer:
-      "We take full responsibility! If your order is damaged or lost, we will assist you with refund or replacement.",
-  },
-  {
-    question: "Do I have to pay anything while delivery?",
-    answer:
-      "No, you pay only once during order placement. There are no extra delivery charges.",
-  },
-];
-
-export default function Faqs() {
-  const [openIndexes, setOpenIndexes] = useState<Set<number>>(new Set());
-
-  const toggle = (index: number) => {
-    setOpenIndexes(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(index)) newSet.delete(index);
-      else newSet.add(index);
-      return newSet;
-    });
-  };
-
+export default function Faqs({ compact = false }: { compact?: boolean }) {
+  const questions = compact ? storefrontFaqs.slice(0, 4) : storefrontFaqs;
   return (
-    <section id="faqs" className="w-full px-4 md:px-8 lg:px-20 py-4">
-      <div className="inline-block bg-blue-100 dark:bg-blue-950 text-blue-600 dark:text-blue-300 px-5 py-2 rounded-full text-sm font-medium mb-2">
-        FAQs
-      </div>
-
-      <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-gray-100 leading-tight">
-        Frequently <br className="md:hidden" />
-        <span className="text-orange-500 dark:text-orange-400">Asked Questions</span>
-      </h2>
-
-      <div className="mt-6 flex flex-col gap-4">
-        {faqData.map((faq, index) => {
-          const isOpen = openIndexes.has(index);
-
-          return (
-            <div
-              key={index}
-              className="rounded-xl shadow-acertinity border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 overflow-hidden transition-colors"
-            >
-              {/* Question */}
-              <button
-                onClick={() => toggle(index)}
-                className="w-full flex items-center justify-between px-6 py-5 text-left"
-              >
-                <span className="text-lg font-medium text-themeBlue dark:text-blue-200">
-                  {faq.question}
-                </span>
-
-                <span className="w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
-                  {isOpen ? (
-                    <IoRemove className="text-2xl text-gray-700 dark:text-gray-200" />
-                  ) : (
-                    <IoAdd className="text-2xl text-gray-700 dark:text-gray-200" />
-                  )}
-                </span>
-              </button>
-
-              {/* Answer */}
-              {isOpen && (
-                <div className="px-6 pb-5">
-                  <p className="text-[15px] leading-relaxed text-themeBlue dark:text-blue-200/90">
-                    {faq.answer}
-                  </p>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </section>
+    <div className="faq-layout" id="faqs">
+      <div><p className="eyebrow">A little clarity before you shop</p>{compact ? <h2>Good questions.<br />Helpful answers.</h2> : <h1>How can we help?</h1>}<p className="section-description">Everything you need to get started, from your first product link to your quote in NPR.</p><WhatsAppLink>Talk to our team</WhatsAppLink>{compact && <Link href="/faqs" className="text-link faq-all-link">View all questions →</Link>}</div>
+      <div className="faq-list">{questions.map((faq) => <details key={faq.question}><summary>{faq.question}<PlusIcon aria-hidden="true" /></summary><p>{faq.answer}</p></details>)}{!compact && <Link className="text-link" href="/returnsPolicy">Read the Returns & Refund Policy →</Link>}</div>
+    </div>
   );
 }

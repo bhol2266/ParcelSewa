@@ -1,165 +1,43 @@
 "use client";
 
-import React, { useState } from "react";
-import ReactCountryFlag from "react-country-flag";
+import { useState, type FormEvent } from "react";
+import Link from "next/link";
+import { calculateStorefrontEstimate, ESTIMATE_CONVERSION_RATE } from "@/lib/storefront-estimate";
 
-const CONVERSION_RATE = 1.6;
-
-// Orders below IC 1500 are charged a flat NPR commission instead of a percentage.
-const FLAT_COMMISSION_NPR = 800;
-const FLAT_COMMISSION_THRESHOLD_INR = 1500;
-const PERCENT_TIER_THRESHOLD_INR = 10000;
+const formatNPR = (value: number) => `NPR ${value.toLocaleString("en-NP", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function PriceCalculator() {
   const [price, setPrice] = useState("");
   const [weight, setWeight] = useState("");
-  const [category, setCategory] = useState("");
-  const [total, setTotal] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState<ReturnType<typeof calculateStorefrontEstimate> | null>(null);
 
-  const handleCalculate = () => {
-    if (!price || !weight || !category || category === "Choose Product Category") {
-      alert("Please fill all fields.");
-      return;
+  function handleCalculate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    try {
+      setResult(calculateStorefrontEstimate(Number(price), Number(weight)));
+      setError("");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Please check your values.");
+      setResult(null);
     }
-
-    const itemPrice = Number(price);
-    const weightValue = Number(weight);
-
-    // Commission by item price:
-    //   below IC 1,500      → flat NPR 800 (converted to INR so the NPR total lands on 800)
-    //   IC 1,500 – 9,999    → 30%
-    //   IC 10,000 and above → 25%
-    let serviceFee: number;
-    if (itemPrice < FLAT_COMMISSION_THRESHOLD_INR) {
-      serviceFee = FLAT_COMMISSION_NPR / CONVERSION_RATE;
-    } else if (itemPrice < PERCENT_TIER_THRESHOLD_INR) {
-      serviceFee = itemPrice * 0.30;
-    } else {
-      serviceFee = itemPrice * 0.25;
-    }
-
-    // Weight = Rs. 60 per kg
-    const weightCharge = weightValue * 60;
-
-    // Fixed delivery charge
-    const deliveryCharge = 90;
-
-    // Final formula
-    const finalAmount =
-      itemPrice + serviceFee + weightCharge + deliveryCharge;
-
-    setTotal(finalAmount);
-  };
+  }
 
   return (
-    <div className="w-full mx-auto px-4 py-8 md:flex justify-evenly gap-8">
-
-      <div className="w-full mx-auto max-w-[500px] lg:max-w-[700px]">
-        {/* Badge */}
-        <div className="inline-block bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 px-5 py-1.5 rounded-full text-sm font-medium mb-4">
-          Price Calculator
+    <div className="storefront page-container inner-page form-page">
+      <div><p className="eyebrow">The price calculator</p><h1>A great find.<br /><span className="accent-text">A clearer budget.</span></h1><p className="section-description">Start with the retailer’s item price and estimated weight. See an indicative cost in NPR before requesting your confirmed quote.</p><div className="form-tip"><h2>How this estimate works</h2><p>The calculator uses a fixed conversion of 1 INR = {ESTIMATE_CONVERSION_RATE.toFixed(2)} NPR. Actual item eligibility, category, shipping, and handling are reviewed by our team.</p><ul className="service-tiers"><li><span>Below INR 1,500</span><strong>Flat NPR 1,000</strong></li><li><span>INR 1,500–20,000</span><strong>30% service fee</strong></li><li><span>Above INR 20,000</span><strong>25% service fee</strong></li></ul><p className="small-note mt-3">Percentage fees apply to the product price converted to NPR. Shipping estimate: (INR 60 × weight in kg + INR 90) converted to NPR.</p></div><Link href="/order" className="text-link mt-6">Already have a product link? Request a quote →</Link></div>
+      <div>
+        <form onSubmit={handleCalculate} className="surface-panel form-panel">
+          <div><h2>Estimate your order</h2><p className="small-note mt-2">Use the price of your selected variant.</p></div>
+          <div className="form-field"><label htmlFor="estimate-price">Item price in Indian rupees (INR)</label><input id="estimate-price" name="price" type="number" required min="0.01" step="0.01" inputMode="decimal" placeholder="e.g. 2499" value={price} onChange={event => { setPrice(event.target.value); setResult(null); setError(""); }} /></div>
+          <div className="form-field"><label htmlFor="estimate-weight">Estimated weight in kilograms</label><input id="estimate-weight" name="weight" type="number" required min="0.01" step="0.01" inputMode="decimal" placeholder="e.g. 0.5" value={weight} onChange={event => { setWeight(event.target.value); setResult(null); setError(""); }} /><p>Include packaging. If you’re unsure, ask our team for help.</p></div>
+          {error && <p role="alert" className="form-error">{error}</p>}
+          <button type="submit" className="button-primary">Calculate my estimate</button>
+          <p className="small-note">An estimate helps you plan. Your final quote is confirmed before purchase.</p>
+        </form>
+        <div aria-live="polite" aria-atomic="true">
+          {result && <section className="surface-panel estimate-panel"><p className="eyebrow">Your indicative breakdown</p><h2>Here’s what to budget.</h2><div className="estimate-line"><span>Product in NPR</span><strong>{formatNPR(result.productNPR)}</strong></div><div className="estimate-line"><span>Service estimate</span><strong>{formatNPR(result.serviceNPR)}</strong></div><div className="estimate-line"><span>Shipping estimate</span><strong>{formatNPR(result.shippingNPR)}</strong></div><div className="estimate-line estimate-total"><span>Estimated total</span><strong>{formatNPR(result.totalNPR)}</strong></div><p className="small-note">This is not a confirmed quote. Share your product link and delivery location for the payable amount.</p><Link href="/order" className="button-primary mt-5">Request my final quote</Link></section>}
         </div>
-
-        {/* Heading */}
-        <h1 className="w-full text-[24px] md:text-[32px] lg:text-[40px] font-semibold leading-snug text-[#002B5B]">
-          Know your final cost before you say <span className="text-orange-500">"yes".</span>
-        </h1>
-
-        <p className="mt-4 text-[#002B5B] text-sm md:text-base leading-relaxed">
-          Our calculator uses live FX rates, category-based customs rules and your delivery location to estimate your final price.
-        </p>
-
-        {/* Result Box */}
-        {total !== null && (
-          <div className="mx-auto max-w-[500px] mt-6 p-5 rounded-xl shadow-acertinity bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
-            <h3 className="text-md text-[#002B5B] mb-3">
-              Estimated Total Cost (Approx*) <br /> (Including border handling + courier)
-            </h3>
-
-            {/* INR Section */}
-            <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-950 p-3 rounded-lg mb-3">
-              <div className="flex items-center gap-2">
-                <ReactCountryFlag countryCode="IN" svg style={{ width: "1.5em", height: "1.5em" }} />
-                <span className="font-medium text-[#002B5B]">India (INR)</span>
-              </div>
-              <span className="text-lg font-bold text-[#003366]">₹{total}</span>
-            </div>
-
-            {/* Conversion Rate */}
-            <div className="text-center text-sm text-gray-600 dark:text-gray-300 mb-3">
-              1 INR = {CONVERSION_RATE.toFixed(2)} NPR
-            </div>
-
-            {/* NPR Section */}
-            <div className="flex items-center justify-between bg-orange-50 dark:bg-orange-950 p-3 rounded-lg">
-              <div className="flex items-center gap-2">
-                <ReactCountryFlag countryCode="NP" svg style={{ width: "1.5em", height: "1.5em" }} />
-                <span className="font-medium text-[#002B5B]">Nepal (NPR)</span>
-              </div>
-              <span className="text-lg font-bold text-orange-600 dark:text-orange-400">
-                NPR {(total * CONVERSION_RATE).toFixed(2)}
-              </span>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Form Container */}
-      <div className="mt-8 border border-gray-300 dark:border-gray-600 rounded-2xl p-5 space-y-4 max-w-[400px] mx-auto">
-
-        {/* Price */}
-        <div>
-          <label className="block text-base font-medium text-[#002B5B]">Price of item (INR)</label>
-          <input
-            type="number"
-            placeholder="Enter price"
-            value={price}
-            onChange={(e) => setPrice(e.target.value)}
-            className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 outline-none text-[15px]"
-          />
-        </div>
-
-        {/* Category */}
-        <div>
-          <label className="block text-base font-medium text-[#002B5B]">Product Category</label>
-          <select
-            className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 outline-none text-[15px] text-gray-600 dark:text-gray-300"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-          >
-            <option>Choose Product Category</option>
-            <option>Clothing & Accessories</option>
-            <option>Health & Beauty</option>
-            <option>Baby Care</option>
-            <option>Home & Kitchen Items</option>
-            <option>Electronics Item</option>
-            <option>Moto Parts & Accessories</option>
-            <option>Books & Stationery</option>
-            <option>Pet Food & Accessories</option>
-            <option>Sports & Gym Fitness</option>
-            <option>Digital Bookings</option>
-          </select>
-        </div>
-
-        {/* Weight */}
-        <div>
-          <label className="block text-base font-medium text-[#002B5B]">Weight in KGs</label>
-          <input
-            type="number"
-            placeholder="Enter weight"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            className="mt-1 w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 outline-none text-[15px]"
-          />
-        </div>
-
-        {/* Button */}
-        <button
-          onClick={handleCalculate}
-          className="mx-auto block w-[260px] bg-[#003366] text-white py-2.5 rounded-full text-sm font-semibold cursor-pointer"
-        >
-          Calculate
-        </button>
       </div>
     </div>
   );

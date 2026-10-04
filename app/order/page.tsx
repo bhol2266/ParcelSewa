@@ -14,9 +14,9 @@ export const metadata = {
     siteName: "ParcelSewa",
     images: [
       {
-        url: "https://www.parcelsewa.com/og-image-order.jpg",
-        width: 1200,
-        height: 630,
+        url: "/logo.png",
+        width: 605,
+        height: 195,
         alt: "ParcelSewa - Create Your Order from Indian Stores",
       },
     ],
@@ -24,20 +24,21 @@ export const metadata = {
     type: "website",
   },
   twitter: {
-    card: "summary_large_image",
+    card: "summary",
     title: "Create Order | ParcelSewa - Shop from Indian Stores & Deliver in Nepal",
     description:
       "Place your order from Amazon, Flipkart, Myntra, and other Indian stores with ParcelSewa. Pay in Nepali currency and get products delivered hassle-free to your doorstep.",
-    images: ["https://www.parcelsewa.com/og-image-order.jpg"],
+    images: ["/logo.png"],
   },
 };
 
 
-const Page = () => {
+const Page = async ({ searchParams }: { searchParams: Promise<{ offer?: string | string[] }> }) => {
+  const params = await searchParams;
   return (
     <div>
 
-      <OrderRequestComponent />
+      <OrderRequestComponent festivalOffer={params.offer === "festival-first-order"} />
     </div>
   )
 }

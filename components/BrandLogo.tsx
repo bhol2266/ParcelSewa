@@ -17,6 +17,7 @@ export default function BrandLogo({
           alt="ParcelSewa.com"
           width={2170}
           height={725}
+          sizes="192px"
           className="col-start-1 row-start-1 h-auto w-full dark:hidden"
           priority
         />
@@ -26,6 +27,7 @@ export default function BrandLogo({
         alt="ParcelSewa.com"
         width={2170}
         height={725}
+        sizes="192px"
         className={`col-start-1 row-start-1 h-auto w-full ${surface === "theme" ? "hidden dark:block" : ""}`}
       />
     </span>

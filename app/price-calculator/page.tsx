@@ -13,7 +13,7 @@ export const metadata = {
       "Use ParcelSewa's Price Calculator to estimate total cost of products from Amazon, Flipkart, Myntra, and other Indian stores. Includes service fees, delivery charges, and INR to NPR conversion.",
     images: [
       {
-        url: "https://www.parcelsewa.com/og-image-calculator.jpg",
+        url: "/logo.png",
       },
     ],
   },
