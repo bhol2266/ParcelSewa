@@ -13,14 +13,14 @@ export const festivalCampaign = {
 };
 
 export const festivalArtwork = [
-  { src: "/festivals/dashain-artwork.png", label: "Dashain", caption: "Blessings & togetherness", alt: "Dashain-inspired artwork of red tika, fresh jamara, and marigolds beside a carved Nepali window" },
-  { src: "/festivals/tihar-artwork.png", label: "Tihar", caption: "A celebration of light", alt: "Tihar-inspired artwork of a Nepali doorway decorated with marigolds, glowing diyas, and colourful rangoli" },
+  { src: "/festivals/dashain-artwork.webp", label: "Dashain", caption: "Blessings & togetherness", alt: "Dashain-inspired artwork of red tika, fresh jamara, and marigolds beside a carved Nepali window" },
+  { src: "/festivals/tihar-artwork.webp", label: "Tihar", caption: "A celebration of light", alt: "Tihar-inspired artwork of a Nepali doorway decorated with marigolds, glowing diyas, and colourful rangoli" },
 ] as const;
 
 export const shoppingEdits = [
-  { title: "Dress for the celebration", category: "Fashion & accessories", description: "Find festive kurtas, sarees, shoes, and accessories. Check the size chart before sharing your link.", store: "Explore Myntra", url: "https://www.myntra.com/", image: "/shopping/festive-fashion.png", alt: "Festive fashion illustration featuring an embroidered kurta, terracotta saree, and gold-toned accessories" },
-  { title: "Make home feel festive", category: "Home & living", description: "Explore lights, decor, and useful home finds. Share dimensions and quantity so we can review shipping.", store: "Explore Amazon India", url: "https://www.amazon.in/", image: "/shopping/festive-home.png", alt: "Festive home décor illustration with glowing clay lamps, marigolds, and a navy woven cushion" },
-  { title: "Find their next favourite", category: "Gifts & everyday finds", description: "Browse accessories, gadgets, and gifts for your loved ones. Send the exact variant for a personalised quote.", store: "Explore Flipkart", url: "https://www.flipkart.com/", image: "/shopping/festive-gifts.png", alt: "Festive gifting illustration with ribbon-wrapped gift boxes, headphones, and a leather card holder" },
+  { title: "Dress for the celebration", category: "Fashion & accessories", description: "Find festive kurtas, sarees, shoes, and accessories. Check the size chart before sharing your link.", store: "Explore Myntra", url: "https://www.myntra.com/", image: "/shopping/festive-fashion.webp", alt: "Festive fashion illustration featuring an embroidered kurta, terracotta saree, and gold-toned accessories" },
+  { title: "Make home feel festive", category: "Home & living", description: "Explore lights, decor, and useful home finds. Share dimensions and quantity so we can review shipping.", store: "Explore Amazon India", url: "https://www.amazon.in/", image: "/shopping/festive-home.webp", alt: "Festive home décor illustration with glowing clay lamps, marigolds, and a navy woven cushion" },
+  { title: "Find their next favourite", category: "Gifts & everyday finds", description: "Browse accessories, gadgets, and gifts for your loved ones. Send the exact variant for a personalised quote.", store: "Explore Flipkart", url: "https://www.flipkart.com/", image: "/shopping/festive-gifts.webp", alt: "Festive gifting illustration with ribbon-wrapped gift boxes, headphones, and a leather card holder" },
 ] as const;
 
 export const shoppingSteps = [

@@ -5,6 +5,8 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  // Use native img elements with precompressed assets, as requested.
+  { rules: { "@next/next/no-img-element": "off" } },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:

@@ -1,5 +1,3 @@
-import Image from "next/image";
-
 type BrandLogoProps = {
   className?: string;
   surface?: "theme" | "dark";
@@ -12,22 +10,24 @@ export default function BrandLogo({
   return (
     <span className={`inline-grid align-middle ${className}`}>
       {surface === "theme" && (
-        <Image
-          src="/logo-light.png"
+        <img
+          src="/logo-light.webp"
           alt="ParcelSewa.com"
-          width={2170}
-          height={725}
-          sizes="192px"
+          width={640}
+          height={214}
           className="col-start-1 row-start-1 h-auto w-full dark:hidden"
-          priority
+          loading="eager"
+          fetchPriority="high"
+          decoding="async"
         />
       )}
-      <Image
-        src="/logo-dark.png"
+      <img
+        src="/logo-dark.webp"
         alt="ParcelSewa.com"
-        width={2170}
-        height={725}
-        sizes="192px"
+        width={640}
+        height={214}
+        loading={surface === "theme" ? "eager" : "lazy"}
+        decoding="async"
         className={`col-start-1 row-start-1 h-auto w-full ${surface === "theme" ? "hidden dark:block" : ""}`}
       />
     </span>

@@ -1,5 +1,4 @@
 import React from "react";
-import Image from "next/image";
 
 const Services = () => {
   const services = [
@@ -60,7 +59,7 @@ const Services = () => {
             >
               
               <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mb-4">
-                <Image src={item.icon} alt={item.title} width={28} height={28} />
+                <img loading="lazy" decoding="async" src={item.icon} alt={item.title} width={28} height={28} />
               </div>
 
               <h3 className="text-base font-semibold mb-2">{item.title}</h3>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 
 // ─── Account Deletion Form ────────────────────────────────────────────────────
 function AccountDeletionForm() {
@@ -564,7 +563,7 @@ export default function PrivacyPolicyPage() {
       >
         {/* App Icon */}
         <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 shadow-sm">
-          <Image
+          <img loading="lazy" decoding="async"
             src="/app_icon.png"
             alt="HuggAI App Icon"
             width={40}

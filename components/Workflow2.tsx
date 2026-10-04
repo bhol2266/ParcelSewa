@@ -1,5 +1,3 @@
-import { div, image, img } from "motion/react-client";
-import Image from "next/image";
 
 const brandsimages = ["StoresImages/hd/amazon.png", "StoresImages/hd/flipkart.png", "StoresImages/hd/myntra.png", "StoresImages/hd/lenskart.png",]
 

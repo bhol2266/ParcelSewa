@@ -1,5 +1,4 @@
 import WhatsAppLink from "@/components/WhatsAppLink";
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRightIcon, ArrowUpRightIcon, ChatBubbleLeftRightIcon, CheckIcon, CurrencyRupeeIcon, ShoppingBagIcon, TruckIcon } from "@heroicons/react/24/outline";
 import FestivalBanner from "@/components/FestivalBanner";
@@ -31,7 +30,7 @@ export default function Home() {
         </div>
         <div className="hero-visual">
           <div className="hero-orbit" aria-hidden="true" />
-          <div className="hero-image-wrap"><Image src="/landingPage/box4.png" alt="Shopping parcels and a delivery rider bringing Indian store purchases to Nepal" width={2816} height={1536} priority sizes="(max-width: 767px) 90vw, (max-width: 1300px) 45vw, 600px" /></div>
+          <div className="hero-image-wrap"><img src="/landingPage/box4.webp" alt="Shopping parcels and a delivery rider bringing Indian store purchases to Nepal" width={1440} height={785} loading="eager" fetchPriority="high" decoding="async" /></div>
           <div className="hero-stamp"><TruckIcon aria-hidden="true" /><div><strong>From link to doorstep</strong><span>Your shopping, made simpler</span></div></div>
           <div className="hero-tag"><span aria-hidden="true">✦</span> A world of finds, closer to home.</div>
         </div>
@@ -39,7 +38,7 @@ export default function Home() {
 
       <section className="store-strip page-container" aria-label="Shop from Indian stores">
         <p>Your favourite stores.<br /><strong>One helpful partner.</strong></p>
-        <div>{brands.slice(0, 4).map((brand) => <a key={brand.name} href={brand.url} target="_blank" rel="noopener noreferrer" aria-label={`Shop ${brand.name} (opens a new tab)`}><Image src={brand.image} alt={brand.name} width={140} height={52} sizes="140px" /></a>)}</div>
+        <div>{brands.slice(0, 4).map((brand) => <a key={brand.name} href={brand.url} target="_blank" rel="noopener noreferrer" aria-label={`Shop ${brand.name} (opens a new tab)`}><img src={brand.image} alt={brand.name} width={140} height={52} loading="lazy" decoding="async" /></a>)}</div>
         <a className="text-link" href="#shopping-edits">Find your next favourite <ArrowRightIcon className="size-4" aria-hidden="true" /></a>
       </section>
 

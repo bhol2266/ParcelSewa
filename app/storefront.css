@@ -97,7 +97,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px soli
 .festival-photo-grid { display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 20px; padding: 5px 12px 15px; }
 .festival-photo { padding: 7px; background: #fff6e9; box-shadow: 0 14px 30px #001b2250; border-radius: 5px; min-width: 0; }
 .festival-photo > div { position: relative; height: 240px; border-radius: 2px; overflow: hidden; }
-.festival-photo img { object-fit: cover; object-position: center; }
+.festival-photo img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center; }
 .festival-photo-dashain { transform: rotate(-5deg); }
 .festival-photo-tihar { transform: rotate(5deg) translateY(20px); }
 .festival-photo-dashain img { object-position: center 65%; }
@@ -123,7 +123,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px soli
 .shopping-edits { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
 .shopping-edit { border: 1px solid var(--store-line); border-radius: 15px; overflow: hidden; background: var(--store-paper); }
 .edit-visual { height: 220px; position: relative; background: var(--store-soft); overflow: hidden; }
-.edit-visual img { object-fit: cover; object-position: center 46%; transition: transform .35s; }
+.edit-visual img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 46%; transition: transform .35s; }
 .shopping-edit:hover .edit-visual img { transform: scale(1.04); }
 .shopping-edit-1 .edit-visual img { object-position: center 57%; }
 .shopping-edit-2 .edit-visual img { object-position: center 59%; }

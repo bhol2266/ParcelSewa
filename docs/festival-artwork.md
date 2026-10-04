@@ -10,6 +10,8 @@ Saved assets:
 - `public/festivals/dashain-artwork.png`
 - `public/festivals/tihar-artwork.png`
 
+The website serves compressed `.webp` copies alongside these PNG masters. They retain the same artwork and are sized for the cards and banner. Static delivery avoids dependence on Vercel's paid image optimizer.
+
 ## Final prompts
 
 ### fashion

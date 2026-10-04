@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { ArrowUpRightIcon } from "@heroicons/react/24/outline";
 import { shoppingEdits } from "@/lib/storefront";
 
@@ -8,7 +7,7 @@ export default function ShoppingEdits() {
       {shoppingEdits.map((edit, index) => {
         return (
           <article key={edit.title} className={`shopping-edit shopping-edit-${index}`}>
-            <div className="edit-visual"><Image src={edit.image} alt={edit.alt} fill sizes="(max-width: 767px) 90vw, (max-width: 1300px) 30vw, 400px" /><span>0{index + 1}</span></div>
+            <div className="edit-visual"><img src={edit.image} alt={edit.alt} width={1200} height={800} loading="lazy" decoding="async" /><span>0{index + 1}</span></div>
             <div className="edit-copy">
               <p className="eyebrow">{edit.category}</p>
               <h3>{edit.title}</h3>

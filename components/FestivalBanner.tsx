@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRightIcon } from "@heroicons/react/24/outline";
 import { festivalCampaign, festivalArtwork } from "@/lib/storefront";
@@ -20,7 +19,7 @@ export default function FestivalBanner({ full = false }: { full?: boolean }) {
       <div className="festival-photos">
         <p className="festival-wish">Celebrate the moments that matter.</p>
         <div className="festival-photo-grid">
-          {festivalArtwork.map((artwork) => <figure key={artwork.src} className={`festival-photo festival-photo-${artwork.label.toLowerCase()}`}><div><Image src={artwork.src} alt={artwork.alt} fill sizes="(max-width: 767px) 40vw, 230px" priority={full} /></div><figcaption>{artwork.label}<span>{artwork.caption}</span></figcaption></figure>)}
+          {festivalArtwork.map((artwork) => <figure key={artwork.src} className={`festival-photo festival-photo-${artwork.label.toLowerCase()}`}><div><img src={artwork.src} alt={artwork.alt} width={768} height={1152} loading={full ? "eager" : "lazy"} fetchPriority={full ? "high" : "auto"} decoding="async" /></div><figcaption>{artwork.label}<span>{artwork.caption}</span></figcaption></figure>)}
         </div>
       </div>
     </section>

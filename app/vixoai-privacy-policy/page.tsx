@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 
 // ─── Section definitions ───────────────────────────────────────────────────────
@@ -492,7 +491,7 @@ const sections = [
           {/* Developer card */}
           <div className="px-5 py-4 flex items-center gap-3 border-b-2 border-gray-100">
             <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0">
-              <Image src="/vixoai_icon.png" alt="VixoAI" width={44} height={44} className="w-full h-full object-cover" />
+              <img loading="lazy" decoding="async" src="/vixoai_icon.png" alt="VixoAI" width={44} height={44} className="w-full h-full object-cover" />
             </div>
             <div>
               <p className="text-xs font-extrabold text-gray-400 uppercase tracking-wider">Developer</p>
@@ -572,7 +571,7 @@ export default function PrivacyPolicyPage() {
         style={{ backgroundColor: "#ffffff", boxShadow: "0 1px 8px rgba(0,0,0,0.06)" }}
       >
         <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 shadow-sm">
-          <Image src="/vixoai_icon.png" alt="VixoAI" width={40} height={40} className="w-full h-full object-cover" />
+          <img loading="lazy" decoding="async" src="/vixoai_icon.png" alt="VixoAI" width={40} height={40} className="w-full h-full object-cover" />
         </div>
         <div className="min-w-0 flex-1">
           <span className="text-base font-extrabold text-gray-900 tracking-tight block leading-tight">VixoAI</span>
