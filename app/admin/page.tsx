@@ -74,8 +74,8 @@ export default function OrdersPage() {
     const COOKIE_NAME = ADMIN_COOKIE;
 
     // ── Fetch all pending orders (all time) ───────────────────────────────────
-    const fetchAllPendingOrders = useCallback(async () => {
-        setAllPendingLoading(true);
+    const fetchAllPendingOrders = useCallback(async (silent = false) => {
+        if (!silent) setAllPendingLoading(true);
         try {
             const q = query(
                 collection(db, "Confirm Orders"),
@@ -95,8 +95,8 @@ export default function OrdersPage() {
     }, []);
 
     // ── Fetch last 30 delivered orders (all time, any month) ─────────────────
-    const fetchAllRecentDeliveredOrders = useCallback(async () => {
-        setAllDeliveredLoading(true);
+    const fetchAllRecentDeliveredOrders = useCallback(async (silent = false) => {
+        if (!silent) setAllDeliveredLoading(true);
         try {
             const q = query(
                 collection(db, "Confirm Orders"),
@@ -117,7 +117,7 @@ export default function OrdersPage() {
     }, []);
 
     // ── Fetch both order sets for a specific month ────────────────────────────
-    const fetchMonthOrders = useCallback(async (monthKey: string) => {
+    const fetchMonthOrders = useCallback(async (monthKey: string, silent = false) => {
         if (!monthKey) {
             setMonthStatOrders([]);
             setMonthDeliveredOrders([]);
@@ -127,7 +127,7 @@ export default function OrdersPage() {
         const start = new Date(y, m, 1);
         const end = new Date(y, m + 1, 1);
 
-        setMonthOrdersLoading(true);
+        if (!silent) setMonthOrdersLoading(true);
         try {
             // Query 1: orders created this month (by createdAt)
             const statQuery = query(
@@ -233,15 +233,15 @@ export default function OrdersPage() {
     const scrollSaveRef = useRef<number | null>(null);
 
     const refresh = useCallback((orderId?: string) => {
-        // Save the order id to scroll to after re-render
-        if (orderId) sessionStorage.setItem("scrollToOrderId", orderId);
-
+        // The list stays mounted during a silent refetch, so the scroll position is kept as-is.
+        // Silent refetch: keep the list mounted so scroll position is kept
+        // and only the changed card updates.
         if (selectedMonth) {
-            fetchMonthOrders(selectedMonth);
+            fetchMonthOrders(selectedMonth, true);
         } else {
-            fetchAllPendingOrders();
+            fetchAllPendingOrders(true);
             if (allTimeSortOption === "delivered") {
-                fetchAllRecentDeliveredOrders();
+                fetchAllRecentDeliveredOrders(true);
             }
         }
     }, [fetchMonthOrders, fetchAllPendingOrders, fetchAllRecentDeliveredOrders, selectedMonth, allTimeSortOption]);

@@ -64,8 +64,8 @@ export default function Ankush() {
     const COOKIE_NAME = "admin_access";
 
     // ── Fetch all pending orders — IDENTICAL to admin, deliveredBy filtered client-side ──
-    const fetchAllPendingOrders = useCallback(async () => {
-        setAllPendingLoading(true);
+    const fetchAllPendingOrders = useCallback(async (silent = false) => {
+        if (!silent) setAllPendingLoading(true);
         try {
             const q = query(
                 collection(db, "Confirm Orders"),
@@ -84,8 +84,8 @@ export default function Ankush() {
     }, []);
 
     // ── Fetch last 30 delivered orders for Ankush ─────────────────────────────
-    const fetchAllRecentDeliveredOrders = useCallback(async () => {
-        setAllDeliveredLoading(true);
+    const fetchAllRecentDeliveredOrders = useCallback(async (silent = false) => {
+        if (!silent) setAllDeliveredLoading(true);
         try {
             const q = query(
                 collection(db, "Confirm Orders"),
@@ -127,7 +127,7 @@ export default function Ankush() {
     }, []);
 
     // ── Fetch both order sets for a specific month ────────────────────────────
-    const fetchMonthOrders = useCallback(async (monthKey: string) => {
+    const fetchMonthOrders = useCallback(async (monthKey: string, silent = false) => {
         if (!monthKey) {
             setMonthStatOrders([]);
             setMonthDeliveredOrders([]);
@@ -137,7 +137,7 @@ export default function Ankush() {
         const start = new Date(y, m, 1);
         const end = new Date(y, m + 1, 1);
 
-        setMonthOrdersLoading(true);
+        if (!silent) setMonthOrdersLoading(true);
         try {
             const statQuery = query(
                 collection(db, "Confirm Orders"),
@@ -215,13 +215,14 @@ export default function Ankush() {
     };
 
     const refresh = useCallback(() => {
+        // Silent refetch: keep the list mounted so scroll position is kept
         if (selectedMonth) {
-            fetchMonthOrders(selectedMonth);
+            fetchMonthOrders(selectedMonth, true);
         } else {
-            fetchAllPendingOrders();
+            fetchAllPendingOrders(true);
             fetchCurrentMonthDelivered();
             if (allTimeSortOption === "delivered") {
-                fetchAllRecentDeliveredOrders();
+                fetchAllRecentDeliveredOrders(true);
             }
         }
     }, [fetchMonthOrders, fetchAllPendingOrders, fetchCurrentMonthDelivered, fetchAllRecentDeliveredOrders, selectedMonth, allTimeSortOption]);
