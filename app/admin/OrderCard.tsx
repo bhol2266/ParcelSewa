@@ -190,7 +190,8 @@ export default function OrderCard({ order, refresh }: OrderProps) {
         setIsFetchingImages(false);
 
         // ── Delay refresh so user can read the log ─────────────────────────
-        setTimeout(() => { refresh(order.id); }, 3000);
+        // The card stays mounted across a refresh, so clear the log ourselves.
+        setTimeout(() => { setFetchProgress([]); refresh(order.id); }, 3000);
     };
 
     // ── Verify the saved total against live product prices ─────────────────────
