@@ -58,7 +58,7 @@ export default function QuotationCalculator() {
         {result && <section className="quotation-result" aria-live="polite" aria-atomic="true">
             <div className="estimate-line"><span>Product converted to NPR</span><strong>{formatNPR(result.productNPR)}</strong></div>
             <div className="estimate-line"><span>Service & handling · {result.serviceLabel}</span><strong>{formatNPR(result.serviceNPR)}</strong></div>
-            <div className="quotation-total"><p>Quotation subtotal</p><strong>{formatNPR(result.totalNPR)}</strong><p>+ courier charge, confirmed separately</p></div>
+            <div className="quotation-total"><p>Quotation subtotal</p><strong>{formatNPR(result.totalNPR)}</strong><p>+ courier charge (180/kg)</p></div>
             <div className="button-row mt-6"><button type="button" className="button-primary" disabled={copying} onClick={() => copyQuotation(result)}>{copyStatus.startsWith("Quotation copied") ? <CheckIcon className="size-5" aria-hidden="true" /> : <ClipboardDocumentIcon className="size-5" aria-hidden="true" />}{copying ? "Copying…" : "Copy quotation"}</button><button type="button" className="button-secondary" onClick={reset}>New quote</button></div>
             {copyStatus && <p className="copy-status" role="status">{copyStatus}</p>}
             <details className="quotation-preview" open={copyStatus.startsWith("Clipboard access")}><summary>Preview customer message</summary><pre>{result.message}</pre></details>

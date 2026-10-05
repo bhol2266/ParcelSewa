@@ -18,12 +18,10 @@ export function calculateAdminQuotation(amountINR: number, rate: CommissionOptio
   if (![productNPR, serviceNPR, totalNPR].every(Number.isFinite)) throw new RangeError("This amount is too large to calculate.");
   const serviceLabel = typeof rate === "string" ? `Flat NPR ${serviceNPR.toLocaleString("en-IN")}` : `${rate}%`;
   const message = [
-    "🛍️ *Your ParcelSewa quotation*", "",
     `🇮🇳 INR ${amountINR.toLocaleString("en-IN", { maximumFractionDigits: 2 })} × ${ESTIMATE_CONVERSION_RATE} = NPR ${productNPR.toLocaleString("en-IN")} 🇳🇵`,
     `Service & handling (${serviceLabel}): NPR ${serviceNPR.toLocaleString("en-IN")}`, "",
-    `*TOTAL = NPR ${totalNPR.toLocaleString("en-IN")}* + courier charge`, "",
+    `*TOTAL = NPR ${totalNPR.toLocaleString("en-IN")}* + courier charge (180/kg)`, "",
     "Product + customs & service handling. Courier charge is additional.",
-    "Please confirm the complete payable amount and delivery timing with our team before purchase.",
   ].join("\n");
   return { productNPR, serviceNPR, totalNPR, serviceLabel, message };
 }
