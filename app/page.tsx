@@ -1,7 +1,7 @@
 import WhatsAppLink from "@/components/WhatsAppLink";
 import Link from "next/link";
 import { ArrowRightIcon, ArrowUpRightIcon, ChatBubbleLeftRightIcon, CheckIcon, CurrencyRupeeIcon, ShoppingBagIcon, TruckIcon } from "@heroicons/react/24/outline";
-import FestivalBanner from "@/components/FestivalBanner";
+import HomepageOffer from "@/components/HomepageOffer";
 import ShoppingEdits from "@/components/ShoppingEdits";
 import Faqs from "@/components/Faqs";
 import { brands } from "@/constants/brands";
@@ -42,7 +42,7 @@ export default function Home() {
         <a className="text-link" href="#shopping-edits">Find your next favourite <ArrowRightIcon className="size-4" aria-hidden="true" /></a>
       </section>
 
-      <div className="page-container festival-home"><FestivalBanner /></div>
+      <HomepageOffer />
 
       <section className="page-container store-section" id="how-it-works">
         <div className="section-heading"><div><p className="eyebrow">A simple way to shop across the border</p><h2>You find it.<br />We bring it home.</h2></div><p>From the first product link to your delivery in Nepal, our team helps you through every step.</p></div>

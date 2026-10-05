@@ -16,6 +16,7 @@ import { ADMIN_COOKIE, ADMIN_PASSWORD } from "@/lib/admin-access";
 import Cookies from "js-cookie";
 import OrdersStats from "./OrdersStats";
 import ClickableTiles from "@/components/ClickableTiles";
+import HomepageOfferControl from "@/components/HomepageOfferControl";
 
 interface Order {
     id: string;
@@ -339,6 +340,7 @@ export default function OrdersPage() {
     return (
         <div className="relative min-h-screen">
             <ClickableTiles />
+            {accessGranted && <HomepageOfferControl />}
             <div className={`p-6 ${!accessGranted ? "filter blur-md" : ""}`}>
 
                 <OrdersStats
