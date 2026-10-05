@@ -201,6 +201,8 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px soli
 .order-offer-panel > p:not(.eyebrow) { font-size: 10px; color: var(--store-text); margin-top: 12px; }
 .order-offer-panel > a { display: inline-flex; font-size: 10px; font-weight: 550; margin-top: 10px; }
 .inner-page { padding-block: 60px 80px; }
+.terms-page > section > h2 { font-size: 22px; line-height: 1.4; }
+.terms-page > section > .small-note { font-size: 14px; line-height: 1.8; }
 .closed-notice { padding-block: 120px; text-align: center; }
 .closed-notice h1 { font-size: 40px; }
 .closed-notice p { margin-block: 20px; }

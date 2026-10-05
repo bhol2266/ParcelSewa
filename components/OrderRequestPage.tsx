@@ -72,6 +72,7 @@ export default function OrderRequestComponent({ festivalOffer = false }: { festi
           <div className="form-field"><label htmlFor="order-notes">Size, colour, or other notes <span className="font-normal">(optional)</span></label><textarea id="order-notes" name="notes" rows={3} value={notes} onChange={event => setNotes(event.target.value)} placeholder="e.g. Size M, blue. Please check arrival before my festival date." /></div>
           <button type="submit" disabled={loading} className="button-primary">{loading ? "Saving your request…" : "Submit my request"}</button>
           <p className="small-note">Submitting saves your details with ParcelSewa and opens WhatsApp with a prepared message. You’ll need to send that message yourself.</p>
+          <p className="small-note">Before confirming your order, review our <Link href="/terms" className="underline underline-offset-4">Terms &amp; Conditions</Link> and <Link href="/returnsPolicy" className="underline underline-offset-4">Returns &amp; Refund Policy</Link>.</p>
         </form>
       </div>
     </section>

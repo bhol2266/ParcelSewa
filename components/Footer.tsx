@@ -15,7 +15,7 @@ export default function Footer() {
         <div className="footer-grid">
           <div className="footer-brand"><Link href="/" aria-label="ParcelSewa home"><BrandLogo surface="dark" className="w-48" /></Link><p>Great finds from India, closer to home in Nepal. We help with the purchase, handling, and delivery.</p><span className="footer-location"><MapPinIcon className="size-4" aria-hidden="true" />Buddhanagar, Kathmandu 44600, Nepal</span></div>
           <div><h2>Explore</h2><Link href="/about">About ParcelSewa</Link><Link href="/offers">Festival picks</Link><Link href="/price-calculator">Price calculator</Link><Link href="/order">Start an order</Link></div>
-          <div><h2>Here to help</h2><Link href="/faqs">Questions & answers</Link><Link href="/returnsPolicy">Returns & refunds</Link><a href="mailto:ukdevelopers007@gmail.com">Email support</a><WhatsAppLink>WhatsApp support</WhatsAppLink></div>
+          <div><h2>Here to help</h2><Link href="/faqs">Questions & answers</Link><Link href="/terms">Terms &amp; Conditions</Link><Link href="/returnsPolicy">Returns & refunds</Link><a href="mailto:ukdevelopers007@gmail.com">Email support</a><WhatsAppLink>WhatsApp support</WhatsAppLink></div>
         </div>
         <div className="footer-bottom"><p>© {new Date().getFullYear()} ParcelSewa. All rights reserved.</p><p>From India, with care. Made for Nepal.</p></div>
       </div>
