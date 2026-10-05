@@ -43,6 +43,17 @@ function buildAvailableMonths(): { month: number; year: number; label: string }[
 
 const availableMonths = buildAvailableMonths();
 
+// Every word of the search must appear somewhere in the name, mobile or address,
+// in any order — so "baneshwor kathmandu" matches "Kathmandu-10, Baneshwor".
+const normalize = (v: unknown) => String(v ?? "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ");
+function matchesOrderSearch(o: Order, term: string): boolean {
+    const words = normalize(term).split(" ").filter(Boolean);
+    if (words.length === 0) return true;
+    const mobile = String(o.mobile ?? "");
+    const haystack = `${normalize(o.name)} ${normalize(o.address)} ${mobile} ${mobile.replace(/\D/g, "")}`;
+    return words.every((w) => haystack.includes(w));
+}
+
 export default function OrdersPage() {
     const [search, setSearch] = useState("");
     const [accessGranted, setAccessGranted] = useState(false);
@@ -206,22 +217,19 @@ export default function OrdersPage() {
         }
     };
 
-    // ── Search all orders in Firestore by name or mobile ──────────────────────
-    const searchAllOrders = useCallback(async (term: string) => {
+    // ── Search all orders (pending + delivered, all time) by name, mobile or address ──
+    const searchAllOrders = useCallback(async (term: string, silent = false) => {
         if (term.length < 2) {
             setGlobalSearchResults(null);
             return;
         }
-        setGlobalSearchLoading(true);
+        if (!silent) setGlobalSearchLoading(true);
         try {
             const snap = await getDocs(collection(db, "Confirm Orders"));
             const all = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Order[];
-            const lower = term.toLowerCase();
-            const matched = all.filter(
-                (o) =>
-                    o.name?.toLowerCase().includes(lower) ||
-                    o.mobile?.includes(term)
-            );
+            const matched = all
+                .filter((o) => matchesOrderSearch(o, term))
+                .sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
             setGlobalSearchResults(matched);
         } catch (err) {
             console.error("Global search failed:", err);
@@ -245,7 +253,8 @@ export default function OrdersPage() {
                 fetchAllRecentDeliveredOrders(true);
             }
         }
-    }, [fetchMonthOrders, fetchAllPendingOrders, fetchAllRecentDeliveredOrders, selectedMonth, allTimeSortOption]);
+        if (search.length >= 2) searchAllOrders(search, true);
+    }, [fetchMonthOrders, fetchAllPendingOrders, fetchAllRecentDeliveredOrders, selectedMonth, allTimeSortOption, search, searchAllOrders]);
 
     // After data re-renders, scroll the saved card to center
     useEffect(() => {
@@ -262,9 +271,7 @@ export default function OrdersPage() {
     }, [allPendingOrders, monthStatOrders, monthDeliveredOrders, allRecentDeliveredOrders]);
 
     const filteredOrders = useMemo(() => {
-        const matchesSearch = (o: Order) =>
-            o.name?.toLowerCase().includes(search.toLowerCase()) ||
-            o.mobile?.includes(search);
+        const matchesSearch = (o: Order) => matchesOrderSearch(o, search);
 
         if (!selectedMonth) {
             if (allTimeSortOption === "delivered") {
@@ -312,16 +319,12 @@ export default function OrdersPage() {
         }
         if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
         searchDebounceRef.current = setTimeout(() => {
-            if (filteredOrders.length === 0) {
-                searchAllOrders(search);
-            } else {
-                setGlobalSearchResults(null);
-            }
-        }, 600);
+            searchAllOrders(search);
+        }, 400);
         return () => {
             if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
         };
-    }, [search, filteredOrders.length, searchAllOrders]);
+    }, [search, searchAllOrders]);
 
     // The Errors filter only exists while at least one order is flagged.
     const errorCount = (selectedMonth ? monthStatOrders : allPendingOrders).filter((o) => o.hasError === true).length;
@@ -341,7 +344,7 @@ export default function OrdersPage() {
         <div className="relative min-h-screen">
             <ClickableTiles />
             {accessGranted && <HomepageOfferControl />}
-            <div className={`p-6 ${!accessGranted ? "filter blur-md" : ""}`}>
+            <div className={`p-3 sm:p-4 ${!accessGranted ? "filter blur-md" : ""}`}>
 
                 <OrdersStats
                     selectedMonth={selectedMonth}
@@ -359,7 +362,7 @@ export default function OrdersPage() {
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-lg">🔍</span>
                     <input
                         type="text"
-                        placeholder="Search by name or mobile…"
+                        placeholder="Search by name, mobile or address…"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 shadow-sm
@@ -422,7 +425,7 @@ export default function OrdersPage() {
                         globalSearchResults.length > 0 ? (
                             <>
                                 <p className="col-span-full text-xs text-blue-600 dark:text-blue-300 font-medium mb-1">
-                                    🌐 Showing results from all orders ({globalSearchResults.length} found)
+                                    🌐 Showing pending &amp; delivered orders, all time ({globalSearchResults.length} found)
                                 </p>
                                 {globalSearchResults.map((order) => (
                                     <OrderCard key={order.id} order={order} refresh={refresh} />

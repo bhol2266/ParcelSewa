@@ -87,10 +87,10 @@ interface StatCardProps {
 }
 
 const StatCard: React.FC<StatCardProps> = ({ label, value, bg, textColor, subLabel }) => (
-    <div className={`p-4 ${bg} rounded-xl shadow`}>
-        <p className={`text-sm font-medium ${textColor} opacity-80`}>{label}</p>
-        <p className={`text-xl font-bold ${textColor} mt-1`}>{value}</p>
-        {subLabel && <p className={`text-xs ${textColor} opacity-60 mt-0.5`}>{subLabel}</p>}
+    <div className={`px-3 py-2 ${bg} rounded-lg shadow-sm`}>
+        <p className={`text-xs font-medium ${textColor} opacity-80`}>{label}</p>
+        <p className={`text-lg font-bold leading-tight ${textColor}`}>{value}</p>
+        {subLabel && <p className={`text-[11px] ${textColor} opacity-60`}>{subLabel}</p>}
     </div>
 );
 
@@ -136,17 +136,17 @@ const OrdersStats: React.FC<StatsProps> = ({
     const totalPendingEstimatedProfit = calcEstimatedProfit(allPendingOrders);
 
     return (
-        <div className="mb-8 space-y-5">
+        <div className="mb-4 space-y-3">
             <div>
                 {/* Dropdown */}
-                <div className="flex items-center gap-3 mb-3">
-                    <p className="text-xs font-semibold uppercase tracking-widest text-gray-500 whitespace-nowrap">
+                <div className="flex items-center gap-2 mb-2">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 whitespace-nowrap">
                         {selectedMonth ? "Monthly Stats" : "All Pending Orders"}
                     </p>
                     <select
                         value={selectedMonth}
                         onChange={(e) => onMonthChange(e.target.value)}
-                        className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 bg-white shadow-sm
+                        className="min-w-0 flex-1 sm:flex-none text-sm border border-gray-300 rounded-lg px-2 py-1.5 bg-white shadow-sm
                                    focus:ring-2 focus:ring-blue-400 focus:border-blue-400 outline-none cursor-pointer"
                     >
                         <option value="">— All Pending (All Time) —</option>
@@ -166,7 +166,7 @@ const OrdersStats: React.FC<StatsProps> = ({
                         ) : (
                             <>
                                 <p className="text-xs text-gray-400 mb-2">Undelivered orders across all time</p>
-                                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                                     <StatCard
                                         label="Pending Orders"
                                         value={`${totalPendingCount}`}
@@ -208,7 +208,7 @@ const OrdersStats: React.FC<StatsProps> = ({
                         ) : (
                             <>
                                 <p className="text-xs text-gray-400 mb-2">{selectedLabel}</p>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
                                     <StatCard
                                         label="Total Orders"
                                         value={`${totalOrders}`}

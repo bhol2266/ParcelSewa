@@ -15,13 +15,13 @@ type Tile = {
 const tiles: Tile[] = [
   {
     title: "Price Calculator",
-    icon: <FaCalculator size={30} />,
+    icon: <FaCalculator size={22} />,
     href: "/admin/quotation-calculator",
     bg: "bg-blue-500",
   },
   {
     title: "Create Order",
-    icon: <FaShoppingCart size={30} />,
+    icon: <FaShoppingCart size={22} />,
     href: "/createOrder",
     bg: "bg-green-500",
   },
@@ -29,14 +29,14 @@ const tiles: Tile[] = [
 
 const ClickableTiles: React.FC = () => {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 p-6">
+    <div className="grid grid-cols-2 gap-2 p-2 sm:gap-3 sm:p-3">
       {tiles.map((tile) => (
         <Link key={tile.title} href={tile.href}>
           <div
-            className={`flex flex-col items-center justify-center p-6 rounded-xl shadow-lg hover:scale-105 transform transition duration-300 cursor-pointer ${tile.bg} text-white`}
+            className={`flex flex-col items-center justify-center px-2 py-3 rounded-xl shadow-md hover:scale-[1.02] transform transition duration-300 cursor-pointer ${tile.bg} text-white`}
           >
             {tile.icon}
-            <h2 className="mt-4 text-xl font-semibold">{tile.title}</h2>
+            <h2 className="mt-1.5 text-base font-semibold">{tile.title}</h2>
           </div>
         </Link>
       ))}
