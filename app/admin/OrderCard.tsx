@@ -263,6 +263,18 @@ export default function OrderCard({ order, refresh }: OrderProps) {
     }, [checkMatches, checkedMs, matchKey]);
     const showMatch = checkMatches && visibleMatchKey === matchKey;
 
+    // The green tick stays as long as the order still looks exactly like it did when it was verified:
+    // same total, commission, product links and quantities. Any edit drops the tick.
+    const verifiedStillValid = (() => {
+        if (!check || !checkMatches || !Array.isArray(check.items)) return false;
+        if ((order.totalAmount || 0) - check.expectedTotal !== check.diff) return false;
+        if (expectedTotal(check.inrProducts, order.commission)?.total !== check.expectedTotal) return false;
+        const pageUrls: string[] = order.productPageUrls?.length ? order.productPageUrls : order.productUrls || [];
+        if (pageUrls.length !== check.items.length) return false;
+        return check.items.every((item: { url: string; qty: number }, i: number) =>
+            item.url === pageUrls[i] && item.qty === (Number(order.productItems?.[i]?.quantity ?? 1) || 1));
+    })();
+
     const handleRemoveError = async (e: React.MouseEvent) => {
         e.preventDefault();
         e.stopPropagation();
@@ -610,6 +622,12 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                         className="rounded-md bg-white px-1.5 py-0.5 text-[10px] font-semibold text-gray-600 ring-1 ring-gray-300 transition hover:bg-gray-50 disabled:opacity-60">
                                         {isVerifying ? "Checking…" : "✓ Verify"}
                                     </button>
+                                    {verifiedStillValid && !isVerifying && (
+                                        <span title="Total verified against live product prices" aria-label="Total verified"
+                                            className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white">
+                                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5"><path d="M4 10.5l4 4 8-9" /></svg>
+                                        </span>
+                                    )}
                                     {!verifyMessage && order.totalCheck && order.totalCheck.diff < -ERROR_THRESHOLD_NPR && (
                                         <button type="button" onClick={handleRemoveError} disabled={isRemovingError}
                                             title="Dismiss the total mismatch warning"
