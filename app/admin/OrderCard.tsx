@@ -63,6 +63,20 @@ function hostLabel(url: string): string {
     try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url.slice(0, 30); }
 }
 
+// The shop a product comes from: the link itself when it is a product page, else its saved product page.
+function productSite(url: string, pageUrl?: string): string {
+    const link = isProductUrl(url) ? url : pageUrl && isProductUrl(pageUrl) ? pageUrl : url;
+    return /^https?:\/\//i.test(link || "") ? hostLabel(link) : "";
+}
+
+// Small "position · website" pill laid over a product image or an edit row, so it adds no height or width.
+const ProductTag = ({ n, site, className }: { n: number; site: string; className: string }) => (
+    <span className={`pointer-events-none absolute z-10 flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-full bg-black/75 px-1.5 font-bold text-white ring-1 ring-white/30 backdrop-blur-sm ${className}`}>
+        {n}
+        {site && <span className="truncate font-medium text-white/75">{site}</span>}
+    </span>
+);
+
 function isProductUrl(url: string): boolean {
     if (!url) return false;
     const imageExtensions = /\.(jpg|jpeg|png|webp|gif|avif|svg)(\?.*)?$/i;
@@ -470,16 +484,19 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                 const qty = editData.productItems?.[i]?.quantity ?? "1";
                                 return (
                                     <div key={i} className="flex gap-1.5 items-center">
-                                        <input className={`flex-1 ${inputCls}`} value={url}
-                                            onChange={(e) => {
-                                                const updatedUrls = [...editData.productUrls];
-                                                updatedUrls[i] = e.target.value;
-                                                const updatedItems = [...(editData.productItems || editData.productUrls.map((u: string, idx: number) => ({ url: u, quantity: editData.productItems?.[idx]?.quantity ?? "1" })))];
-                                                updatedItems[i] = { ...updatedItems[i], url: e.target.value };
-                                                setEditData({ ...editData, productUrls: updatedUrls, productItems: updatedItems });
-                                            }}
-                                            placeholder={`Product URL ${i + 1}`}
-                                        />
+                                        <div className="relative min-w-0 flex-1">
+                                            <ProductTag n={i + 1} site={productSite(url, editData.productPageUrls?.[i])} className="-top-[5px] left-2.5 h-[13px] text-[9px] leading-none" />
+                                            <input className={inputCls} value={url}
+                                                onChange={(e) => {
+                                                    const updatedUrls = [...editData.productUrls];
+                                                    updatedUrls[i] = e.target.value;
+                                                    const updatedItems = [...(editData.productItems || editData.productUrls.map((u: string, idx: number) => ({ url: u, quantity: editData.productItems?.[idx]?.quantity ?? "1" })))];
+                                                    updatedItems[i] = { ...updatedItems[i], url: e.target.value };
+                                                    setEditData({ ...editData, productUrls: updatedUrls, productItems: updatedItems });
+                                                }}
+                                                placeholder={`Product URL ${i + 1}`}
+                                            />
+                                        </div>
                                         <input type="text" className="w-12 rounded-lg border border-gray-200 px-1 py-1.5 text-center text-sm outline-none transition focus:border-blue-400 focus:ring-2 focus:ring-blue-100" value={qty} title="Quantity"
                                             onChange={(e) => {
                                                 const updatedItems = [...(editData.productItems || editData.productUrls.map((u: string, idx: number) => ({ url: u, quantity: editData.productItems?.[idx]?.quantity ?? "1" })))];
@@ -491,7 +508,9 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                             onClick={() => {
                                                 const updatedUrls = editData.productUrls.filter((_: string, index: number) => index !== i);
                                                 const updatedItems = (editData.productItems || []).filter((_: any, index: number) => index !== i);
-                                                setEditData({ ...editData, productUrls: updatedUrls, productItems: updatedItems });
+                                                // Keep the saved product pages lined up with the remaining links.
+                                                const updatedPageUrls = editData.productPageUrls?.filter((_: string, index: number) => index !== i);
+                                                setEditData({ ...editData, productUrls: updatedUrls, productItems: updatedItems, ...(updatedPageUrls && { productPageUrls: updatedPageUrls }) });
                                             }}>✕</button>
                                     </div>
                                 );
@@ -725,6 +744,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                                         <img src={url} alt={`Product ${i + 1}`} loading="lazy" decoding="async"
                                                             className="h-full w-full object-cover transition-transform duration-300 group-hover/img:scale-110" />
                                                     )}
+                                                    <ProductTag n={i + 1} site={productSite(url, order.productPageUrls?.[i])} className="left-1 top-1 py-0.5 text-[10px]" />
                                                     {qty && (
                                                         <span className="absolute bottom-1 right-1 rounded-full bg-black/75 px-1.5 py-0.5 text-[10px] font-bold text-white backdrop-blur-sm">×{qty}</span>
                                                     )}
