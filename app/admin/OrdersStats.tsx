@@ -56,10 +56,6 @@ function calcProfit(list: Order[]): number {
     return list.reduce((sum, o) => sum + calcOrderProfit(o), 0);
 }
 
-function calcEstimatedProfit(list: Order[]): number {
-    return list.reduce((sum, o) => sum + calcOrderProfit(o), 0);
-}
-
 function calcBorderCommission(list: Order[]): number {
     return list.reduce((sum, o) => {
         const commission = o.commission || "";
@@ -130,10 +126,9 @@ const OrdersStats: React.FC<StatsProps> = ({
     const remainingPayment = calcRemainingPayment(monthStatOrders);
 
     // ── All-pending stats (default view) ─────────────────────────────────────
+    // (Total order value and estimated profit live on the stats page, so they aren't repeated here.)
     const totalPendingCount = allPendingOrders.length;
-    const totalPendingAmount = allPendingOrders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
     const totalPendingRemaining = calcRemainingPayment(allPendingOrders);
-    const totalPendingEstimatedProfit = calcEstimatedProfit(allPendingOrders);
 
     return (
         <div className="mb-4 space-y-3">
@@ -162,7 +157,7 @@ const OrdersStats: React.FC<StatsProps> = ({
                 {!selectedMonth && (
                     <>
                         {allPendingLoading ? (
-                            <SkeletonCards count={4} />
+                            <SkeletonCards count={2} />
                         ) : (
                             <>
                                 <p className="text-xs text-gray-400 mb-2">Undelivered orders across all time</p>
@@ -175,24 +170,11 @@ const OrdersStats: React.FC<StatsProps> = ({
                                         subLabel="total undelivered"
                                     />
                                     <StatCard
-                                        label="Total Order Value"
-                                        value={`Rs. ${formatNumber(totalPendingAmount)}`}
-                                        bg="bg-blue-100"
-                                        textColor="text-blue-900"
-                                    />
-                                    <StatCard
                                         label="Remaining Payment"
                                         value={`Rs. ${formatNumber(totalPendingRemaining)}`}
                                         bg="bg-red-100"
                                         textColor="text-red-900"
                                         subLabel="yet to collect"
-                                    />
-                                    <StatCard
-                                        label="Estimated Profit"
-                                        value={`Rs. ${formatNumber(totalPendingEstimatedProfit)}`}
-                                        bg={totalPendingEstimatedProfit < 0 ? "bg-red-200" : "bg-teal-100"}
-                                        textColor={totalPendingEstimatedProfit < 0 ? "text-red-900" : "text-teal-900"}
-                                        subLabel="if all delivered"
                                     />
                                 </div>
                             </>
