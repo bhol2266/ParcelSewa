@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import PositionTag from "./PositionTag";
+import ProductTick, { isProductChecked, tickTheme } from "./ProductTick";
 
 interface Order {
     id: string;
@@ -10,11 +10,13 @@ interface Order {
 
 type GallerySort = "latest" | "oldest" | "name";
 
+type ToggleProduct = (order: Order, index: number, checked: boolean) => void;
+
 interface GalleryItem {
     key: string;
     url: string;
-    position: number;
-    total: number;
+    index: number;
+    checked: boolean;
     qty: string | null;
     order: Order;
 }
@@ -22,42 +24,52 @@ interface GalleryItem {
 const PAGE_SIZE = 60;
 
 const SORT_LABELS: Record<GallerySort, string> = {
-    latest: "Latest",
     oldest: "Oldest",
+    latest: "Latest",
     name: "Name A–Z",
+};
+
+// Second sort: groups images by their tick, keeping the order chosen above inside each group.
+type StatusSort = "notReceived" | "received";
+
+const STATUS_LABELS: Record<StatusSort, string> = {
+    notReceived: "Not received",
+    received: "Received",
 };
 
 const createdMillis = (o: Order) => o.createdAt?.toMillis?.() ?? 0;
 
-function Thumb({ item, onOpen }: { item: GalleryItem; onOpen: () => void }) {
+function Thumb({ item, onOpen, onToggle }: { item: GalleryItem; onOpen: () => void; onToggle: ToggleProduct }) {
     const [failed, setFailed] = useState(false);
     return (
-        <button
-            type="button"
-            onClick={onOpen}
-            title={item.order.name}
-            aria-label={`Open product ${item.position} of ${item.order.name}`}
-            className="group relative aspect-square overflow-hidden rounded-md border bg-gray-100"
-        >
-            {failed ? (
-                <span className="flex h-full w-full items-center justify-center text-xl text-gray-400">🔗</span>
-            ) : (
-                <img
-                    src={item.url}
-                    alt={`Product ${item.position}`}
-                    loading="lazy"
-                    decoding="async"
-                    onError={() => setFailed(true)}
-                    className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                />
-            )}
-            <PositionTag n={item.position} className="left-1 top-1 py-0.5 text-[10px]" />
-            {item.qty && item.qty !== "1" && (
-                <span className="absolute bottom-1 right-1 rounded-full bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white">
-                    ×{item.qty}
-                </span>
-            )}
-        </button>
+        <div className="relative">
+            <button
+                type="button"
+                onClick={onOpen}
+                title={item.order.name}
+                aria-label={`Open product image of ${item.order.name}`}
+                className={`group relative block aspect-square w-full overflow-hidden rounded-md border bg-gray-100 transition-shadow ${tickTheme(item.checked)}`}
+            >
+                {failed ? (
+                    <span className="flex h-full w-full items-center justify-center text-xl text-gray-400">🔗</span>
+                ) : (
+                    <img
+                        src={item.url}
+                        alt="Product"
+                        loading="lazy"
+                        decoding="async"
+                        onError={() => setFailed(true)}
+                        className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                    />
+                )}
+                {item.qty && item.qty !== "1" && (
+                    <span className="absolute bottom-1 right-1 rounded-full bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white">
+                        ×{item.qty}
+                    </span>
+                )}
+            </button>
+            <ProductTick checked={item.checked} onToggle={(checked) => onToggle(item.order, item.index, checked)} />
+        </div>
     );
 }
 
@@ -66,8 +78,10 @@ function Lightbox({
     onClose,
     onPrev,
     onNext,
+    onToggle,
 }: {
     item: GalleryItem;
+    onToggle: ToggleProduct;
     onClose: () => void;
     onPrev: (() => void) | null;
     onNext: (() => void) | null;
@@ -105,7 +119,7 @@ function Lightbox({
                 className="flex max-h-full w-full max-w-2xl flex-col overflow-y-auto rounded-xl bg-white shadow-xl"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="relative flex shrink-0 items-center justify-center bg-gray-100">
+                <div className={`relative flex shrink-0 items-center justify-center bg-gray-100 ring-4 ring-inset ${item.checked ? "ring-green-500" : "ring-red-400"}`}>
                     {failed ? (
                         <a
                             href={item.url}
@@ -118,11 +132,16 @@ function Lightbox({
                     ) : (
                         <img
                             src={item.url}
-                            alt={`Product ${item.position}`}
+                            alt="Product"
                             onError={() => setFailed(true)}
                             className="max-h-[60vh] w-full object-contain"
                         />
                     )}
+                    <ProductTick
+                        checked={item.checked}
+                        onToggle={(checked) => onToggle(order, item.index, checked)}
+                        className="left-3 top-3 h-9 w-9 text-xl"
+                    />
                     <button
                         type="button"
                         onClick={onClose}
@@ -157,10 +176,8 @@ function Lightbox({
                     )}
                     <p><b>Address:</b> {order.address}</p>
                     <p className="text-xs text-gray-500">
-                        Product {item.position} of {item.total}
-                        {order.storeName ? ` · ${order.storeName}` : ""}
-                        {item.qty ? ` · ×${item.qty}` : ""}
-                        {" · "}
+                        {[order.storeName, item.qty && `×${item.qty}`].filter(Boolean).join(" · ")}
+                        {(order.storeName || item.qty) && " · "}
                         <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
                             Open original
                         </a>
@@ -171,10 +188,12 @@ function Lightbox({
     );
 }
 
-export default function ProductGalleryAnkush({ orders }: { orders: Order[] | null }) {
-    const [sort, setSort] = useState<GallerySort>("latest");
+export default function ProductGalleryAnkush({ orders, onToggle }: { orders: Order[] | null; onToggle: ToggleProduct }) {
+    const [sort, setSort] = useState<GallerySort>("oldest");
+    const [statusSort, setStatusSort] = useState<StatusSort | null>(null);
     const [visible, setVisible] = useState(PAGE_SIZE);
-    const [active, setActive] = useState<number | null>(null);
+    // Kept by key, not position, so the open image stays put when ticking moves it in the list.
+    const [activeKey, setActiveKey] = useState<string | null>(null);
 
     const { items, orderCount } = useMemo(() => {
         const sorted = [...(orders ?? [])].sort((a, b) => {
@@ -198,22 +217,28 @@ export default function ProductGalleryAnkush({ orders }: { orders: Order[] | nul
                 flat.push({
                     key: `${order.id}-${i}`,
                     url,
-                    position: i + 1,
-                    total: urls.length,
+                    index: i,
+                    checked: isProductChecked(order, i),
                     qty: order.productItems?.[i]?.quantity ?? null,
                     order,
                 });
             });
             if (added) withImages++;
         }
+        if (statusSort) {
+            // Stable sort: images with the same tick keep the order they have above.
+            const rank = (item: GalleryItem) => (item.checked === (statusSort === "received") ? 0 : 1);
+            flat.sort((a, b) => rank(a) - rank(b));
+        }
         return { items: flat, orderCount: withImages };
-    }, [orders, sort]);
+    }, [orders, sort, statusSort]);
 
     if (orders === null) {
         return <p className="mt-10 text-center text-gray-500 dark:text-gray-400">Loading images…</p>;
     }
 
-    const current = active !== null ? items[active] : undefined;
+    const active = activeKey !== null ? items.findIndex((item) => item.key === activeKey) : -1;
+    const current = active >= 0 ? items[active] : undefined;
 
     return (
         <div>
@@ -234,6 +259,27 @@ export default function ProductGalleryAnkush({ orders }: { orders: Order[] | nul
                         {SORT_LABELS[option]}
                     </button>
                 ))}
+                <span className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-600" aria-hidden />
+                {(Object.keys(STATUS_LABELS) as StatusSort[]).map((option) => (
+                    <button
+                        key={option}
+                        aria-pressed={statusSort === option}
+                        title={option === "received" ? "Ticked images first" : "Unticked images first"}
+                        className={`rounded-lg border px-3 py-1 text-sm ${
+                            statusSort === option
+                                ? option === "received"
+                                    ? "bg-green-500 text-white border-green-500"
+                                    : "bg-red-500 text-white border-red-500"
+                                : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600"
+                        } shadow-sm transition-all ${option === "received" ? "hover:bg-green-500" : "hover:bg-red-500"} hover:text-white`}
+                        onClick={() => {
+                            setStatusSort(statusSort === option ? null : option);
+                            setVisible(PAGE_SIZE);
+                        }}
+                    >
+                        {STATUS_LABELS[option]}
+                    </button>
+                ))}
                 <span className="text-xs text-gray-400">
                     {items.length} images · {orderCount} orders
                 </span>
@@ -244,8 +290,8 @@ export default function ProductGalleryAnkush({ orders }: { orders: Order[] | nul
             ) : (
                 <>
                     <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10">
-                        {items.slice(0, visible).map((item, i) => (
-                            <Thumb key={item.key} item={item} onOpen={() => setActive(i)} />
+                        {items.slice(0, visible).map((item) => (
+                            <Thumb key={item.key} item={item} onOpen={() => setActiveKey(item.key)} onToggle={onToggle} />
                         ))}
                     </div>
                     {visible < items.length && (
@@ -263,9 +309,10 @@ export default function ProductGalleryAnkush({ orders }: { orders: Order[] | nul
                 <Lightbox
                     key={current.key}
                     item={current}
-                    onClose={() => setActive(null)}
-                    onPrev={active! > 0 ? () => setActive(active! - 1) : null}
-                    onNext={active! < items.length - 1 ? () => setActive(active! + 1) : null}
+                    onToggle={onToggle}
+                    onClose={() => setActiveKey(null)}
+                    onPrev={active > 0 ? () => setActiveKey(items[active - 1].key) : null}
+                    onNext={active < items.length - 1 ? () => setActiveKey(items[active + 1].key) : null}
                 />
             )}
         </div>

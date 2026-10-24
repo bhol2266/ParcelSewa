@@ -4,6 +4,8 @@ import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import {
     collection,
     getDocs,
+    doc,
+    updateDoc,
     query,
     orderBy,
     where,
@@ -16,6 +18,7 @@ import Cookies from "js-cookie";
 import OrdersStatsAnkush from "./OrdersStatsAnkush";
 import ClickableTiles from "@/components/ClickableTiles";
 import ProductGalleryAnkush from "./ProductGalleryAnkush";
+import { withProductChecked } from "./ProductTick";
 
 interface Order {
     id: string;
@@ -64,9 +67,6 @@ export default function Ankush() {
 
     const [currentMonthDeliveredOrders, setCurrentMonthDeliveredOrders] = useState<Order[]>([]);
 
-    // Every order ever placed — loaded only when the all-time Product Images view is opened
-    const [allOrders, setAllOrders] = useState<Order[] | null>(null);
-
     const PASSWORD = "5555";
     const COOKIE_NAME = "admin_access";
 
@@ -108,17 +108,6 @@ export default function Ankush() {
             setAllRecentDeliveredOrders([]);
         } finally {
             setAllDeliveredLoading(false);
-        }
-    }, []);
-
-    // ── Fetch every order, for the all-time Product Images view ───────────────
-    const fetchAllOrders = useCallback(async () => {
-        try {
-            const snap = await getDocs(collection(db, "Confirm Orders"));
-            setAllOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Order[]);
-        } catch (err) {
-            console.error("Failed to fetch all orders:", err);
-            setAllOrders((prev) => prev ?? []);
         }
     }, []);
 
@@ -202,13 +191,6 @@ export default function Ankush() {
         }
     }, [selectedMonth, allTimeSortOption, allRecentDeliveredOrders.length, fetchAllRecentDeliveredOrders]);
 
-    // Lazy-load the all-time product images
-    useEffect(() => {
-        if (!selectedMonth && allTimeSortOption === "images" && allOrders === null) {
-            fetchAllOrders();
-        }
-    }, [selectedMonth, allTimeSortOption, allOrders, fetchAllOrders]);
-
     useEffect(() => {
         const cookie = Cookies.get(COOKIE_NAME);
         if (cookie === PASSWORD) {
@@ -249,11 +231,27 @@ export default function Ankush() {
             if (allTimeSortOption === "delivered") {
                 fetchAllRecentDeliveredOrders(true);
             }
-            if (allTimeSortOption === "images") {
-                fetchAllOrders();
-            }
         }
-    }, [fetchMonthOrders, fetchAllPendingOrders, fetchCurrentMonthDelivered, fetchAllRecentDeliveredOrders, fetchAllOrders, selectedMonth, allTimeSortOption]);
+    }, [fetchMonthOrders, fetchAllPendingOrders, fetchCurrentMonthDelivered, fetchAllRecentDeliveredOrders, selectedMonth, allTimeSortOption]);
+
+    // ── Tick / untick a product: shown at once, then saved to Firestore (undone if saving fails) ──
+    const toggleProductChecked = useCallback(async (order: Order, index: number, checked: boolean) => {
+        const show = (productItems: any) => {
+            const patch = (list: Order[]) => list.map((o) => (o.id === order.id ? { ...o, productItems } : o));
+            setAllPendingOrders(patch);
+            setMonthStatOrders(patch);
+            setMonthDeliveredOrders(patch);
+            setAllRecentDeliveredOrders(patch);
+        };
+        const productItems = withProductChecked(order, index, checked);
+        show(productItems);
+        try {
+            await updateDoc(doc(db, "Confirm Orders", order.id), { productItems });
+        } catch (err) {
+            console.error("Failed to save product tick:", err);
+            show(order.productItems);
+        }
+    }, []);
 
     // ── filteredOrders — identical logic to admin ─────────────────────────────
     const filteredOrders = useMemo(() => {
@@ -291,12 +289,12 @@ export default function Ankush() {
         }
     }, [search, sortOption, allTimeSortOption, selectedMonth, monthStatOrders, monthDeliveredOrders, allPendingOrders, allRecentDeliveredOrders]);
 
-    // Product Images view: the selected month's orders, or every order when no month is picked
+    // Product Images view: pending orders only — all of them, or just the selected month's
     const showGallery = (selectedMonth ? sortOption : allTimeSortOption) === "images";
     const galleryOrders = useMemo(() => {
-        const source = selectedMonth ? monthStatOrders : allOrders;
-        return source ? source.filter((o) => orderMatchesSearch(o, search)) : null;
-    }, [search, selectedMonth, monthStatOrders, allOrders]);
+        const source = selectedMonth ? monthStatOrders.filter((o) => o.deliveryStatus === false) : allPendingOrders;
+        return source.filter((o) => orderMatchesSearch(o, search));
+    }, [search, selectedMonth, monthStatOrders, allPendingOrders]);
 
     const isLoading = !selectedMonth
         ? (allTimeSortOption === "delivered" ? allDeliveredLoading : allPendingLoading)
@@ -383,12 +381,12 @@ export default function Ankush() {
 
                 {/* Product Images / Orders List */}
                 {showGallery ? (
-                    <ProductGalleryAnkush orders={galleryOrders} />
+                    <ProductGalleryAnkush orders={galleryOrders} onToggle={toggleProductChecked} />
                 ) : (
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {filteredOrders.length > 0 ? (
                             filteredOrders.map((order) => (
-                                <OrderCardAnkush key={order.id} order={order} refresh={refresh} />
+                                <OrderCardAnkush key={order.id} order={order} refresh={refresh} onToggleProduct={toggleProductChecked} />
                             ))
                         ) : (
                             <p className="text-center col-span-full text-gray-500 dark:text-gray-400 mt-10">

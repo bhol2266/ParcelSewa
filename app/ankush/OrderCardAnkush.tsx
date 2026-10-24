@@ -4,11 +4,12 @@ import { useState, useEffect } from "react";
 import { updateDoc, doc, deleteDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { parseFlatCommission } from "@/lib/commission";
-import PositionTag from "./PositionTag";
+import ProductTick, { isProductChecked, tickTheme } from "./ProductTick";
 
 interface OrderProps {
     order: any;
     refresh: () => void;
+    onToggleProduct?: (order: any, index: number, checked: boolean) => void;
 }
 
 const DELETE_PASSWORD = "5555";
@@ -16,9 +17,12 @@ const DELETE_PASSWORD = "5555";
 // Editing is switched off on this page; flip to true to bring the Edit Order button back.
 const EDITING_ENABLED = false;
 
-export default function OrderCardAnkush({ order, refresh }: OrderProps) {
+export default function OrderCardAnkush({ order, refresh, onToggleProduct }: OrderProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState(order);
+
+    // Product ticks only matter while the order is still pending.
+    const showTicks = !!onToggleProduct && order.deliveryStatus !== true;
 
     // Delete modal state
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -241,21 +245,18 @@ export default function OrderCardAnkush({ order, refresh }: OrderProps) {
                                 const qty = editData.productItems?.[i]?.quantity ?? "1";
                                 return (
                                     <div key={i} className="flex gap-2 items-center">
-                                        <div className="relative min-w-0 flex-1">
-                                            <PositionTag n={i + 1} className="-top-[5px] left-2.5 h-[13px] text-[9px] leading-none" />
-                                            <input
-                                                className="w-full border p-2 rounded-md"
-                                                value={url}
-                                                onChange={(e) => {
-                                                    const updatedUrls = [...editData.productUrls];
-                                                    updatedUrls[i] = e.target.value;
-                                                    const updatedItems = [...(editData.productItems || editData.productUrls.map((u: string, idx: number) => ({ url: u, quantity: editData.productItems?.[idx]?.quantity ?? "1" })))];
-                                                    updatedItems[i] = { ...updatedItems[i], url: e.target.value };
-                                                    setEditData({ ...editData, productUrls: updatedUrls, productItems: updatedItems });
-                                                }}
-                                                placeholder={`Product ${i + 1}`}
-                                            />
-                                        </div>
+                                        <input
+                                            className="flex-1 border p-2 rounded-md"
+                                            value={url}
+                                            onChange={(e) => {
+                                                const updatedUrls = [...editData.productUrls];
+                                                updatedUrls[i] = e.target.value;
+                                                const updatedItems = [...(editData.productItems || editData.productUrls.map((u: string, idx: number) => ({ url: u, quantity: editData.productItems?.[idx]?.quantity ?? "1" })))];
+                                                updatedItems[i] = { ...updatedItems[i], url: e.target.value };
+                                                setEditData({ ...editData, productUrls: updatedUrls, productItems: updatedItems });
+                                            }}
+                                            placeholder={`Product ${i + 1}`}
+                                        />
                                         <div className="flex flex-col items-center">
                                             <span className="text-xs text-gray-500 mb-0.5">Qty</span>
                                             <input
@@ -402,30 +403,32 @@ export default function OrderCardAnkush({ order, refresh }: OrderProps) {
                             <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                                 {order.productUrls?.map((url: string, i: number) => {
                                     const qty = order.productItems?.[i]?.quantity ?? null;
+                                    const checked = isProductChecked(order, i);
                                     return (
-                                        <a
-                                            key={i}
-                                            href={url}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="group block"
-                                        >
-                                            <div className="relative w-full aspect-square overflow-hidden rounded-md border bg-gray-100">
-                                                <img
-                                                    src={url}
-                                                    alt={`Product ${i + 1}`}
-                                                    loading="lazy"
-                                                    decoding="async"
-                                                    className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                                                />
-                                                <PositionTag n={i + 1} className="left-1 top-1 py-0.5 text-[10px]" />
-                                                {qty && (
-                                                    <span className="absolute bottom-1 right-1 bg-black/70 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                                                        ×{qty}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </a>
+                                        <div key={i} className="relative">
+                                            <a
+                                                href={url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="group block"
+                                            >
+                                                <div className={`relative w-full aspect-square overflow-hidden rounded-md border bg-gray-100 transition-shadow ${showTicks ? tickTheme(checked) : ""}`}>
+                                                    <img
+                                                        src={url}
+                                                        alt={`Product ${i + 1}`}
+                                                        loading="lazy"
+                                                        decoding="async"
+                                                        className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                                    />
+                                                    {qty && (
+                                                        <span className="absolute bottom-1 right-1 bg-black/70 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                                                            ×{qty}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </a>
+                                            {showTicks && <ProductTick checked={checked} onToggle={(next) => onToggleProduct?.(order, i, next)} />}
+                                        </div>
                                     );
                                 })}
                             </div>
