@@ -448,7 +448,7 @@ export default function OrdersPage() {
 
                 {/* Orders List */}
                 {lateSelected && lateView === "images" ? (
-                    <LateImages items={lateImageItems} />
+                    <LateImages items={lateImageItems} showErrors />
                 ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {globalSearchLoading && !lateSelected ? (

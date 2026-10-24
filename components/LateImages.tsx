@@ -58,13 +58,17 @@ export function LateBar({
 
 const daysLabel = (days: number) => `${days} day${days === 1 ? "" : "s"}`;
 
-function Thumb({ item, onOpen }: { item: LateImage; onOpen: () => void }) {
+// Flagged orders ("error mode" on the admin page) get a warning badge on their images.
+const hasError = (order: any, showErrors: boolean) => showErrors && order.hasError === true;
+
+function Thumb({ item, onOpen, showErrors }: { item: LateImage; onOpen: () => void; showErrors: boolean }) {
     const [failed, setFailed] = useState(false);
+    const flagged = hasError(item.order, showErrors);
     return (
         <button
             type="button"
             onClick={onOpen}
-            title={`${item.order.name} · ${daysLabel(item.days)} since ordered`}
+            title={`${item.order.name} · ${daysLabel(item.days)} since ordered${flagged ? ` · Error: ${item.order.errorNote?.trim() || "no details"}` : ""}`}
             aria-label={`Open product image of ${item.order.name}`}
             className="group block min-w-0 text-left"
         >
@@ -82,6 +86,11 @@ function Thumb({ item, onOpen }: { item: LateImage; onOpen: () => void }) {
                     />
                 )}
                 <span className="absolute left-1 top-1 rounded-full bg-red-600/90 px-1.5 py-0.5 text-[10px] font-bold text-white">{item.days}d</span>
+                {flagged && (
+                    <span aria-label="Order has an error" className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[11px] leading-none shadow ring-2 ring-orange-500">
+                        ⚠️
+                    </span>
+                )}
                 {item.qty && item.qty !== "1" && (
                     <span className="absolute bottom-1 right-1 rounded-full bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white">×{item.qty}</span>
                 )}
@@ -91,7 +100,7 @@ function Thumb({ item, onOpen }: { item: LateImage; onOpen: () => void }) {
     );
 }
 
-function Lightbox({ item, onClose, onPrev, onNext }: { item: LateImage; onClose: () => void; onPrev: (() => void) | null; onNext: (() => void) | null }) {
+function Lightbox({ item, onClose, onPrev, onNext, showErrors }: { item: LateImage; onClose: () => void; onPrev: (() => void) | null; onNext: (() => void) | null; showErrors: boolean }) {
     const [failed, setFailed] = useState(false);
     const { order } = item;
     const pageUrl: string | undefined = order.productPageUrls?.[item.index];
@@ -147,6 +156,12 @@ function Lightbox({ item, onClose, onPrev, onNext }: { item: LateImage; onClose:
                         </a>
                     )}
                     {order.address && <p><b>Address:</b> {order.address}</p>}
+                    {hasError(order, showErrors) && (
+                        <div className="rounded-lg border-l-4 border-orange-500 bg-orange-50 px-3 py-2 dark:bg-orange-950/40">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-orange-600 dark:text-orange-300">⚠️ Error</p>
+                            <p className="whitespace-pre-wrap text-sm text-orange-900 dark:text-orange-200">{order.errorNote?.trim() || "No details added."}</p>
+                        </div>
+                    )}
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                         {[order.storeName, item.qty && item.qty !== "1" && `×${item.qty}`].filter(Boolean).join(" · ")}
                         {(order.storeName || (item.qty && item.qty !== "1")) && " · "}
@@ -165,7 +180,8 @@ function Lightbox({ item, onClose, onPrev, onNext }: { item: LateImage; onClose:
 }
 
 // The product images of late orders that haven't been ticked as received yet, most overdue first.
-export default function LateImages({ items }: { items: LateImage[] }) {
+// `showErrors` (admin only) marks images that belong to an order flagged with an error.
+export default function LateImages({ items, showErrors = false }: { items: LateImage[]; showErrors?: boolean }) {
     const [visible, setVisible] = useState(PAGE_SIZE);
     // Kept by key, not position, so the open image stays put if the list changes underneath it.
     const [activeKey, setActiveKey] = useState<string | null>(null);
@@ -188,7 +204,7 @@ export default function LateImages({ items }: { items: LateImage[] }) {
             </p>
             <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10">
                 {items.slice(0, visible).map((item) => (
-                    <Thumb key={item.key} item={item} onOpen={() => setActiveKey(item.key)} />
+                    <Thumb key={item.key} item={item} onOpen={() => setActiveKey(item.key)} showErrors={showErrors} />
                 ))}
             </div>
             {visible < items.length && (
@@ -204,6 +220,7 @@ export default function LateImages({ items }: { items: LateImage[] }) {
                 <Lightbox
                     key={current.key}
                     item={current}
+                    showErrors={showErrors}
                     onClose={() => setActiveKey(null)}
                     onPrev={active > 0 ? () => setActiveKey(items[active - 1].key) : null}
                     onNext={active < items.length - 1 ? () => setActiveKey(items[active + 1].key) : null}
