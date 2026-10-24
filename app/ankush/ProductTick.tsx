@@ -1,16 +1,3 @@
-// A product's tick lives on its entry in the order's productItems, so it moves with the product when links are edited.
-export const isProductChecked = (order: any, index: number): boolean => order.productItems?.[index]?.checked === true;
-
-// The order's productItems with one product's tick set; older orders without productItems get them built from the links.
-export function withProductChecked(order: any, index: number, checked: boolean) {
-    const items = (order.productUrls ?? []).map((url: string, i: number) => ({ url, quantity: "1", ...(order.productItems?.[i] ?? {}) }));
-    items[index] = { ...items[index], checked };
-    return items;
-}
-
-// The tile's border carries the theme: green once ticked, red until then.
-export const tickTheme = (checked: boolean) => (checked ? "border-2 border-green-500" : "border-2 border-red-400");
-
 // Round tick box laid over the image corner, so the tile keeps its size. Place inside a relative tile.
 export default function ProductTick({
     checked,

@@ -5,6 +5,7 @@ import { updateDoc, doc, deleteDoc, deleteField, Timestamp } from "firebase/fire
 import { db } from "@/lib/firebase/firebaseClient";
 import { fetchProductPriceViaExtension, fetchStoreImageViaExtension } from "@/lib/extension-client";
 import { expectedTotal } from "@/lib/product-price-parse";
+import { isProductChecked, tickTheme } from "@/lib/product-checks";
 
 interface OrderProps {
     order: any;
@@ -745,7 +746,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                     return (
                                         <div key={i} className="flex flex-col gap-1.5">
                                             <a href={url} target="_blank" rel="noopener noreferrer" className="group/img block">
-                                                <div className="relative aspect-square w-full overflow-hidden rounded-lg bg-gray-100 ring-1 ring-gray-200/70 transition group-hover/img:ring-blue-300">
+                                                <div className={`relative aspect-square w-full overflow-hidden rounded-lg bg-gray-100 transition ${order.deliveryStatus === false ? tickTheme(isProductChecked(order, i)) : "ring-1 ring-gray-200/70 group-hover/img:ring-blue-300"}`}>
                                                     {isPageLink ? (
                                                         <div className="flex h-full w-full flex-col items-center justify-center p-2 text-center text-gray-400">
                                                             <span className="mb-1 text-xl">🔗</span>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import ProductTick, { isProductChecked, tickTheme } from "./ProductTick";
+import ProductTick from "./ProductTick";
+import { isProductChecked, tickTheme } from "@/lib/product-checks";
 
 interface Order {
     id: string;

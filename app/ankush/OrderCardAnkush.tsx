@@ -4,12 +4,11 @@ import { useState, useEffect } from "react";
 import { updateDoc, doc, deleteDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { parseFlatCommission } from "@/lib/commission";
-import ProductTick, { isProductChecked, tickTheme } from "./ProductTick";
+import { isOrderAllReceived, isProductChecked, tickTheme } from "@/lib/product-checks";
 
 interface OrderProps {
     order: any;
     refresh: () => void;
-    onToggleProduct?: (order: any, index: number, checked: boolean) => void;
 }
 
 const DELETE_PASSWORD = "5555";
@@ -17,12 +16,12 @@ const DELETE_PASSWORD = "5555";
 // Editing is switched off on this page; flip to true to bring the Edit Order button back.
 const EDITING_ENABLED = false;
 
-export default function OrderCardAnkush({ order, refresh, onToggleProduct }: OrderProps) {
+export default function OrderCardAnkush({ order, refresh }: OrderProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [editData, setEditData] = useState(order);
 
-    // Product ticks only matter while the order is still pending.
-    const showTicks = !!onToggleProduct && order.deliveryStatus !== true;
+    // The green/red tick theme only matters while the order is still pending; ticking itself happens in Product Images.
+    const showTheme = order.deliveryStatus === false;
 
     // Delete modal state
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -92,19 +91,26 @@ export default function OrderCardAnkush({ order, refresh, onToggleProduct }: Ord
     };
 
     // ── Card border/bg based on status ──────────────────────
+    // A pending order with every product ticked turns blue and says so instead of "Pending".
+    const allReceived = isOrderAllReceived(order);
+
     const cardStyle = isCancelled
         ? "border-gray-400 bg-gray-100"
         : isDelivered
         ? "border-red-400 bg-red-50"
+        : allReceived
+        ? "border-blue-400 bg-blue-50"
         : "border-green-400 bg-green-50";
 
     const badgeStyle = isCancelled
         ? "bg-gray-500 text-white"
         : isDelivered
         ? "bg-red-500 text-white"
+        : allReceived
+        ? "bg-blue-500 text-white"
         : "bg-green-500 text-white";
 
-    const badgeLabel = isCancelled ? "Cancelled" : isDelivered ? "Delivered" : "Pending";
+    const badgeLabel = isCancelled ? "Cancelled" : isDelivered ? "Delivered" : allReceived ? "✓ All received" : "Pending";
 
     return (
         <>
@@ -112,7 +118,7 @@ export default function OrderCardAnkush({ order, refresh, onToggleProduct }: Ord
                 {/* Header */}
                 <div className="flex justify-between items-center mb-3">
                     <h2 className="font-semibold text-xl text-gray-800">{order.name}</h2>
-                    <span className={`px-3 py-1 text-sm rounded-full font-semibold ${badgeStyle}`}>
+                    <span className={`shrink-0 whitespace-nowrap px-3 py-1 text-sm rounded-full font-semibold ${badgeStyle}`}>
                         {badgeLabel}
                     </span>
                 </div>
@@ -403,32 +409,29 @@ export default function OrderCardAnkush({ order, refresh, onToggleProduct }: Ord
                             <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                                 {order.productUrls?.map((url: string, i: number) => {
                                     const qty = order.productItems?.[i]?.quantity ?? null;
-                                    const checked = isProductChecked(order, i);
                                     return (
-                                        <div key={i} className="relative">
-                                            <a
-                                                href={url}
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                                className="group block"
-                                            >
-                                                <div className={`relative w-full aspect-square overflow-hidden rounded-lg bg-gray-100 transition-colors ${showTicks ? tickTheme(checked) : "border"}`}>
-                                                    <img
-                                                        src={url}
-                                                        alt={`Product ${i + 1}`}
-                                                        loading="lazy"
-                                                        decoding="async"
-                                                        className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                                                    />
-                                                    {qty && (
-                                                        <span className="absolute bottom-1 right-1 bg-black/70 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                                                            ×{qty}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </a>
-                                            {showTicks && <ProductTick checked={checked} onToggle={(next) => onToggleProduct?.(order, i, next)} />}
-                                        </div>
+                                        <a
+                                            key={i}
+                                            href={url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="group block"
+                                        >
+                                            <div className={`relative w-full aspect-square overflow-hidden rounded-lg bg-gray-100 transition-colors ${showTheme ? tickTheme(isProductChecked(order, i)) : "border"}`}>
+                                                <img
+                                                    src={url}
+                                                    alt={`Product ${i + 1}`}
+                                                    loading="lazy"
+                                                    decoding="async"
+                                                    className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                                />
+                                                {qty && (
+                                                    <span className="absolute bottom-1 right-1 bg-black/70 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                                                        ×{qty}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </a>
                                     );
                                 })}
                             </div>

@@ -18,7 +18,7 @@ import Cookies from "js-cookie";
 import OrdersStatsAnkush from "./OrdersStatsAnkush";
 import ClickableTiles from "@/components/ClickableTiles";
 import ProductGalleryAnkush from "./ProductGalleryAnkush";
-import { withProductChecked } from "./ProductTick";
+import { isOrderAllReceived, withProductChecked } from "@/lib/product-checks";
 
 interface Order {
     id: string;
@@ -256,30 +256,38 @@ export default function Ankush() {
     // ── filteredOrders — identical logic to admin ─────────────────────────────
     const filteredOrders = useMemo(() => {
         const matchesSearch = (o: Order) => orderMatchesSearch(o, search);
+        // Orders whose products are all received go to the top; the rest keep their order.
+        const receivedFirst = (list: Order[]) => [...list.filter(isOrderAllReceived), ...list.filter((o) => !isOrderAllReceived(o))];
 
         if (!selectedMonth) {
             if (allTimeSortOption === "delivered") {
                 return allRecentDeliveredOrders.filter(matchesSearch);
             }
-            return allPendingOrders
-                .filter(matchesSearch)
-                .sort((a, b) => {
-                    if (allTimeSortOption === "latest") {
-                        return (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0);
-                    }
-                    return (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0);
-                });
+            return receivedFirst(
+                allPendingOrders
+                    .filter(matchesSearch)
+                    .sort((a, b) => {
+                        if (allTimeSortOption === "latest") {
+                            return (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0);
+                        }
+                        return (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0);
+                    })
+            );
         }
 
         switch (sortOption) {
             case "latest":
-                return monthStatOrders
-                    .filter(matchesSearch)
-                    .sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0));
+                return receivedFirst(
+                    monthStatOrders
+                        .filter(matchesSearch)
+                        .sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0))
+                );
             case "oldest":
-                return monthStatOrders
-                    .filter(matchesSearch)
-                    .sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
+                return receivedFirst(
+                    monthStatOrders
+                        .filter(matchesSearch)
+                        .sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0))
+                );
             case "delivered":
                 return monthDeliveredOrders
                     .filter(matchesSearch)
@@ -386,7 +394,7 @@ export default function Ankush() {
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {filteredOrders.length > 0 ? (
                             filteredOrders.map((order) => (
-                                <OrderCardAnkush key={order.id} order={order} refresh={refresh} onToggleProduct={toggleProductChecked} />
+                                <OrderCardAnkush key={order.id} order={order} refresh={refresh} />
                             ))
                         ) : (
                             <p className="text-center col-span-full text-gray-500 dark:text-gray-400 mt-10">
