@@ -63,14 +63,21 @@ function hostLabel(url: string): string {
     try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url.slice(0, 30); }
 }
 
+// The shop's name alone: "dl.flipkart.com" -> "flipkart", "www.amazon.co.uk" -> "amazon".
+function siteName(host: string): string {
+    const parts = host.split(".");
+    const tldLen = parts.length > 2 && parts[parts.length - 1].length === 2 && /^(co|com|org|net|gov|edu|ac)$/.test(parts[parts.length - 2]) ? 2 : 1;
+    return parts[Math.max(parts.length - 1 - tldLen, 0)];
+}
+
 // The shop a product comes from: the link itself when it is a product page, else its saved product page.
 function productSite(url: string, pageUrl?: string): string {
     const link = isProductUrl(url) ? url : pageUrl && isProductUrl(pageUrl) ? pageUrl : url;
-    return /^https?:\/\//i.test(link || "") ? hostLabel(link) : "";
+    try { return /^https?:\/\//i.test(link || "") ? siteName(new URL(link).hostname) : ""; } catch { return ""; }
 }
 
-// Small "position · website" pill laid over a product image or an edit row, so it adds no height or width.
-const ProductTag = ({ n, site, className }: { n: number; site: string; className: string }) => (
+// Small "position + shop" pill laid over a product image or an edit row, so it adds no height or width.
+const ProductTag = ({ n, site, className }: { n?: number; site: string; className: string }) => (
     <span className={`pointer-events-none absolute z-10 flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-full bg-black/75 px-1.5 font-bold text-white ring-1 ring-white/30 backdrop-blur-sm ${className}`}>
         {n}
         {site && <span className="truncate font-medium text-white/75">{site}</span>}
@@ -485,8 +492,12 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                 return (
                                     <div key={i} className="flex gap-1.5 items-center">
                                         <div className="relative min-w-0 flex-1">
-                                            <ProductTag n={i + 1} site={productSite(url, editData.productPageUrls?.[i])} className="-top-[5px] left-2.5 h-[13px] text-[9px] leading-none" />
-                                            <input className={inputCls} value={url}
+                                            {(() => {
+                                                const site = productSite(url, editData.productPageUrls?.[i]);
+                                                return site && <ProductTag site={site} className="-top-[5px] left-9 h-[13px] text-[9px] leading-none" />;
+                                            })()}
+                                            <span className="pointer-events-none absolute inset-y-px left-px flex w-6 items-center justify-center rounded-l-[7px] border-r border-gray-200 bg-gray-50 text-xs font-bold text-gray-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-300">{i + 1}</span>
+                                            <input className={inputCls.replace("px-2.5", "pl-8 pr-2.5")} value={url}
                                                 onChange={(e) => {
                                                     const updatedUrls = [...editData.productUrls];
                                                     updatedUrls[i] = e.target.value;
