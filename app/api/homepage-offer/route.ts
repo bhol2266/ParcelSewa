@@ -12,7 +12,8 @@ export async function GET() {
   try {
     const snapshot = await getDocFromServer(settingsRef());
     const saved = snapshot.data()?.homepageOfferVisible;
-    return NextResponse.json({ homepageOfferVisible: typeof saved === "boolean" ? saved : true }, { headers: noCache });
+    // The offer ad is off unless a setting was saved to turn it on.
+    return NextResponse.json({ homepageOfferVisible: typeof saved === "boolean" ? saved : false }, { headers: noCache });
   } catch (error) {
     console.error("Failed to load homepage offer setting:", error);
     return NextResponse.json({ error: "Could not load the homepage offer setting." }, { status: 503, headers: noCache });

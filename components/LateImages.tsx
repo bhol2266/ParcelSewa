@@ -6,6 +6,56 @@ import { tickTheme } from "@/lib/product-checks";
 
 const PAGE_SIZE = 60;
 
+export type LateView = "orders" | "images";
+
+// Banner at the top of the Late section: how long the oldest order has waited, and the Orders / Late images switch.
+export function LateBar({
+    orderCount,
+    imageCount,
+    oldestDays,
+    view,
+    onView,
+}: {
+    orderCount: number;
+    imageCount: number;
+    oldestDays: number | null;
+    view: LateView;
+    onView: (view: LateView) => void;
+}) {
+    return (
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900 dark:bg-amber-950/40">
+            <div>
+                <p className="text-sm font-bold text-amber-900 dark:text-amber-200">⏰ Late orders</p>
+                <p className="text-xs text-amber-700 dark:text-amber-300/80">
+                    Pending for more than {LATE_AFTER_DAYS} days
+                    {oldestDays !== null && ` · oldest is ${oldestDays} days`}
+                </p>
+            </div>
+            <div role="tablist" className="inline-flex rounded-xl bg-white p-1 shadow-sm ring-1 ring-amber-200 dark:bg-gray-900 dark:ring-amber-900">
+                {([
+                    ["orders", `Orders (${orderCount})`],
+                    ["images", `🖼️ Late images (${imageCount})`],
+                ] as const).map(([option, label]) => (
+                    <button
+                        key={option}
+                        type="button"
+                        role="tab"
+                        aria-selected={view === option}
+                        onClick={() => onView(option)}
+                        className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
+                            view === option
+                                ? "bg-amber-500 text-white shadow-sm"
+                                : "text-amber-800 hover:bg-amber-100 dark:text-amber-200 dark:hover:bg-amber-900/50"
+                        }`}
+                    >
+                        {label}
+                    </button>
+                ))}
+            </div>
+        </div>
+    );
+}
+
 const daysLabel = (days: number) => `${days} day${days === 1 ? "" : "s"}`;
 
 function Thumb({ item, onOpen }: { item: LateImage; onOpen: () => void }) {

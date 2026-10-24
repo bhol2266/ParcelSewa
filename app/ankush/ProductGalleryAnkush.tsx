@@ -193,10 +193,19 @@ function Lightbox({
     );
 }
 
-export default function ProductGalleryAnkush({ orders, onToggle }: { orders: Order[] | null; onToggle: ToggleProduct }) {
+// `sortSnapshot` (kept by the page, so it survives switching tabs) remembers each image's tick as first seen.
+export default function ProductGalleryAnkush({
+    orders,
+    onToggle,
+    sortSnapshot,
+}: {
+    orders: Order[] | null;
+    onToggle: ToggleProduct;
+    sortSnapshot: Map<string, boolean>;
+}) {
     const [sort, setSort] = useState<GallerySort>("oldest");
     const [visible, setVisible] = useState(PAGE_SIZE);
-    // Kept by key, not position, so the open image stays put when ticking moves it in the list.
+    // Kept by key, not position, so the open image stays put if the list changes underneath it.
     const [activeKey, setActiveKey] = useState<string | null>(null);
 
     const { items, orderCount } = useMemo(() => {
@@ -230,10 +239,13 @@ export default function ProductGalleryAnkush({ orders, onToggle }: { orders: Ord
             });
             if (added) withImages++;
         }
-        // Not received first, received last; stable, so each group keeps the order chosen above.
-        flat.sort((a, b) => Number(a.checked) - Number(b.checked));
+        // Not received first, received last; stable, so each group keeps the order chosen above. Images are
+        // grouped by how they were ticked when first seen, so a tick made now (maybe by mistake) leaves the
+        // image where it is until the page is reloaded.
+        for (const item of flat) if (!sortSnapshot.has(item.key)) sortSnapshot.set(item.key, item.checked);
+        flat.sort((a, b) => Number(sortSnapshot.get(a.key)) - Number(sortSnapshot.get(b.key)));
         return { items: flat, orderCount: withImages };
-    }, [orders, sort]);
+    }, [orders, sort, sortSnapshot]);
 
     if (orders === null) {
         return <p className="mt-10 text-center text-gray-500 dark:text-gray-400">Loading images…</p>;

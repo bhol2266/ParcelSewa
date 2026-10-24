@@ -18,15 +18,18 @@ import Cookies from "js-cookie";
 import OrdersStatsAnkush from "./OrdersStatsAnkush";
 import ClickableTiles from "@/components/ClickableTiles";
 import ProductGalleryAnkush from "./ProductGalleryAnkush";
+import LateImages, { LateBar, type LateView } from "@/components/LateImages";
 import { isOrderAllReceived, withProductChecked } from "@/lib/product-checks";
+import { daysSinceOrdered, isLateOrder, lateProductImages, orderedMillis } from "@/lib/late-orders";
+import { sortButtonCls } from "@/lib/sort-button";
 
 interface Order {
     id: string;
     [key: string]: any;
 }
 
-type SortOption = "latest" | "oldest" | "delivered" | "images";
-type AllTimeSortOption = "latest" | "oldest" | "delivered" | "images";
+type SortOption = "latest" | "oldest" | "delivered" | "images" | "late";
+type AllTimeSortOption = "latest" | "oldest" | "delivered" | "images" | "late";
 
 const orderMatchesSearch = (o: Order, search: string) =>
     o.name?.toLowerCase().includes(search.toLowerCase()) || o.mobile?.includes(search);
@@ -56,6 +59,9 @@ export default function Ankush() {
     const [allTimeSortOption, setAllTimeSortOption] = useState<AllTimeSortOption>("oldest");
     const [selectedMonth, setSelectedMonth] = useState<string>("");
 
+    // Inside the Late section: the late orders themselves, or just their images that aren't ticked yet
+    const [lateView, setLateView] = useState<LateView>("orders");
+
     const [monthStatOrders, setMonthStatOrders] = useState<Order[]>([]);
     const [monthDeliveredOrders, setMonthDeliveredOrders] = useState<Order[]>([]);
     const [monthOrdersLoading, setMonthOrdersLoading] = useState(false);
@@ -66,6 +72,9 @@ export default function Ankush() {
     const [allDeliveredLoading, setAllDeliveredLoading] = useState(false);
 
     const [currentMonthDeliveredOrders, setCurrentMonthDeliveredOrders] = useState<Order[]>([]);
+
+    // Each product image's tick as first seen in Product Images; lets a new tick wait for a reload to move it down
+    const checkedWhenFirstSeen = useRef(new Map<string, boolean>());
 
     const PASSWORD = "5555";
     const COOKIE_NAME = "admin_access";
@@ -263,6 +272,9 @@ export default function Ankush() {
             if (allTimeSortOption === "delivered") {
                 return allRecentDeliveredOrders.filter(matchesSearch);
             }
+            if (allTimeSortOption === "late") {
+                return allPendingOrders.filter(matchesSearch).filter((o) => isLateOrder(o)).sort((a, b) => orderedMillis(a) - orderedMillis(b));
+            }
             return receivedFirst(
                 allPendingOrders
                     .filter(matchesSearch)
@@ -288,6 +300,11 @@ export default function Ankush() {
                         .filter(matchesSearch)
                         .sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0))
                 );
+            case "late":
+                return monthStatOrders
+                    .filter(matchesSearch)
+                    .filter((o) => isLateOrder(o))
+                    .sort((a, b) => orderedMillis(a) - orderedMillis(b));
             case "delivered":
                 return monthDeliveredOrders
                     .filter(matchesSearch)
@@ -303,6 +320,18 @@ export default function Ankush() {
         const source = selectedMonth ? monthStatOrders.filter((o) => o.deliveryStatus === false) : allPendingOrders;
         return source.filter((o) => orderMatchesSearch(o, search));
     }, [search, selectedMonth, monthStatOrders, allPendingOrders]);
+
+    // The Late section only exists while at least one pending order is older than LATE_AFTER_DAYS.
+    const lateCount = (selectedMonth ? monthStatOrders : allPendingOrders).filter((o) => isLateOrder(o)).length;
+    useEffect(() => {
+        if (lateCount > 0) return;
+        if (allTimeSortOption === "late") setAllTimeSortOption("oldest");
+        if (sortOption === "late") setSortOption("oldest");
+    }, [lateCount, allTimeSortOption, sortOption]);
+
+    // Late section: its orders, and the images of those orders that haven't been ticked as received
+    const lateSelected = (selectedMonth ? sortOption : allTimeSortOption) === "late";
+    const lateImageItems = useMemo(() => (lateSelected ? lateProductImages(filteredOrders) : []), [lateSelected, filteredOrders]);
 
     const isLoading = !selectedMonth
         ? (allTimeSortOption === "delivered" ? allDeliveredLoading : allPendingLoading)
@@ -343,20 +372,17 @@ export default function Ankush() {
                 {/* Sort Buttons — All Pending (All Time) view */}
                 {!selectedMonth && (
                     <div className="flex flex-wrap items-center gap-2 mb-6">
-                        {(["oldest", "latest", "delivered", "images"] as AllTimeSortOption[]).map((option) => (
+                        {(["oldest", "latest", "delivered", "images", ...(lateCount > 0 ? ["late"] : [])] as AllTimeSortOption[]).map((option) => (
                             <button
                                 key={option}
-                                className={`px-4 py-2 rounded-xl border ${
-                                    allTimeSortOption === option
-                                        ? "bg-blue-500 text-white"
-                                        : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600"
-                                } shadow-sm hover:bg-blue-500 hover:text-white transition-all`}
+                                className={sortButtonCls(allTimeSortOption === option, option)}
                                 onClick={() => setAllTimeSortOption(option)}
                             >
                                 {option === "oldest" && "Oldest First"}
                                 {option === "latest" && "Latest First"}
                                 {option === "delivered" && "Delivered Orders"}
                                 {option === "images" && "🖼️ Product Images"}
+                                {option === "late" && `⏰ Late (${lateCount})`}
                             </button>
                         ))}
                         {allTimeSortOption === "delivered" && (
@@ -368,28 +394,38 @@ export default function Ankush() {
                 {/* Sort Buttons — Monthly view */}
                 {selectedMonth && (
                     <div className="flex flex-wrap items-center gap-2 mb-6">
-                        {(["oldest", "latest", "delivered", "images"] as SortOption[]).map((option) => (
+                        {(["oldest", "latest", "delivered", "images", ...(lateCount > 0 ? ["late"] : [])] as SortOption[]).map((option) => (
                             <button
                                 key={option}
-                                className={`px-4 py-2 rounded-xl border ${
-                                    sortOption === option
-                                        ? "bg-blue-500 text-white"
-                                        : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600"
-                                } shadow-sm hover:bg-blue-500 hover:text-white transition-all`}
+                                className={sortButtonCls(sortOption === option, option)}
                                 onClick={() => setSortOption(option)}
                             >
                                 {option === "oldest" && "Oldest First"}
                                 {option === "latest" && "Latest First"}
                                 {option === "delivered" && "Delivered Orders"}
                                 {option === "images" && "🖼️ Product Images"}
+                                {option === "late" && `⏰ Late (${lateCount})`}
                             </button>
                         ))}
                     </div>
                 )}
 
-                {/* Product Images / Orders List */}
+                {/* Late section: late orders, or only their product images that aren't ticked yet */}
+                {lateSelected && (
+                    <LateBar
+                        orderCount={filteredOrders.length}
+                        imageCount={lateImageItems.length}
+                        oldestDays={filteredOrders.length > 0 ? daysSinceOrdered(filteredOrders[0]) : null}
+                        view={lateView}
+                        onView={setLateView}
+                    />
+                )}
+
+                {/* Product Images / Late Images / Orders List */}
                 {showGallery ? (
-                    <ProductGalleryAnkush orders={galleryOrders} onToggle={toggleProductChecked} />
+                    <ProductGalleryAnkush orders={galleryOrders} onToggle={toggleProductChecked} sortSnapshot={checkedWhenFirstSeen.current} />
+                ) : lateSelected && lateView === "images" ? (
+                    <LateImages items={lateImageItems} />
                 ) : (
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {filteredOrders.length > 0 ? (

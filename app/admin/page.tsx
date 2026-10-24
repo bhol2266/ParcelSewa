@@ -16,9 +16,9 @@ import { ADMIN_COOKIE, ADMIN_PASSWORD } from "@/lib/admin-access";
 import Cookies from "js-cookie";
 import OrdersStats from "./OrdersStats";
 import ClickableTiles from "@/components/ClickableTiles";
-import HomepageOfferControl from "@/components/HomepageOfferControl";
-import LateImages from "./LateImages";
-import { LATE_AFTER_DAYS, daysSinceOrdered, isLateOrder, lateProductImages, orderedMillis } from "@/lib/late-orders";
+import LateImages, { LateBar, type LateView } from "@/components/LateImages";
+import { daysSinceOrdered, isLateOrder, lateProductImages, orderedMillis } from "@/lib/late-orders";
+import { sortButtonCls } from "@/lib/sort-button";
 
 interface Order {
     id: string;
@@ -28,13 +28,6 @@ interface Order {
 type SortOption = "latest" | "oldest" | "delivered" | "errors" | "late";
 type AllTimeSortOption = "latest" | "oldest" | "delivered" | "errors" | "late";
 
-// Look of a sort button: blue when active, amber for the Late section.
-const sortButtonCls = (active: boolean, option: string) =>
-    `px-4 py-2 rounded-xl border shadow-sm transition-all hover:text-white ${
-        active
-            ? option === "late" ? "bg-amber-500 text-white border-amber-500" : "bg-blue-500 text-white"
-            : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600"
-    } ${option === "late" ? "hover:bg-amber-500" : "hover:bg-blue-500"}`;
 
 // ── Build the last 24 months list ─────────────────────────────────────────────
 function buildAvailableMonths(): { month: number; year: number; label: string }[] {
@@ -78,7 +71,7 @@ export default function OrdersPage() {
     const [selectedMonth, setSelectedMonth] = useState<string>("");
 
     // Inside the Late section: the late orders themselves, or just their images that aren't ticked yet
-    const [lateView, setLateView] = useState<"orders" | "images">("orders");
+    const [lateView, setLateView] = useState<LateView>("orders");
  
     const [monthStatOrders, setMonthStatOrders] = useState<Order[]>([]);
     const [monthDeliveredOrders, setMonthDeliveredOrders] = useState<Order[]>([]);
@@ -375,7 +368,6 @@ export default function OrdersPage() {
     return (
         <div className="relative min-h-screen">
             <ClickableTiles />
-            {accessGranted && <HomepageOfferControl />}
             <div className={`p-3 sm:p-4 ${!accessGranted ? "filter blur-md" : ""}`}>
 
                 <OrdersStats
@@ -445,36 +437,13 @@ export default function OrdersPage() {
 
                 {/* Late section: late orders, or only their product images that aren't ticked yet */}
                 {lateSelected && (
-                    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900 dark:bg-amber-950/40">
-                        <div>
-                            <p className="text-sm font-bold text-amber-900 dark:text-amber-200">⏰ Late orders</p>
-                            <p className="text-xs text-amber-700 dark:text-amber-300/80">
-                                Pending for more than {LATE_AFTER_DAYS} days
-                                {filteredOrders.length > 0 && ` · oldest is ${daysSinceOrdered(filteredOrders[0])} days`}
-                            </p>
-                        </div>
-                        <div role="tablist" className="inline-flex rounded-xl bg-white p-1 shadow-sm ring-1 ring-amber-200 dark:bg-gray-900 dark:ring-amber-900">
-                            {([
-                                ["orders", `Orders (${filteredOrders.length})`],
-                                ["images", `🖼️ Late images (${lateImageItems.length})`],
-                            ] as const).map(([view, label]) => (
-                                <button
-                                    key={view}
-                                    type="button"
-                                    role="tab"
-                                    aria-selected={lateView === view}
-                                    onClick={() => setLateView(view)}
-                                    className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
-                                        lateView === view
-                                            ? "bg-amber-500 text-white shadow-sm"
-                                            : "text-amber-800 hover:bg-amber-100 dark:text-amber-200 dark:hover:bg-amber-900/50"
-                                    }`}
-                                >
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                    <LateBar
+                        orderCount={filteredOrders.length}
+                        imageCount={lateImageItems.length}
+                        oldestDays={filteredOrders.length > 0 ? daysSinceOrdered(filteredOrders[0]) : null}
+                        view={lateView}
+                        onView={setLateView}
+                    />
                 )}
 
                 {/* Orders List */}
