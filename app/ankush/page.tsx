@@ -15,14 +15,18 @@ import OrderCardAnkush from "./OrderCardAnkush";
 import Cookies from "js-cookie";
 import OrdersStatsAnkush from "./OrdersStatsAnkush";
 import ClickableTiles from "@/components/ClickableTiles";
+import ProductGalleryAnkush from "./ProductGalleryAnkush";
 
 interface Order {
     id: string;
     [key: string]: any;
 }
 
-type SortOption = "latest" | "oldest" | "delivered";
-type AllTimeSortOption = "latest" | "oldest" | "delivered";
+type SortOption = "latest" | "oldest" | "delivered" | "images";
+type AllTimeSortOption = "latest" | "oldest" | "delivered" | "images";
+
+const orderMatchesSearch = (o: Order, search: string) =>
+    o.name?.toLowerCase().includes(search.toLowerCase()) || o.mobile?.includes(search);
 
 function buildAvailableMonths(): { month: number; year: number; label: string }[] {
     const now = new Date();
@@ -59,6 +63,9 @@ export default function Ankush() {
     const [allDeliveredLoading, setAllDeliveredLoading] = useState(false);
 
     const [currentMonthDeliveredOrders, setCurrentMonthDeliveredOrders] = useState<Order[]>([]);
+
+    // Every order ever placed — loaded only when the all-time Product Images view is opened
+    const [allOrders, setAllOrders] = useState<Order[] | null>(null);
 
     const PASSWORD = "5555";
     const COOKIE_NAME = "admin_access";
@@ -101,6 +108,17 @@ export default function Ankush() {
             setAllRecentDeliveredOrders([]);
         } finally {
             setAllDeliveredLoading(false);
+        }
+    }, []);
+
+    // ── Fetch every order, for the all-time Product Images view ───────────────
+    const fetchAllOrders = useCallback(async () => {
+        try {
+            const snap = await getDocs(collection(db, "Confirm Orders"));
+            setAllOrders(snap.docs.map((d) => ({ id: d.id, ...d.data() })) as Order[]);
+        } catch (err) {
+            console.error("Failed to fetch all orders:", err);
+            setAllOrders((prev) => prev ?? []);
         }
     }, []);
 
@@ -184,6 +202,13 @@ export default function Ankush() {
         }
     }, [selectedMonth, allTimeSortOption, allRecentDeliveredOrders.length, fetchAllRecentDeliveredOrders]);
 
+    // Lazy-load the all-time product images
+    useEffect(() => {
+        if (!selectedMonth && allTimeSortOption === "images" && allOrders === null) {
+            fetchAllOrders();
+        }
+    }, [selectedMonth, allTimeSortOption, allOrders, fetchAllOrders]);
+
     useEffect(() => {
         const cookie = Cookies.get(COOKIE_NAME);
         if (cookie === PASSWORD) {
@@ -224,14 +249,15 @@ export default function Ankush() {
             if (allTimeSortOption === "delivered") {
                 fetchAllRecentDeliveredOrders(true);
             }
+            if (allTimeSortOption === "images") {
+                fetchAllOrders();
+            }
         }
-    }, [fetchMonthOrders, fetchAllPendingOrders, fetchCurrentMonthDelivered, fetchAllRecentDeliveredOrders, selectedMonth, allTimeSortOption]);
+    }, [fetchMonthOrders, fetchAllPendingOrders, fetchCurrentMonthDelivered, fetchAllRecentDeliveredOrders, fetchAllOrders, selectedMonth, allTimeSortOption]);
 
     // ── filteredOrders — identical logic to admin ─────────────────────────────
     const filteredOrders = useMemo(() => {
-        const matchesSearch = (o: Order) =>
-            o.name?.toLowerCase().includes(search.toLowerCase()) ||
-            o.mobile?.includes(search);
+        const matchesSearch = (o: Order) => orderMatchesSearch(o, search);
 
         if (!selectedMonth) {
             if (allTimeSortOption === "delivered") {
@@ -264,6 +290,13 @@ export default function Ankush() {
                 return [];
         }
     }, [search, sortOption, allTimeSortOption, selectedMonth, monthStatOrders, monthDeliveredOrders, allPendingOrders, allRecentDeliveredOrders]);
+
+    // Product Images view: the selected month's orders, or every order when no month is picked
+    const showGallery = (selectedMonth ? sortOption : allTimeSortOption) === "images";
+    const galleryOrders = useMemo(() => {
+        const source = selectedMonth ? monthStatOrders : allOrders;
+        return source ? source.filter((o) => orderMatchesSearch(o, search)) : null;
+    }, [search, selectedMonth, monthStatOrders, allOrders]);
 
     const isLoading = !selectedMonth
         ? (allTimeSortOption === "delivered" ? allDeliveredLoading : allPendingLoading)
@@ -304,7 +337,7 @@ export default function Ankush() {
                 {/* Sort Buttons — All Pending (All Time) view */}
                 {!selectedMonth && (
                     <div className="flex flex-wrap items-center gap-2 mb-6">
-                        {(["oldest", "latest", "delivered"] as AllTimeSortOption[]).map((option) => (
+                        {(["oldest", "latest", "delivered", "images"] as AllTimeSortOption[]).map((option) => (
                             <button
                                 key={option}
                                 className={`px-4 py-2 rounded-xl border ${
@@ -317,6 +350,7 @@ export default function Ankush() {
                                 {option === "oldest" && "Oldest First"}
                                 {option === "latest" && "Latest First"}
                                 {option === "delivered" && "Delivered Orders"}
+                                {option === "images" && "🖼️ Product Images"}
                             </button>
                         ))}
                         {allTimeSortOption === "delivered" && (
@@ -328,7 +362,7 @@ export default function Ankush() {
                 {/* Sort Buttons — Monthly view */}
                 {selectedMonth && (
                     <div className="flex flex-wrap items-center gap-2 mb-6">
-                        {(["oldest", "latest", "delivered"] as SortOption[]).map((option) => (
+                        {(["oldest", "latest", "delivered", "images"] as SortOption[]).map((option) => (
                             <button
                                 key={option}
                                 className={`px-4 py-2 rounded-xl border ${
@@ -341,23 +375,28 @@ export default function Ankush() {
                                 {option === "oldest" && "Oldest First"}
                                 {option === "latest" && "Latest First"}
                                 {option === "delivered" && "Delivered Orders"}
+                                {option === "images" && "🖼️ Product Images"}
                             </button>
                         ))}
                     </div>
                 )}
 
-                {/* Orders List */}
-                <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredOrders.length > 0 ? (
-                        filteredOrders.map((order) => (
-                            <OrderCardAnkush key={order.id} order={order} refresh={refresh} />
-                        ))
-                    ) : (
-                        <p className="text-center col-span-full text-gray-500 dark:text-gray-400 mt-10">
-                            No orders found.
-                        </p>
-                    )}
-                </div>
+                {/* Product Images / Orders List */}
+                {showGallery ? (
+                    <ProductGalleryAnkush orders={galleryOrders} />
+                ) : (
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {filteredOrders.length > 0 ? (
+                            filteredOrders.map((order) => (
+                                <OrderCardAnkush key={order.id} order={order} refresh={refresh} />
+                            ))
+                        ) : (
+                            <p className="text-center col-span-full text-gray-500 dark:text-gray-400 mt-10">
+                                No orders found.
+                            </p>
+                        )}
+                    </div>
+                )}
             </div>
 
             {!accessGranted && (

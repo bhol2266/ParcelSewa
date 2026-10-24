@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { updateDoc, doc, deleteDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { parseFlatCommission } from "@/lib/commission";
+import PositionTag from "./PositionTag";
 
 interface OrderProps {
     order: any;
@@ -11,6 +12,9 @@ interface OrderProps {
 }
 
 const DELETE_PASSWORD = "5555";
+
+// Editing is switched off on this page; flip to true to bring the Edit Order button back.
+const EDITING_ENABLED = false;
 
 export default function OrderCardAnkush({ order, refresh }: OrderProps) {
     const [isEditing, setIsEditing] = useState(false);
@@ -237,18 +241,21 @@ export default function OrderCardAnkush({ order, refresh }: OrderProps) {
                                 const qty = editData.productItems?.[i]?.quantity ?? "1";
                                 return (
                                     <div key={i} className="flex gap-2 items-center">
-                                        <input
-                                            className="flex-1 border p-2 rounded-md"
-                                            value={url}
-                                            onChange={(e) => {
-                                                const updatedUrls = [...editData.productUrls];
-                                                updatedUrls[i] = e.target.value;
-                                                const updatedItems = [...(editData.productItems || editData.productUrls.map((u: string, idx: number) => ({ url: u, quantity: editData.productItems?.[idx]?.quantity ?? "1" })))];
-                                                updatedItems[i] = { ...updatedItems[i], url: e.target.value };
-                                                setEditData({ ...editData, productUrls: updatedUrls, productItems: updatedItems });
-                                            }}
-                                            placeholder={`Product ${i + 1}`}
-                                        />
+                                        <div className="relative min-w-0 flex-1">
+                                            <PositionTag n={i + 1} className="-top-[5px] left-2.5 h-[13px] text-[9px] leading-none" />
+                                            <input
+                                                className="w-full border p-2 rounded-md"
+                                                value={url}
+                                                onChange={(e) => {
+                                                    const updatedUrls = [...editData.productUrls];
+                                                    updatedUrls[i] = e.target.value;
+                                                    const updatedItems = [...(editData.productItems || editData.productUrls.map((u: string, idx: number) => ({ url: u, quantity: editData.productItems?.[idx]?.quantity ?? "1" })))];
+                                                    updatedItems[i] = { ...updatedItems[i], url: e.target.value };
+                                                    setEditData({ ...editData, productUrls: updatedUrls, productItems: updatedItems });
+                                                }}
+                                                placeholder={`Product ${i + 1}`}
+                                            />
+                                        </div>
                                         <div className="flex flex-col items-center">
                                             <span className="text-xs text-gray-500 mb-0.5">Qty</span>
                                             <input
@@ -411,6 +418,7 @@ export default function OrderCardAnkush({ order, refresh }: OrderProps) {
                                                     decoding="async"
                                                     className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                                                 />
+                                                <PositionTag n={i + 1} className="left-1 top-1 py-0.5 text-[10px]" />
                                                 {qty && (
                                                     <span className="absolute bottom-1 right-1 bg-black/70 text-white text-xs font-bold px-2 py-0.5 rounded-full">
                                                         ×{qty}
@@ -424,12 +432,14 @@ export default function OrderCardAnkush({ order, refresh }: OrderProps) {
                         </details>
 
                         <div className="flex gap-3 mt-3">
-                            <button
-                                className="flex-1 py-2 rounded-md bg-black text-white font-semibold hover:bg-gray-800"
-                                onClick={() => setIsEditing(true)}
-                            >
-                                ✏️ Edit Order
-                            </button>
+                            {EDITING_ENABLED && (
+                                <button
+                                    className="flex-1 py-2 rounded-md bg-black text-white font-semibold hover:bg-gray-800"
+                                    onClick={() => setIsEditing(true)}
+                                >
+                                    ✏️ Edit Order
+                                </button>
+                            )}
                             <button
                                 className="flex-1 py-2 rounded-md bg-yellow-500 text-white font-semibold hover:bg-yellow-600"
                                 onClick={handleCopy}
