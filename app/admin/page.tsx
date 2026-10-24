@@ -17,14 +17,24 @@ import Cookies from "js-cookie";
 import OrdersStats from "./OrdersStats";
 import ClickableTiles from "@/components/ClickableTiles";
 import HomepageOfferControl from "@/components/HomepageOfferControl";
+import LateImages from "./LateImages";
+import { LATE_AFTER_DAYS, daysSinceOrdered, isLateOrder, lateProductImages, orderedMillis } from "@/lib/late-orders";
 
 interface Order {
     id: string;
     [key: string]: any;
 }
 
-type SortOption = "latest" | "oldest" | "delivered" | "errors";
-type AllTimeSortOption = "latest" | "oldest" | "delivered" | "errors";
+type SortOption = "latest" | "oldest" | "delivered" | "errors" | "late";
+type AllTimeSortOption = "latest" | "oldest" | "delivered" | "errors" | "late";
+
+// Look of a sort button: blue when active, amber for the Late section.
+const sortButtonCls = (active: boolean, option: string) =>
+    `px-4 py-2 rounded-xl border shadow-sm transition-all hover:text-white ${
+        active
+            ? option === "late" ? "bg-amber-500 text-white border-amber-500" : "bg-blue-500 text-white"
+            : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600"
+    } ${option === "late" ? "hover:bg-amber-500" : "hover:bg-blue-500"}`;
 
 // ── Build the last 24 months list ─────────────────────────────────────────────
 function buildAvailableMonths(): { month: number; year: number; label: string }[] {
@@ -66,6 +76,9 @@ export default function OrdersPage() {
 
     // ── Month selector state — empty string = "All Pending" default ───────────
     const [selectedMonth, setSelectedMonth] = useState<string>("");
+
+    // Inside the Late section: the late orders themselves, or just their images that aren't ticked yet
+    const [lateView, setLateView] = useState<"orders" | "images">("orders");
  
     const [monthStatOrders, setMonthStatOrders] = useState<Order[]>([]);
     const [monthDeliveredOrders, setMonthDeliveredOrders] = useState<Order[]>([]);
@@ -280,7 +293,9 @@ export default function OrdersPage() {
             return allPendingOrders
                 .filter(matchesSearch)
                 .filter((o) => allTimeSortOption !== "errors" || o.hasError === true)
+                .filter((o) => allTimeSortOption !== "late" || isLateOrder(o))
                 .sort((a, b) => {
+                    if (allTimeSortOption === "late") return orderedMillis(a) - orderedMillis(b);
                     if (allTimeSortOption === "latest") {
                         return (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0);
                     }
@@ -302,6 +317,11 @@ export default function OrdersPage() {
                     .filter(matchesSearch)
                     .filter((o) => o.hasError === true)
                     .sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
+            case "late":
+                return monthStatOrders
+                    .filter(matchesSearch)
+                    .filter((o) => isLateOrder(o))
+                    .sort((a, b) => orderedMillis(a) - orderedMillis(b));
             case "delivered":
                 return monthDeliveredOrders
                     .filter(matchesSearch)
@@ -333,6 +353,18 @@ export default function OrdersPage() {
         if (allTimeSortOption === "errors") setAllTimeSortOption("oldest");
         if (sortOption === "errors") setSortOption("oldest");
     }, [errorCount, allTimeSortOption, sortOption]);
+
+    // The Late section likewise only exists while at least one pending order is older than LATE_AFTER_DAYS.
+    const lateCount = (selectedMonth ? monthStatOrders : allPendingOrders).filter((o) => isLateOrder(o)).length;
+    useEffect(() => {
+        if (lateCount > 0) return;
+        if (allTimeSortOption === "late") setAllTimeSortOption("oldest");
+        if (sortOption === "late") setSortOption("oldest");
+    }, [lateCount, allTimeSortOption, sortOption]);
+
+    // Late section: its orders, and the images of those orders that haven't been ticked as received
+    const lateSelected = (selectedMonth ? sortOption : allTimeSortOption) === "late";
+    const lateImageItems = useMemo(() => (lateSelected ? lateProductImages(filteredOrders) : []), [lateSelected, filteredOrders]);
 
     const isLoading = !selectedMonth
         ? (allTimeSortOption === "delivered" ? allDeliveredLoading : allPendingLoading)
@@ -373,20 +405,17 @@ export default function OrdersPage() {
                 {/* Sort Buttons — All Pending (All Time) view */}
                 {!selectedMonth && (
                     <div className="flex flex-wrap items-center gap-2 mb-6">
-                        {(["oldest", "latest", "delivered", ...(errorCount > 0 ? ["errors"] : [])] as AllTimeSortOption[]).map((option) => (
+                        {(["oldest", "latest", "delivered", ...(errorCount > 0 ? ["errors"] : []), ...(lateCount > 0 ? ["late"] : [])] as AllTimeSortOption[]).map((option) => (
                             <button
                                 key={option}
-                                className={`px-4 py-2 rounded-xl border ${
-                                    allTimeSortOption === option
-                                        ? "bg-blue-500 text-white"
-                                        : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600"
-                                } shadow-sm hover:bg-blue-500 hover:text-white transition-all`}
+                                className={sortButtonCls(allTimeSortOption === option, option)}
                                 onClick={() => setAllTimeSortOption(option)}
                             >
                                 {option === "oldest" && "Oldest First"}
                                 {option === "latest" && "Latest First"}
                                 {option === "delivered" && "Delivered Orders"}
                                 {option === "errors" && `⚠️ Errors (${errorCount})`}
+                                {option === "late" && `⏰ Late (${lateCount})`}
                             </button>
                         ))}
                         {allTimeSortOption === "delivered" && (
@@ -398,30 +427,64 @@ export default function OrdersPage() {
                 {/* Sort Buttons — Monthly view */}
                 {selectedMonth && (
                     <div className="flex flex-wrap items-center gap-2 mb-6">
-                        {(["oldest", "latest", "delivered", ...(errorCount > 0 ? ["errors"] : [])] as SortOption[]).map((option) => (
+                        {(["oldest", "latest", "delivered", ...(errorCount > 0 ? ["errors"] : []), ...(lateCount > 0 ? ["late"] : [])] as SortOption[]).map((option) => (
                             <button
                                 key={option}
-                                className={`px-4 py-2 rounded-xl border ${
-                                    sortOption === option
-                                        ? "bg-blue-500 text-white"
-                                        : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600"
-                                } shadow-sm hover:bg-blue-500 hover:text-white transition-all`}
+                                className={sortButtonCls(sortOption === option, option)}
                                 onClick={() => setSortOption(option)}
                             >
                                 {option === "oldest" && "Oldest First"}
                                 {option === "latest" && "Latest First"}
                                 {option === "delivered" && "Delivered Orders"}
                                 {option === "errors" && `⚠️ Errors (${errorCount})`}
+                                {option === "late" && `⏰ Late (${lateCount})`}
                             </button>
                         ))}
                     </div>
                 )}
 
+                {/* Late section: late orders, or only their product images that aren't ticked yet */}
+                {lateSelected && (
+                    <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900 dark:bg-amber-950/40">
+                        <div>
+                            <p className="text-sm font-bold text-amber-900 dark:text-amber-200">⏰ Late orders</p>
+                            <p className="text-xs text-amber-700 dark:text-amber-300/80">
+                                Pending for more than {LATE_AFTER_DAYS} days
+                                {filteredOrders.length > 0 && ` · oldest is ${daysSinceOrdered(filteredOrders[0])} days`}
+                            </p>
+                        </div>
+                        <div role="tablist" className="inline-flex rounded-xl bg-white p-1 shadow-sm ring-1 ring-amber-200 dark:bg-gray-900 dark:ring-amber-900">
+                            {([
+                                ["orders", `Orders (${filteredOrders.length})`],
+                                ["images", `🖼️ Late images (${lateImageItems.length})`],
+                            ] as const).map(([view, label]) => (
+                                <button
+                                    key={view}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={lateView === view}
+                                    onClick={() => setLateView(view)}
+                                    className={`rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors ${
+                                        lateView === view
+                                            ? "bg-amber-500 text-white shadow-sm"
+                                            : "text-amber-800 hover:bg-amber-100 dark:text-amber-200 dark:hover:bg-amber-900/50"
+                                    }`}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* Orders List */}
+                {lateSelected && lateView === "images" ? (
+                    <LateImages items={lateImageItems} />
+                ) : (
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {globalSearchLoading ? (
+                    {globalSearchLoading && !lateSelected ? (
                         <p className="text-center col-span-full text-gray-400 mt-10">🔍 Searching all orders…</p>
-                    ) : globalSearchResults !== null ? (
+                    ) : globalSearchResults !== null && !lateSelected ? (
                         globalSearchResults.length > 0 ? (
                             <>
                                 <p className="col-span-full text-xs text-blue-600 dark:text-blue-300 font-medium mb-1">
@@ -442,10 +505,11 @@ export default function OrdersPage() {
                         ))
                     ) : (
                         <p className="text-center col-span-full text-gray-500 dark:text-gray-400 mt-10">
-                            {search ? "Searching all orders…" : "No orders found."}
+                            {search && !lateSelected ? "Searching all orders…" : "No orders found."}
                         </p>
                     )}
                 </div>
+                )}
             </div>
 
             {!accessGranted && (

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { updateDoc, doc, deleteDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { parseFlatCommission } from "@/lib/commission";
-import { isOrderAllReceived, isProductChecked, tickTheme } from "@/lib/product-checks";
+import { checkedDateLabel, isOrderAllReceived, isProductChecked, tickTheme } from "@/lib/product-checks";
 
 interface OrderProps {
     order: any;
@@ -425,6 +425,11 @@ export default function OrderCardAnkush({ order, refresh }: OrderProps) {
                                                     decoding="async"
                                                     className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                                                 />
+                                                {showTheme && checkedDateLabel(order, i) && (
+                                                    <span className="absolute bottom-1 left-1 rounded-full bg-green-600/90 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                                                        {checkedDateLabel(order, i)}
+                                                    </span>
+                                                )}
                                                 {qty && (
                                                     <span className="absolute bottom-1 right-1 bg-black/70 text-white text-xs font-bold px-2 py-0.5 rounded-full">
                                                         ×{qty}

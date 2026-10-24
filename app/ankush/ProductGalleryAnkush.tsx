@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import ProductTick from "./ProductTick";
-import { isProductChecked, tickTheme } from "@/lib/product-checks";
+import { checkedDateLabel, isProductChecked, tickTheme } from "@/lib/product-checks";
 
 interface Order {
     id: string;
@@ -18,6 +18,7 @@ interface GalleryItem {
     url: string;
     index: number;
     checked: boolean;
+    checkedOn: string;
     qty: string | null;
     order: Order;
 }
@@ -28,14 +29,6 @@ const SORT_LABELS: Record<GallerySort, string> = {
     oldest: "Oldest",
     latest: "Latest",
     name: "Name A–Z",
-};
-
-// Second sort: groups images by their tick, keeping the order chosen above inside each group.
-type StatusSort = "notReceived" | "received";
-
-const STATUS_LABELS: Record<StatusSort, string> = {
-    notReceived: "Not received",
-    received: "Received",
 };
 
 const createdMillis = (o: Order) => o.createdAt?.toMillis?.() ?? 0;
@@ -62,6 +55,11 @@ function Thumb({ item, onOpen, onToggle }: { item: GalleryItem; onOpen: () => vo
                         onError={() => setFailed(true)}
                         className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
                     />
+                )}
+                {item.checkedOn && (
+                    <span className="absolute bottom-1 left-1 rounded-full bg-green-600/90 px-1.5 py-0.5 text-[10px] font-semibold text-white">
+                        {item.checkedOn}
+                    </span>
                 )}
                 {item.qty && item.qty !== "1" && (
                     <span className="absolute bottom-1 right-1 rounded-full bg-black/70 px-1.5 py-0.5 text-[10px] font-bold text-white">
@@ -141,7 +139,8 @@ function Lightbox({
                     <ProductTick
                         checked={item.checked}
                         onToggle={(checked) => onToggle(order, item.index, checked)}
-                        className="left-3 top-3 h-9 w-9"
+                        className="left-1.5 top-1.5 h-16 w-16 p-1.5"
+                        dotClassName="h-9 w-9"
                     />
                     <button
                         type="button"
@@ -176,6 +175,11 @@ function Lightbox({
                         </a>
                     )}
                     <p><b>Address:</b> {order.address}</p>
+                    {item.checked && (
+                        <p className="font-semibold text-green-700">
+                            ✓ Received{checkedDateLabel(order, item.index, true) && ` on ${checkedDateLabel(order, item.index, true)}`}
+                        </p>
+                    )}
                     <p className="text-xs text-gray-500">
                         {[order.storeName, item.qty && `×${item.qty}`].filter(Boolean).join(" · ")}
                         {(order.storeName || item.qty) && " · "}
@@ -191,7 +195,6 @@ function Lightbox({
 
 export default function ProductGalleryAnkush({ orders, onToggle }: { orders: Order[] | null; onToggle: ToggleProduct }) {
     const [sort, setSort] = useState<GallerySort>("oldest");
-    const [statusSort, setStatusSort] = useState<StatusSort | null>(null);
     const [visible, setVisible] = useState(PAGE_SIZE);
     // Kept by key, not position, so the open image stays put when ticking moves it in the list.
     const [activeKey, setActiveKey] = useState<string | null>(null);
@@ -220,19 +223,17 @@ export default function ProductGalleryAnkush({ orders, onToggle }: { orders: Ord
                     url,
                     index: i,
                     checked: isProductChecked(order, i),
+                    checkedOn: checkedDateLabel(order, i),
                     qty: order.productItems?.[i]?.quantity ?? null,
                     order,
                 });
             });
             if (added) withImages++;
         }
-        if (statusSort) {
-            // Stable sort: images with the same tick keep the order they have above.
-            const rank = (item: GalleryItem) => (item.checked === (statusSort === "received") ? 0 : 1);
-            flat.sort((a, b) => rank(a) - rank(b));
-        }
+        // Not received first, received last; stable, so each group keeps the order chosen above.
+        flat.sort((a, b) => Number(a.checked) - Number(b.checked));
         return { items: flat, orderCount: withImages };
-    }, [orders, sort, statusSort]);
+    }, [orders, sort]);
 
     if (orders === null) {
         return <p className="mt-10 text-center text-gray-500 dark:text-gray-400">Loading images…</p>;
@@ -258,27 +259,6 @@ export default function ProductGalleryAnkush({ orders, onToggle }: { orders: Ord
                         }}
                     >
                         {SORT_LABELS[option]}
-                    </button>
-                ))}
-                <span className="mx-1 h-5 w-px bg-gray-300 dark:bg-gray-600" aria-hidden />
-                {(Object.keys(STATUS_LABELS) as StatusSort[]).map((option) => (
-                    <button
-                        key={option}
-                        aria-pressed={statusSort === option}
-                        title={option === "received" ? "Ticked images first" : "Unticked images first"}
-                        className={`rounded-lg border px-3 py-1 text-sm ${
-                            statusSort === option
-                                ? option === "received"
-                                    ? "bg-green-500 text-white border-green-500"
-                                    : "bg-red-500 text-white border-red-500"
-                                : "bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600"
-                        } shadow-sm transition-all ${option === "received" ? "hover:bg-green-500" : "hover:bg-red-500"} hover:text-white`}
-                        onClick={() => {
-                            setStatusSort(statusSort === option ? null : option);
-                            setVisible(PAGE_SIZE);
-                        }}
-                    >
-                        {STATUS_LABELS[option]}
                     </button>
                 ))}
                 <span className="text-xs text-gray-400">
