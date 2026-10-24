@@ -22,6 +22,7 @@ export function calculateAdminQuotation(amountINR: number, rate: CommissionOptio
     `Service & handling (${serviceLabel}): NPR ${serviceNPR.toLocaleString("en-IN")}`, "",
     `*TOTAL = NPR ${totalNPR.toLocaleString("en-IN")}* + courier charge (180/kg)`, "",
     "Product + customs & service handling. Courier charge is additional.",
+    "Estimated delivery time: up to 10 days (can be more in some cases).",
   ].join("\n");
   return { productNPR, serviceNPR, totalNPR, serviceLabel, message };
 }
