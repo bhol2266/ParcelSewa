@@ -48,7 +48,7 @@ function Thumb({ item, onOpen, onToggle }: { item: GalleryItem; onOpen: () => vo
                 onClick={onOpen}
                 title={item.order.name}
                 aria-label={`Open product image of ${item.order.name}`}
-                className={`group relative block aspect-square w-full overflow-hidden rounded-md border bg-gray-100 transition-shadow ${tickTheme(item.checked)}`}
+                className={`group relative block aspect-square w-full overflow-hidden rounded-lg bg-gray-100 transition-colors ${tickTheme(item.checked)}`}
             >
                 {failed ? (
                     <span className="flex h-full w-full items-center justify-center text-xl text-gray-400">🔗</span>
@@ -140,7 +140,7 @@ function Lightbox({
                     <ProductTick
                         checked={item.checked}
                         onToggle={(checked) => onToggle(order, item.index, checked)}
-                        className="left-3 top-3 h-9 w-9 text-xl"
+                        className="left-3 top-3 h-9 w-9"
                     />
                     <button
                         type="button"

@@ -412,7 +412,7 @@ export default function OrderCardAnkush({ order, refresh, onToggleProduct }: Ord
                                                 rel="noopener noreferrer"
                                                 className="group block"
                                             >
-                                                <div className={`relative w-full aspect-square overflow-hidden rounded-md border bg-gray-100 transition-shadow ${showTicks ? tickTheme(checked) : ""}`}>
+                                                <div className={`relative w-full aspect-square overflow-hidden rounded-lg bg-gray-100 transition-colors ${showTicks ? tickTheme(checked) : "border"}`}>
                                                     <img
                                                         src={url}
                                                         alt={`Product ${i + 1}`}
