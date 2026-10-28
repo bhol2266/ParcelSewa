@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase/firebaseClient";
 import { fetchProductPriceViaExtension, fetchStoreImageViaExtension } from "@/lib/extension-client";
 import { expectedTotal } from "@/lib/product-price-parse";
 import { isProductChecked, tickTheme } from "@/lib/product-checks";
+import { logOrderActivity } from "@/lib/order-logs";
 
 interface OrderProps {
     order: any;
@@ -204,6 +205,12 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                 productPageUrls: updatedPageUrls,
                 productItems: updatedItems,
             });
+            if (anySuccess) {
+                await logOrderActivity({
+                    action: "images_fetched", orderId: order.id, before: order,
+                    after: { ...order, productUrls: updatedUrls, productPageUrls: updatedPageUrls, productItems: updatedItems },
+                });
+            }
             setFetchProgress(prev => [...prev, anySuccess ? "💾 Saved! Refreshing in 3s..." : "💾 Saved (no images changed). Refreshing in 3s..."]);
         } catch {
             setFetchProgress(prev => [...prev, "❌ Failed to save to Firestore."]);
@@ -254,6 +261,10 @@ export default function OrderCard({ order, refresh }: OrderProps) {
             const diff = (order.totalAmount || 0) - expected.total;
             await updateDoc(doc(db, "Confirm Orders", order.id), {
                 totalCheck: { expectedTotal: expected.total, inrProducts: inr, nprProducts: expected.npr, commission: expected.commission, diff, items, checkedAt: Timestamp.now() },
+            });
+            await logOrderActivity({
+                action: "price_verified", orderId: order.id, before: order, after: order,
+                details: { orderTotal: order.totalAmount || 0, expectedTotal: expected.total, difference: diff, inrProducts: inr, nprProducts: expected.npr, commission: expected.commission, items },
             });
             refresh(order.id);
         } catch (err) {
@@ -311,6 +322,11 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                 if (!manual) update.hasError = false;
             }
             await updateDoc(doc(db, "Confirm Orders", order.id), update);
+            const { totalCheck: removedCheck, ...rest } = order;
+            await logOrderActivity({
+                action: "error_removed", orderId: order.id, before: order, after: { ...rest, ...update, totalCheck: undefined },
+                details: removedCheck ? { expectedTotal: removedCheck.expectedTotal, orderTotal: order.totalAmount || 0, difference: removedCheck.diff } : undefined,
+            });
             setVerifyMessage("");
             refresh(order.id);
         } catch (err) {
@@ -326,6 +342,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
         setIsCancelling(true);
         try {
             await updateDoc(doc(db, "Confirm Orders", order.id), { deliveryStatus: "cancelled" });
+            await logOrderActivity({ action: "cancelled", orderId: order.id, before: order, after: { ...order, deliveryStatus: "cancelled" } });
             setShowCancelConfirm(false);
             refresh(order.id);
         } catch (err) {
@@ -345,6 +362,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
         setIsDeleting(true);
         try {
             await deleteDoc(doc(db, "Confirm Orders", order.id));
+            await logOrderActivity({ action: "deleted", orderId: order.id, before: order });
             setShowDeleteModal(false);
             refresh(order.id);
         } catch (err) {
@@ -566,6 +584,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                     };
                                     if (editData.deliveryStatus && !editData.deliveryDate) dataToSave.deliveryDate = Timestamp.now();
                                     await updateDoc(doc(db, "Confirm Orders", order.id), dataToSave);
+                                    await logOrderActivity({ action: "edited", orderId: order.id, before: order, after: dataToSave });
                                     setIsEditing(false);
                                     refresh(order.id);
                                 }}>Save</button>
@@ -577,6 +596,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             <button type="button" className="w-full rounded-xl bg-blue-500 py-2 text-sm font-semibold text-white transition hover:bg-blue-600"
                                 onClick={async () => {
                                     await updateDoc(doc(db, "Confirm Orders", order.id), { deliveryStatus: false });
+                                    await logOrderActivity({ action: "cancel_reversed", orderId: order.id, before: order, after: { ...order, deliveryStatus: false } });
                                     setIsEditing(false);
                                     refresh(order.id);
                                 }}>↩️ Reverse Cancellation</button>

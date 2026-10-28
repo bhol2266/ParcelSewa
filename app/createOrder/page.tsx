@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { collection, addDoc, getDocs, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
+import { logOrderActivity } from "@/lib/order-logs";
 import toast, { Toaster } from "react-hot-toast";
 import brands from "@/constants/brands";
 
@@ -105,7 +106,7 @@ const CreateOrder: React.FC = () => {
         try {
             setLoading(true);
 
-            await addDoc(collection(db, "Confirm Orders"), {
+            const newOrder = {
                 name,
                 mobile: `${countryCode}${mobileNumber}`,
                 notes,
@@ -120,7 +121,9 @@ const CreateOrder: React.FC = () => {
                 productUrls: productItems.map((item) => item.url),
                 productItems,
                 createdAt: Timestamp.now(),
-            });
+            };
+            const created = await addDoc(collection(db, "Confirm Orders"), newOrder);
+            await logOrderActivity({ action: "created", orderId: created.id, after: newOrder, page: "createOrder" });
 
             toast.success("Order created successfully!");
 

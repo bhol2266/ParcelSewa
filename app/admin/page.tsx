@@ -367,7 +367,7 @@ export default function OrdersPage() {
 
     return (
         <div className="relative min-h-screen">
-            <ClickableTiles />
+            <ClickableTiles showLogs />
             <div className={`p-3 sm:p-4 ${!accessGranted ? "filter blur-md" : ""}`}>
 
                 <OrdersStats
