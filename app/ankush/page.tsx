@@ -22,6 +22,7 @@ import LateImages, { LateBar, type LateView } from "@/components/LateImages";
 import { isOrderAllReceived, withProductChecked } from "@/lib/product-checks";
 import { daysSinceOrdered, isLateOrder, lateProductImages, orderedMillis } from "@/lib/late-orders";
 import { sortButtonCls } from "@/lib/sort-button";
+import { logOrderActivity } from "@/lib/order-logs";
 
 interface Order {
     id: string;
@@ -256,6 +257,11 @@ export default function Ankush() {
         show(productItems);
         try {
             await updateDoc(doc(db, "Confirm Orders", order.id), { productItems });
+            await logOrderActivity({
+                action: checked ? "product_received" : "product_unreceived", orderId: order.id, page: "ankush",
+                before: order, after: { ...order, productItems },
+                details: { product: index + 1, link: order.productPageUrls?.[index] || order.productUrls?.[index] || "" },
+            });
         } catch (err) {
             console.error("Failed to save product tick:", err);
             show(order.productItems);

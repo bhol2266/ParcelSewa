@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { updateDoc, doc, deleteDoc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { parseFlatCommission } from "@/lib/commission";
+import { logOrderActivity } from "@/lib/order-logs";
 import { checkedDateLabel, isOrderAllReceived, isProductChecked, tickTheme } from "@/lib/product-checks";
 
 interface OrderProps {
@@ -61,6 +62,7 @@ export default function OrderCardAnkush({ order, refresh }: OrderProps) {
             await updateDoc(doc(db, "Confirm Orders", order.id), {
                 deliveryStatus: "cancelled",
             });
+            await logOrderActivity({ action: "cancelled", orderId: order.id, page: "ankush", before: order, after: { ...order, deliveryStatus: "cancelled" } });
             setShowCancelConfirm(false);
             refresh();
         } catch (err) {
@@ -80,6 +82,7 @@ export default function OrderCardAnkush({ order, refresh }: OrderProps) {
         setIsDeleting(true);
         try {
             await deleteDoc(doc(db, "Confirm Orders", order.id));
+            await logOrderActivity({ action: "deleted", orderId: order.id, page: "ankush", before: order });
             setShowDeleteModal(false);
             refresh();
         } catch (err) {
@@ -294,6 +297,7 @@ export default function OrderCardAnkush({ order, refresh }: OrderProps) {
                                         dataToSave.deliveryDate = Timestamp.now();
                                     }
                                     await updateDoc(doc(db, "Confirm Orders", order.id), dataToSave);
+                                    await logOrderActivity({ action: "edited", orderId: order.id, page: "ankush", before: order, after: dataToSave });
                                     setIsEditing(false);
                                     refresh();
                                 }}
@@ -319,6 +323,7 @@ export default function OrderCardAnkush({ order, refresh }: OrderProps) {
                                     await updateDoc(doc(db, "Confirm Orders", order.id), {
                                         deliveryStatus: false,
                                     });
+                                    await logOrderActivity({ action: "cancel_reversed", orderId: order.id, page: "ankush", before: order, after: { ...order, deliveryStatus: false } });
                                     setIsEditing(false);
                                     refresh();
                                 }}

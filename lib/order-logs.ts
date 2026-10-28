@@ -1,4 +1,4 @@
-// Activity log for the admin page: every create, edit, cancel, delete, price check and product change
+// Activity log for the admin and Ankush pages: every create, edit, cancel, delete, price check and product change
 // on an order is written to the "Order Logs" collection. Entries are only ever added, never changed,
 // and the /admin/logs page only reads them.
 import { addDoc, collection, Timestamp } from "firebase/firestore";
@@ -14,7 +14,9 @@ export type LogAction =
     | "deleted"
     | "price_verified"
     | "error_removed"
-    | "images_fetched";
+    | "images_fetched"
+    | "product_received"
+    | "product_unreceived";
 
 export const ACTION_LABEL: Record<LogAction, string> = {
     created: "Order created",
@@ -25,6 +27,8 @@ export const ACTION_LABEL: Record<LogAction, string> = {
     price_verified: "Total verified",
     error_removed: "Price error removed",
     images_fetched: "Product images fetched",
+    product_received: "Product ticked received",
+    product_unreceived: "Product tick removed",
 };
 
 export type ChangeKind = "price" | "customer" | "status" | "other";
@@ -194,7 +198,9 @@ export async function logOrderActivity(opts: {
                 ? `Deleted order of ${ref.name || "customer"} · Rs. ${(Number(ref.totalAmount) || 0).toLocaleString("en-IN")} · ${productsOf(ref).length} products`
                 : action === "created"
                     ? `New order · Rs. ${(Number(ref.totalAmount) || 0).toLocaleString("en-IN")} · ${productsOf(ref).length} products`
-                    : summarize(action, changes, products),
+                    : action === "product_received" || action === "product_unreceived"
+                        ? `${ACTION_LABEL[action]} · product #${details?.product ?? "?"}`
+                        : summarize(action, changes, products),
             changes,
             products: plain(products),
             snapshot: action === "deleted" || action === "created" ? plain(ref) : null,

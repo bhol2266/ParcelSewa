@@ -20,6 +20,8 @@ const ACTION_STYLE: Record<LogAction, { icon: string; cls: string }> = {
     price_verified: { icon: "✓", cls: "bg-violet-50 text-violet-700 ring-violet-200" },
     error_removed: { icon: "✕", cls: "bg-orange-50 text-orange-700 ring-orange-200" },
     images_fetched: { icon: "🤖", cls: "bg-purple-50 text-purple-700 ring-purple-200" },
+    product_received: { icon: "☑️", cls: "bg-teal-50 text-teal-700 ring-teal-200" },
+    product_unreceived: { icon: "⬜", cls: "bg-gray-50 text-gray-700 ring-gray-200" },
 };
 
 // Quick filters on top of the action type: anything that touched prices or products.
@@ -270,7 +272,7 @@ export default function OrderLogsPage() {
                     <div>
                         <Link href="/admin" className="text-xs font-medium text-gray-400 hover:text-gray-600">← Back to orders</Link>
                         <h1 className="mt-1 bg-gradient-to-r from-slate-700 via-blue-600 to-violet-600 bg-clip-text text-3xl font-extrabold tracking-tight text-transparent">Activity Logs</h1>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Every order created, edited, cancelled or deleted from the admin page. Read only.</p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">Every order created, edited, cancelled or deleted from the admin and Ankush pages. Read only.</p>
                     </div>
                     <button type="button" onClick={() => load(null)} disabled={loading}
                         className="rounded-xl bg-white px-3.5 py-2 text-sm font-semibold text-gray-700 shadow-sm ring-1 ring-gray-200 transition hover:bg-gray-50 disabled:opacity-60 dark:bg-gray-900 dark:text-gray-200 dark:ring-gray-700">
@@ -296,7 +298,7 @@ export default function OrderLogsPage() {
                 {loadError && <p className="rounded-xl bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-rose-200">{loadError}</p>}
 
                 {!loading && !loadError && visible.length === 0 && (
-                    <p className="py-10 text-center text-sm text-gray-500">{logs.length ? "No logs match this filter." : "No activity logged yet. Edits made from the admin page will show up here."}</p>
+                    <p className="py-10 text-center text-sm text-gray-500">{logs.length ? "No logs match this filter." : "No activity logged yet. Changes made from the admin and Ankush pages will show up here."}</p>
                 )}
 
                 {groups.map(g => (
