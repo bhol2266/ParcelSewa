@@ -5,7 +5,7 @@ import Link from "next/link";
 import Cookies from "js-cookie";
 import { collection, getDocs, limit, orderBy, query, startAfter, type QueryDocumentSnapshot } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
-import { ADMIN_COOKIE, ADMIN_PASSWORD } from "@/lib/admin-access";
+import { LOGS_COOKIE, LOGS_PASSWORD } from "@/lib/admin-access";
 import { ACTION_LABEL, ORDER_LOGS, showValue, type FieldChange, type LogAction, type LogProduct, type OrderLog } from "@/lib/order-logs";
 
 const PAGE_SIZE = 100;
@@ -182,6 +182,7 @@ function LogEntry({ log }: { log: OrderLog }) {
 export default function OrderLogsPage() {
     const [accessGranted, setAccessGranted] = useState(false);
     const [passwordInput, setPasswordInput] = useState("");
+    const [passwordError, setPasswordError] = useState("");
     const passwordRef = useRef<HTMLInputElement>(null);
 
     const [logs, setLogs] = useState<OrderLog[]>([]);
@@ -193,16 +194,21 @@ export default function OrderLogsPage() {
     const [search, setSearch] = useState("");
 
     useEffect(() => {
-        if (Cookies.get(ADMIN_COOKIE) === ADMIN_PASSWORD) setAccessGranted(true);
+        if (Cookies.get(LOGS_COOKIE) === LOGS_PASSWORD) setAccessGranted(true);
         else setTimeout(() => passwordRef.current?.focus(), 300);
     }, []);
-    useEffect(() => {
-        if (passwordInput === ADMIN_PASSWORD) {
+    // The logs have their own password (not the admin one). It is remembered until the browser closes.
+    const unlock = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (passwordInput === LOGS_PASSWORD) {
             setAccessGranted(true);
             setPasswordInput("");
-            Cookies.set(ADMIN_COOKIE, ADMIN_PASSWORD, { expires: 5, path: "/" });
+            Cookies.set(LOGS_COOKIE, LOGS_PASSWORD, { path: "/" });
+        } else {
+            setPasswordError("Wrong password. Try again.");
+            setPasswordInput("");
         }
-    }, [passwordInput]);
+    };
 
     const load = useCallback(async (after: QueryDocumentSnapshot | null) => {
         setLoading(true);
@@ -318,12 +324,16 @@ export default function OrderLogsPage() {
 
             {!accessGranted && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center">
-                    <div className="w-80 rounded-xl bg-white p-8 text-center shadow-lg dark:bg-gray-900">
-                        <h2 className="mb-4 text-2xl font-bold">Admin Access</h2>
-                        <input type="password" placeholder="Enter Password" value={passwordInput} onChange={e => setPasswordInput(e.target.value)}
+                    <form onSubmit={unlock} className="w-80 space-y-3 rounded-xl bg-white p-8 text-center shadow-lg dark:bg-gray-900">
+                        <h2 className="text-2xl font-bold">🔒 Activity Logs</h2>
+                        <p className="text-sm text-gray-500">Enter the logs password to continue.</p>
+                        <input type="password" placeholder="Logs password" value={passwordInput} onChange={e => { setPasswordInput(e.target.value); setPasswordError(""); }}
                             className="w-full rounded-md border px-4 py-3 text-center text-lg outline-none focus:ring-2 focus:ring-blue-500"
-                            ref={passwordRef} autoFocus inputMode="numeric" />
-                    </div>
+                            ref={passwordRef} autoFocus autoComplete="off" />
+                        {passwordError && <p className="text-sm font-medium text-red-600">{passwordError}</p>}
+                        <button type="submit" className="w-full rounded-md bg-gray-900 py-2.5 font-semibold text-white transition hover:bg-gray-800">Unlock</button>
+                        <Link href="/admin" className="block text-xs text-gray-400 hover:text-gray-600">← Back to orders</Link>
+                    </form>
                 </div>
             )}
         </div>
