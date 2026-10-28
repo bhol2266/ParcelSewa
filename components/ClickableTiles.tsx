@@ -40,12 +40,13 @@ const ClickableTiles: React.FC<{ showLogs?: boolean }> = ({ showLogs = false }) 
   return (
     <div className={`grid ${showLogs ? "grid-cols-3" : "grid-cols-2"} gap-2 p-2 sm:gap-3 sm:p-3`}>
       {shown.map((tile) => (
-        <Link key={tile.title} href={tile.href}>
+        <Link key={tile.title} href={tile.href} className={showLogs ? "block h-full" : undefined}>
           <div
-            className={`flex flex-col items-center justify-center px-2 py-3 rounded-xl shadow-md hover:scale-[1.02] transform transition duration-300 cursor-pointer ${tile.bg} text-white`}
+            className={`flex flex-col items-center justify-center px-2 py-3 rounded-xl shadow-md hover:scale-[1.02] transform transition duration-300 cursor-pointer ${tile.bg} text-white ${showLogs ? "h-full text-center" : ""}`}
           >
             {tile.icon}
-            <h2 className="mt-1.5 text-base font-semibold">{tile.title}</h2>
+            {/* Three tiles share a phone's width, so their labels shrink and every tile keeps the same height. */}
+            <h2 className={showLogs ? "mt-1.5 text-sm font-semibold leading-tight sm:text-base" : "mt-1.5 text-base font-semibold"}>{tile.title}</h2>
           </div>
         </Link>
       ))}
