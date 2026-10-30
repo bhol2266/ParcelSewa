@@ -286,7 +286,6 @@ export default function StatsPage() {
                             className="w-full rounded-md border px-4 py-3 text-center text-lg outline-none focus:ring-2 focus:ring-blue-500"
                             ref={passwordRef}
                             autoFocus
-                            inputMode="numeric"
                         />
                     </div>
                 </div>

@@ -493,7 +493,6 @@ export default function OrdersPage() {
                             className="w-full px-4 py-3 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-center text-lg"
                             ref={passwordInputRef}
                             autoFocus
-                            inputMode="numeric"
                         />
                     </div>
                 </div>
