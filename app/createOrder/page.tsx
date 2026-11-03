@@ -91,6 +91,22 @@ const CreateOrder: React.FC = () => {
         setUploading(false);
     };
 
+    // Ctrl+V of a screenshot or copied image uploads it; pasting text behaves normally.
+    useEffect(() => {
+        const onPaste = (e: ClipboardEvent) => {
+            const images = Array.from(e.clipboardData?.files || []).filter((f) => f.type.startsWith("image/"));
+            if (images.length === 0) return;
+            e.preventDefault();
+            const list = new DataTransfer();
+            images.forEach((f, i) =>
+                list.items.add(f.name && f.name !== "image.png" ? f : new File([f], `pasted-${Date.now()}-${i}.png`, { type: f.type }))
+            );
+            handleUploadImages(list.files);
+        };
+        window.addEventListener("paste", onPaste);
+        return () => window.removeEventListener("paste", onPaste);
+    });
+
     const handleItemChange = (index: number, field: "url" | "quantity", value: string) => {
         const items = [...productItems];
         items[index] = { ...items[index], [field]: value };
@@ -593,6 +609,7 @@ const CreateOrder: React.FC = () => {
                             className="hidden"
                         />
                     </label>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">or paste an image (Ctrl+V)</span>
                 </div>
 
                 {/* Submit Button */}
