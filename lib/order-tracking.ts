@@ -132,3 +132,51 @@ export const formatDay = (date: Date | null) =>
     date
         ? date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: date.getFullYear() === new Date().getFullYear() ? undefined : "numeric" })
         : "";
+
+export type CustomerProfile = {
+    name: string;
+    initials: string;
+    city: string;
+    memberSince: Date | null;
+    tier: { label: string; next: string | null };
+    orders: number;
+    onTheWay: number;
+    delivered: number;
+    items: number;
+    spent: number;
+    due: number;
+    stores: string[];
+};
+
+// A customer's summary across all their orders, for the profile card on /trackOrder. The name is masked and only the
+// last part of the address (usually the city) is shown, since anyone can type a number in.
+export function customerProfile(orders: any[]): CustomerProfile {
+    const live = orders.filter((o) => !isCancelled(o));
+    const latest = orders[0] ?? {};
+    const parts = (latest.name ?? "").trim().split(/\s+/).filter(Boolean);
+    const dates = orders.map(orderDate).filter((d): d is Date => !!d);
+    const storeCounts = new Map<string, number>();
+    for (const o of live) {
+        const store = String(o.storeName ?? "").trim();
+        if (store) storeCounts.set(store, (storeCounts.get(store) ?? 0) + 1);
+    }
+    const count = live.length;
+    const tier = count >= 10 ? { label: "Loyal customer", next: null }
+        : count >= 3 ? { label: "Regular customer", next: `${10 - count} more order${10 - count === 1 ? "" : "s"} to Loyal` }
+            : { label: "New customer", next: `${3 - count} more order${3 - count === 1 ? "" : "s"} to Regular` };
+
+    return {
+        name: maskName(latest.name),
+        initials: (parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] ?? "C").slice(0, 2)).toUpperCase(),
+        city: String(latest.address ?? "").split(",").map((s: string) => s.trim()).filter(Boolean).at(-1) ?? "",
+        memberSince: dates.length ? new Date(Math.min(...dates.map((d) => d.getTime()))) : null,
+        tier,
+        orders: orders.length,
+        onTheWay: live.filter((o) => !isDelivered(o)).length,
+        delivered: live.filter(isDelivered).length,
+        items: live.reduce((sum, o) => sum + orderProducts(o).reduce((n, p) => n + (Number(p.quantity) || 1), 0), 0),
+        spent: live.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0),
+        due: live.filter((o) => !isDelivered(o)).reduce((sum, o) => sum + Math.max((Number(o.totalAmount) || 0) - (Number(o.advancePayment) || 0), 0), 0),
+        stores: [...storeCounts.entries()].sort((a, b) => b[1] - a[1]).map(([s]) => s).slice(0, 4),
+    };
+}

@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { collection, getDocs, query, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import WhatsAppLink from "@/components/WhatsAppLink";
-import { formatDay, groupProducts, isCancelled, isDelivered, maskName, orderDate, orderProducts, type Leg, type ProductTracking, type TrackingStep } from "@/lib/order-tracking";
-import { ArrowPathIcon, CheckIcon, ChevronDownIcon, MagnifyingGlassIcon, MapPinIcon, ShoppingBagIcon, TruckIcon, XCircleIcon } from "@heroicons/react/24/outline";
+import { customerProfile, formatDay, groupProducts, isCancelled, isDelivered, orderDate, orderProducts, type Leg, type ProductTracking, type TrackingStep } from "@/lib/order-tracking";
+import { ArrowPathIcon, CalendarDaysIcon, CheckIcon, ChevronDownIcon, MagnifyingGlassIcon, MapPinIcon, PhoneIcon, ShoppingBagIcon, SparklesIcon, TruckIcon, XCircleIcon } from "@heroicons/react/24/outline";
 import { CheckBadgeIcon } from "@heroicons/react/24/solid";
 
 const LAST_NUMBER_KEY = "parcelsewa:track-mobile";
@@ -127,17 +127,19 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                 )}
                 {status === "done" && orders.length > 0 && (
                     <>
-                        <Panel className="flex flex-wrap items-center justify-between gap-4 !py-5">
-                            <div>
-                                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--store-text)]">Namaste</p>
-                                <p className="text-xl font-bold">{maskName(orders[0].name)}</p>
-                            </div>
-                            <div className="flex gap-2 text-center">
-                                <Stat value={active.length} label="On the way" tone="amber" />
-                                <Stat value={past.filter(isDelivered).length} label="Delivered" tone="green" />
-                                <Stat value={orders.length} label="Total" tone="slate" />
-                            </div>
-                        </Panel>
+                        <ProfileCard
+                            orders={orders}
+                            mobile={searched}
+                            onChangeNumber={() => {
+                                setMobile("");
+                                setStatus("idle");
+                                setOrders([]);
+                                try { localStorage.removeItem(LAST_NUMBER_KEY); } catch {}
+                                window.history.replaceState(null, "", window.location.pathname);
+                                window.scrollTo({ top: 0, behavior: "smooth" });
+                                setTimeout(() => document.getElementById("track-mobile")?.focus(), 300);
+                            }}
+                        />
 
                         {active.length > 0 && (
                             <section className="space-y-4">
@@ -162,6 +164,68 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                     </>
                 )}
             </div>
+        </div>
+    );
+}
+
+// The customer's profile: who they are (masked), how long they've shopped with us, and totals across their orders.
+function ProfileCard({ orders, mobile, onChangeNumber }: { orders: any[]; mobile: string; onChangeNumber: () => void }) {
+    const p = useMemo(() => customerProfile(orders), [orders]);
+    return (
+        <section aria-label="Your profile" className="overflow-hidden rounded-3xl border border-[var(--store-line)] bg-[var(--store-paper)] shadow-lg shadow-black/5">
+            <div className="flex flex-wrap items-center gap-4 p-5 sm:p-6">
+                <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#f48b28] to-[#c85b13] text-xl font-bold text-white shadow-md shadow-[#f48b28]/30">
+                    {p.initials}
+                </div>
+                <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-[var(--store-text)]">Namaste</p>
+                    <p className="truncate text-xl font-bold">{p.name}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--store-text)]">
+                        <span className="inline-flex items-center gap-1"><PhoneIcon className="size-3.5" aria-hidden />+977 {mobile}</span>
+                        {p.city && <span className="inline-flex items-center gap-1"><MapPinIcon className="size-3.5" aria-hidden />{p.city}</span>}
+                        {p.memberSince && <span className="inline-flex items-center gap-1"><CalendarDaysIcon className="size-3.5" aria-hidden />Since {p.memberSince.toLocaleDateString("en-GB", { month: "short", year: "numeric" })}</span>}
+                    </div>
+                </div>
+                <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:flex-col sm:items-end">
+                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-[#f48b28]/12 px-3 py-1 text-xs font-bold text-[#c85b13] ring-1 ring-[#f48b28]/30 dark:text-[#ffab68]">
+                        <SparklesIcon className="size-3.5" aria-hidden />{p.tier.label}
+                    </span>
+                    <button type="button" onClick={onChangeNumber} className="whitespace-nowrap text-xs font-semibold text-[var(--store-text)] underline-offset-2 hover:text-[var(--store-ink)] hover:underline">
+                        Not you? Change number
+                    </button>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-3 border-t border-[var(--store-line)] sm:grid-cols-6">
+                <ProfileStat label="Orders" value={p.orders} />
+                <ProfileStat label="On the way" value={p.onTheWay} tone="amber" />
+                <ProfileStat label="Delivered" value={p.delivered} tone="green" />
+                <ProfileStat label="Items bought" value={p.items} />
+                <ProfileStat label="Total shopped" value={`Rs. ${p.spent.toLocaleString("en-IN")}`} />
+                <ProfileStat label="Due now" value={`Rs. ${p.due.toLocaleString("en-IN")}`} tone={p.due > 0 ? "amber" : "green"} />
+            </div>
+
+            {(p.stores.length > 0 || p.tier.next) && (
+                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--store-line)] bg-[var(--store-soft)]/60 px-5 py-3 sm:px-6">
+                    {p.stores.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--store-text)]">Favourite stores</span>
+                            {p.stores.map((s) => <span key={s} className="rounded-full border border-[var(--store-line)] bg-[var(--store-paper)] px-2.5 py-0.5 text-xs font-medium">{s}</span>)}
+                        </div>
+                    )}
+                    {p.tier.next && <span className="text-[11px] text-[var(--store-text)]">{p.tier.next}</span>}
+                </div>
+            )}
+        </section>
+    );
+}
+
+function ProfileStat({ label, value, tone = "slate" }: { label: string; value: string | number; tone?: "amber" | "green" | "slate" }) {
+    const color = { amber: "text-[#c85b13] dark:text-[#ffab68]", green: "text-emerald-600 dark:text-emerald-400", slate: "text-[var(--store-ink)]" }[tone];
+    return (
+        <div className="border-b border-r border-[var(--store-line)] px-3 py-3 text-center [&:nth-child(3n)]:border-r-0 [&:nth-last-child(-n+3)]:border-b-0 sm:border-b-0 sm:[&:nth-child(3n)]:border-r sm:last:border-r-0">
+            <p className={`truncate text-base font-bold sm:text-lg ${color}`}>{value}</p>
+            <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--store-text)]">{label}</p>
         </div>
     );
 }
@@ -351,16 +415,6 @@ function StatusBadge({ cancelled, delivered }: { cancelled: boolean; delivered: 
             ? ["Delivered", "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"]
             : ["In transit", "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"];
     return <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${cls}`}>{label}</span>;
-}
-
-function Stat({ value, label, tone }: { value: number; label: string; tone: "amber" | "green" | "slate" }) {
-    const color = { amber: "text-[#c85b13] dark:text-[#ffab68]", green: "text-emerald-600 dark:text-emerald-400", slate: "text-[var(--store-ink)]" }[tone];
-    return (
-        <div className="min-w-[70px] rounded-2xl bg-[var(--store-soft)] px-3 py-2">
-            <p className={`text-xl font-bold ${color}`}>{value}</p>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--store-text)]">{label}</p>
-        </div>
-    );
 }
 
 function Money({ label, value, highlight = false }: { label: string; value: number; highlight?: boolean }) {
