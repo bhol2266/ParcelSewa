@@ -21,6 +21,15 @@ const MATCH_VISIBLE_MS = 5000;
 const MATCH_FRESH_MS = 30000;
 const matchFirstShown = new Map<string, number>();
 
+// Splits a 10-digit Nepali number as 984 157 2338 so it's easier to read and write down.
+const spacedLocal = (digits: string) => digits.replace(/^(\d{3})(\d{3})(\d{4})$/, "$1 $2 $3");
+const spacedMobile = (mobile: string) => {
+    const digits = String(mobile).replace(/\D/g, "");
+    if (digits.length === 13 && digits.startsWith("977")) return `+977 ${spacedLocal(digits.slice(3))}`;
+    if (digits.length === 10) return spacedLocal(digits);
+    return String(mobile);
+};
+
 const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
     <div className="space-y-1">
         <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -153,7 +162,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
     };
 
     const handleCopy = () => {
-        const text = `${order.name}\nMobile: ${order.mobile.replace("+977", "")}\n ${order.address}`;
+        const text = `${order.name}\nMobile: ${spacedMobile(order.mobile).replace(/^\+977 /, "")}\n ${order.address}`;
         navigator.clipboard.writeText(text);
     };
 
@@ -653,7 +662,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
                                 <path d="M17.5 14.4c-.3-.2-1.7-.9-2-1s-.5-.2-.7.1-.8 1-.9 1.2-.4.2-.7 0a8 8 0 01-2.4-1.5 9 9 0 01-1.6-2c-.2-.4 0-.5.1-.7l.5-.6.4-.6v-.6l-1-2.3c-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.6.1-.9.4-.3.4-1.2 1.2-1.2 2.8s1.2 3.3 1.4 3.5 2.4 3.6 5.7 5c3.3 1.3 3.3.9 3.9.8s1.7-.7 2-1.4.3-1.3.2-1.4zM12 2a10 10 0 00-8.6 15L2 22l5.1-1.3A10 10 0 1012 2z" />
                             </svg>
-                            <span className="truncate">{order.mobile}</span>
+                            <span className="truncate">{spacedMobile(order.mobile)}</span>
                         </button>
 
                         {/* ── Address ── */}
