@@ -7,7 +7,7 @@ import { fetchProductPriceViaExtension, fetchStoreImageViaExtension } from "@/li
 import { expectedTotal } from "@/lib/product-price-parse";
 import { isProductChecked, tickTheme } from "@/lib/product-checks";
 import { logOrderActivity } from "@/lib/order-logs";
-import { PRODUCT_IMAGE_ACCEPT, pastedImages, uploadProductImages } from "@/lib/upload-product-image";
+import { pastedImages, uploadProductImages } from "@/lib/upload-product-image";
 
 interface OrderProps {
     order: any;
@@ -553,15 +553,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             <div className="flex justify-between items-center">
                                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Product URLs</p>
                                 <div className="flex items-center gap-1.5">
-                                <label title="Upload an image, or paste one with Ctrl+V"
-                                    className={`rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700 ring-1 ring-blue-200 transition ${isUploading ? "cursor-wait opacity-60" : "cursor-pointer hover:bg-blue-100"}`}>
-                                    {isUploading ? "Uploading…" : "+ Upload image"}
-                                    <input type="file" accept={PRODUCT_IMAGE_ACCEPT} multiple disabled={isUploading} className="hidden"
-                                        onChange={(e) => {
-                                            handleUploadImages(Array.from(e.target.files || []));
-                                            e.target.value = "";
-                                        }} />
-                                </label>
+                                {isUploading && <span className="text-xs text-gray-500">Uploading pasted image…</span>}
                                 <button type="button" className="rounded-lg bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-200 transition hover:bg-emerald-100"
                                     onClick={() => setEditData({ ...editData, productUrls: [...(editData.productUrls || []), ""], productItems: [...(editData.productItems || []), { url: "", quantity: "1" }] })}>
                                     + Add URL
