@@ -20,7 +20,12 @@ const navigation = [
 export default function Navbar() {
   const pathname = usePathname();
   const inAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
-  const statsActive = pathname.startsWith("/admin/stats");
+  // In admin mode the header links to the other admin pages.
+  const adminLinks = [
+    { name: "Orders", href: "/admin" },
+    { name: "Stats", href: "/admin/stats" },
+    { name: "Upload", href: "/admin/upload" },
+  ].filter((item) => item.href !== pathname);
 
   return (
     <Disclosure as="header" className="site-header">
@@ -31,7 +36,7 @@ export default function Navbar() {
             {navigation.map((item) => <Link key={item.href} href={item.href} aria-current={pathname === item.href ? "page" : undefined} className={pathname === item.href ? "active" : ""}>{item.name}{item.href === "/offers" && <span className="nav-dot" aria-hidden="true" />}</Link>)}
           </nav>
           <div className="header-actions">
-            {inAdmin && <Link className="admin-navigation" href={statsActive ? "/admin" : "/admin/stats"}>{statsActive ? "Orders" : "Stats"}</Link>}
+            {inAdmin && adminLinks.map((item) => <Link key={item.href} className="admin-navigation" href={item.href}>{item.name}</Link>)}
             <ThemeToggle />
             <Link href="/order" className="header-order">Start an order <ArrowUpRightIcon className="size-4" aria-hidden="true" /></Link>
             <Disclosure.Button className="mobile-menu-button" aria-label={open ? "Close navigation menu" : "Open navigation menu"}>{open ? <XMarkIcon /> : <Bars3Icon />}</Disclosure.Button>
