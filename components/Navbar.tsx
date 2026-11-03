@@ -13,6 +13,7 @@ const navigation = [
   { name: "How it works", href: "/#how-it-works" },
   { name: "Festival picks", href: "/offers" },
   { name: "Price calculator", href: "/price-calculator" },
+  { name: "Track order", href: "/trackOrder" },
   { name: "FAQs", href: "/faqs" },
 ];
 const hiddenPaths = ["/huggai-delete-account", "/huggai-privacy-policy", "/vixoai-delete-account", "/vixoai-privacy-policy"];
