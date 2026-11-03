@@ -233,7 +233,7 @@ function OrderCard({ order, defaultOpen = false, compact = false }: { order: any
     return (
         <article className={`overflow-hidden rounded-2xl border border-[var(--store-line)] bg-[var(--store-paper)] shadow-sm transition ${open ? "shadow-lg" : "hover:shadow-md"}`}>
             <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center gap-3 p-4 text-left sm:gap-4">
-                <Thumbs images={products.map((p) => p.image)} />
+                {products.length <= 1 && <Thumbs images={products.map((p) => p.image)} />}
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-bold">#{order.id.slice(0, 6).toUpperCase()}</span>
@@ -251,6 +251,8 @@ function OrderCard({ order, defaultOpen = false, compact = false }: { order: any
                 </div>
                 <ChevronDownIcon className={`size-5 shrink-0 text-[var(--store-text)] transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
             </button>
+
+            {products.length > 1 && <ProductStrip products={products} />}
 
             {!compact && !cancelled && headline && <div className="px-4 pb-4"><RouteBar tracking={headline} /></div>}
 
@@ -374,6 +376,20 @@ function TimelineStep({ step, last }: { step: TrackingStep; last: boolean }) {
                 </p>}
             </div>
         </li>
+    );
+}
+
+// Every product in the order, in a row that scrolls sideways on small screens; tapping one opens the full image.
+function ProductStrip({ products }: { products: { index: number; image: string; quantity: string }[] }) {
+    return (
+        <div className="-mt-1 flex gap-2 overflow-x-auto px-4 pb-4 [scrollbar-width:thin]">
+            {products.map((p) => (
+                <a key={p.index} href={p.image} target="_blank" rel="noopener noreferrer" className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-[var(--store-soft)] ring-1 ring-[var(--store-line)] transition hover:ring-2 hover:ring-[#f48b28]">
+                    <img src={p.image} alt={`Product ${p.index + 1}`} loading="lazy" className="h-full w-full object-cover" />
+                    {p.quantity !== "1" && <span className="absolute bottom-0.5 right-0.5 rounded-full bg-black/70 px-1.5 text-[10px] font-bold text-white">×{p.quantity}</span>}
+                </a>
+            ))}
+        </div>
     );
 }
 
