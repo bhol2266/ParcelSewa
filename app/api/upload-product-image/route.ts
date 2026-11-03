@@ -42,14 +42,32 @@ export async function POST(req: NextRequest) {
         region: "auto",
     });
 
-    const res = await r2.fetch(`${R2_ENDPOINT}/${R2_BUCKET}/${key}`, {
-        method: "PUT",
-        body: await file.arrayBuffer(),
-        headers: { "Content-Type": file.type },
-    });
-    if (!res.ok) {
-        console.error("R2 upload failed", res.status, await res.text());
-        return NextResponse.json({ error: "Upload to storage failed." }, { status: 502 });
+    const body = await file.arrayBuffer();
+    // aws4fetch already retries R2 5xx replies; this also retries dropped connections.
+    let failure = "";
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+            const res = await r2.fetch(`${R2_ENDPOINT}/${R2_BUCKET}/${key}`, {
+                method: "PUT",
+                body,
+                headers: { "Content-Type": file.type },
+            });
+            if (res.ok) {
+                failure = "";
+                break;
+            }
+            const text = await res.text();
+            // R2 replies with S3-style XML, e.g. <Code>SignatureDoesNotMatch</Code>.
+            failure = `${res.status} ${text.match(/<Code>([^<]+)<\/Code>/)?.[1] || ""}`.trim();
+            console.error("R2 upload failed", attempt, failure, text);
+            if (res.status < 500) break;
+        } catch (err) {
+            failure = err instanceof Error ? err.message : String(err);
+            console.error("R2 upload threw", attempt, failure);
+        }
+    }
+    if (failure) {
+        return NextResponse.json({ error: `Upload to storage failed (${failure}). Please try again.` }, { status: 502 });
     }
 
     return NextResponse.json({ url: `${R2_PUBLIC_URL}/${key}` });
