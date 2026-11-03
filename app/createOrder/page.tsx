@@ -36,6 +36,61 @@ const CreateOrder: React.FC = () => {
 
     const handleAddItem = () => setProductItems([...productItems, { url: "", quantity: "1" }]);
 
+    const [uploading, setUploading] = useState(false);
+
+    // Phone photos are often over Vercel's 4.5 MB body limit, so resize to a sensible product-image size first.
+    const shrinkImage = (file: File): Promise<Blob> =>
+        new Promise((resolve) => {
+            if (file.type === "image/gif") return resolve(file);
+            const img = new Image();
+            const src = URL.createObjectURL(file);
+            img.onload = () => {
+                URL.revokeObjectURL(src);
+                const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
+                const canvas = document.createElement("canvas");
+                canvas.width = Math.round(img.width * scale);
+                canvas.height = Math.round(img.height * scale);
+                canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob((blob) => resolve(blob || file), "image/webp", 0.85);
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(src);
+                resolve(file);
+            };
+            img.src = src;
+        });
+
+    const handleUploadImages = async (files: FileList | null) => {
+        if (!files || files.length === 0) return;
+        setUploading(true);
+        const urls: string[] = [];
+        for (const file of Array.from(files)) {
+            try {
+                const body = new FormData();
+                body.append("file", await shrinkImage(file), file.name);
+                const res = await fetch("/api/upload-product-image", { method: "POST", body });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || "Upload failed");
+                urls.push(data.url);
+            } catch (err) {
+                toast.error(`${file.name}: ${err instanceof Error ? err.message : "Upload failed"}`);
+            }
+        }
+        if (urls.length > 0) {
+            setProductItems((prev) => {
+                const items = [...prev];
+                for (const url of urls) {
+                    const empty = items.findIndex((item) => !item.url.trim());
+                    if (empty >= 0) items[empty] = { ...items[empty], url };
+                    else items.push({ url, quantity: "1" });
+                }
+                return items;
+            });
+            toast.success(urls.length === 1 ? "Image uploaded." : `${urls.length} images uploaded.`);
+        }
+        setUploading(false);
+    };
+
     const handleItemChange = (index: number, field: "url" | "quantity", value: string) => {
         const items = [...productItems];
         items[index] = { ...items[index], [field]: value };
@@ -507,13 +562,38 @@ const CreateOrder: React.FC = () => {
                         </div>
                     </div>
                 ))}
-                <button
-                    type="button"
-                    onClick={handleAddItem}
-                    className="mb-4 text-blue-600 dark:text-blue-300 hover:underline text-sm"
-                >
-                    + Add more URL
-                </button>
+                <div className="mb-4 flex items-center gap-4">
+                    <button
+                        type="button"
+                        onClick={handleAddItem}
+                        className="text-blue-600 dark:text-blue-300 hover:underline text-sm"
+                    >
+                        + Add more URL
+                    </button>
+                    <label
+                        className={`text-blue-600 dark:text-blue-300 text-sm flex items-center gap-1.5 ${uploading ? "opacity-60 cursor-wait" : "hover:underline cursor-pointer"}`}
+                    >
+                        {uploading ? (
+                            <>
+                                <span className="h-3.5 w-3.5 border-2 border-current border-t-transparent rounded-full animate-spin"></span>
+                                Uploading…
+                            </>
+                        ) : (
+                            "+ Upload image"
+                        )}
+                        <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                            multiple
+                            disabled={uploading}
+                            onChange={(e) => {
+                                handleUploadImages(e.target.files);
+                                e.target.value = "";
+                            }}
+                            className="hidden"
+                        />
+                    </label>
+                </div>
 
                 {/* Submit Button */}
                 <button
