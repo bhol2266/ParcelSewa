@@ -52,6 +52,21 @@ function writeHistory(items: Upload[]) {
 
 const noSubscribe = () => () => { };
 
+// Reading the clipboard asks the browser for permission the first time; Chrome hands images over as PNG.
+async function readClipboardImages(): Promise<File[]> {
+    const files: File[] = [];
+    for (const item of await navigator.clipboard.read()) {
+        const type = item.types.find((t) => t.startsWith("image/"));
+        if (!type) continue;
+        const blob = await item.getType(type);
+        files.push(new File([blob], `clipboard-${Date.now()}-${files.length}.${type.split("/")[1] || "png"}`, { type }));
+    }
+    return files;
+}
+
+// "unknown" means the page may not look yet (no permission), so the button stays visible.
+type ClipboardState = { status: "unknown" | "image" | "none"; preview?: string };
+
 // The upload finishes after an await, which some browsers treat as outside the click, so fall back to execCommand.
 async function copyText(text: string): Promise<boolean> {
     try {
@@ -82,6 +97,41 @@ export default function UploadImagePage() {
     const [dragging, setDragging] = useState(false);
     const [copiedUrl, setCopiedUrl] = useState("");
     const fileRef = useRef<HTMLInputElement>(null);
+    const [clip, setClip] = useState<ClipboardState>({ status: "unknown" });
+
+    const showClipboard = (next: ClipboardState) =>
+        setClip((prev) => {
+            if (prev.preview && prev.preview !== next.preview) URL.revokeObjectURL(prev.preview);
+            return next;
+        });
+
+    // Looks at the clipboard only when the browser already allows it, so it never pops up a prompt.
+    const checkClipboard = async () => {
+        if (!navigator.clipboard?.read) return showClipboard({ status: "none" });
+        try {
+            const permission = await navigator.permissions.query({ name: "clipboard-read" as PermissionName });
+            if (permission.state === "denied") return showClipboard({ status: "none" });
+            if (permission.state !== "granted" || !document.hasFocus()) return showClipboard({ status: "unknown" });
+            const [image] = await readClipboardImages();
+            showClipboard(image ? { status: "image", preview: URL.createObjectURL(image) } : { status: "none" });
+        } catch {
+            showClipboard({ status: "unknown" });
+        }
+    };
+
+    const pasteFromClipboard = async () => {
+        try {
+            const images = await readClipboardImages();
+            if (images.length === 0) {
+                toast.error("There's no image on the clipboard. Copy one first.");
+                showClipboard({ status: "none" });
+                return;
+            }
+            await handleFiles(images);
+        } catch {
+            toast.error("Clipboard access is blocked. Allow it from the icon in the address bar, or press Ctrl+V.");
+        }
+    };
 
     const handlePassword = (value: string) => {
         if (value === ADMIN_PASSWORD) {
@@ -148,6 +198,8 @@ export default function UploadImagePage() {
         } else {
             await copy(text, label);
         }
+        // The clipboard now holds the link instead of the image.
+        checkClipboard();
     };
 
     // Ctrl+V anywhere on the page uploads a screenshot or an image copied with the mouse.
@@ -162,6 +214,24 @@ export default function UploadImagePage() {
         window.addEventListener("paste", onPaste);
         return () => window.removeEventListener("paste", onPaste);
     });
+
+    // Re-check the clipboard whenever the tab comes back into focus, e.g. after copying an image elsewhere.
+    useEffect(() => {
+        if (!accessGranted) return;
+        const recheck = () => {
+            if (document.visibilityState === "visible") checkClipboard();
+        };
+        const first = setTimeout(recheck, 0);
+        window.addEventListener("focus", recheck);
+        document.addEventListener("visibilitychange", recheck);
+        return () => {
+            clearTimeout(first);
+            window.removeEventListener("focus", recheck);
+            document.removeEventListener("visibilitychange", recheck);
+        };
+        // checkClipboard only touches state setters, so it doesn't need to be a dependency.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [accessGranted]);
 
     const removeFromList = (url: string) => writeHistory(uploads.filter((item) => item.url !== url));
 
@@ -227,6 +297,27 @@ export default function UploadImagePage() {
                         e.target.value = "";
                     }}
                 />
+
+                {clip.status !== "none" && (
+                    <button
+                        type="button"
+                        onClick={pasteFromClipboard}
+                        disabled={uploading > 0}
+                        className={`flex w-full items-center justify-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition disabled:cursor-wait disabled:opacity-60 ${clip.status === "image"
+                            ? "bg-blue-600 text-white shadow-sm hover:bg-blue-700"
+                            : "bg-white text-blue-700 ring-1 ring-blue-200 hover:bg-blue-50 dark:bg-gray-900 dark:text-blue-300 dark:ring-blue-900"
+                            }`}
+                    >
+                        {clip.status === "image" && clip.preview ? (
+                            <img src={clip.preview} alt="" className="h-9 w-9 rounded-md bg-white object-contain" />
+                        ) : (
+                            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} aria-hidden="true">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0 0 13.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 0 1-.75.75H9a.75.75 0 0 1-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 0 1-2.25 2.25H6.75A2.25 2.25 0 0 1 4.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 0 1 1.927-.184" />
+                            </svg>
+                        )}
+                        {clip.status === "image" ? "Paste copied image" : "Paste from clipboard"}
+                    </button>
+                )}
 
                 {uploads.length > 0 && (
                     <div className="space-y-2">
