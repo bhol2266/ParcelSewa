@@ -119,14 +119,6 @@ export function groupProducts(order: any, now = new Date()) {
     return [...groups.values()].sort((a, b) => a.tracking.progress - b.tracking.progress);
 }
 
-// "Bhola Kumar" -> "Bh*** K." so a mistyped number doesn't reveal someone's full name.
-export function maskName(name: string | undefined): string {
-    const parts = (name ?? "").trim().split(/\s+/).filter(Boolean);
-    if (!parts.length) return "Customer";
-    const first = parts[0].length <= 2 ? parts[0] : `${parts[0].slice(0, 2)}${"*".repeat(Math.min(parts[0].length - 2, 3))}`;
-    return parts.length > 1 ? `${first} ${parts[parts.length - 1][0].toUpperCase()}.` : first;
-}
-
 // "Tue, 3 Nov" (with the year when it isn't this year).
 export const formatDay = (date: Date | null) =>
     date
@@ -143,13 +135,12 @@ export type CustomerProfile = {
     onTheWay: number;
     delivered: number;
     items: number;
-    spent: number;
     due: number;
     stores: string[];
 };
 
-// A customer's summary across all their orders, for the profile card on /trackOrder. The name is masked and only the
-// last part of the address (usually the city) is shown, since anyone can type a number in.
+// A customer's summary across all their orders, for the profile card on /trackOrder. Only the last part of the
+// address (usually the city) is shown, since anyone can type a number in.
 export function customerProfile(orders: any[]): CustomerProfile {
     const live = orders.filter((o) => !isCancelled(o));
     const latest = orders[0] ?? {};
@@ -166,7 +157,7 @@ export function customerProfile(orders: any[]): CustomerProfile {
             : { label: "New customer", next: `${3 - count} more order${3 - count === 1 ? "" : "s"} to Regular` };
 
     return {
-        name: maskName(latest.name),
+        name: String(latest.name ?? "").trim() || "Customer",
         initials: (parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : (parts[0] ?? "C").slice(0, 2)).toUpperCase(),
         city: String(latest.address ?? "").split(",").map((s: string) => s.trim()).filter(Boolean).at(-1) ?? "",
         memberSince: dates.length ? new Date(Math.min(...dates.map((d) => d.getTime()))) : null,
@@ -175,7 +166,6 @@ export function customerProfile(orders: any[]): CustomerProfile {
         onTheWay: live.filter((o) => !isDelivered(o)).length,
         delivered: live.filter(isDelivered).length,
         items: live.reduce((sum, o) => sum + orderProducts(o).reduce((n, p) => n + (Number(p.quantity) || 1), 0), 0),
-        spent: live.reduce((sum, o) => sum + (Number(o.totalAmount) || 0), 0),
         due: live.filter((o) => !isDelivered(o)).reduce((sum, o) => sum + Math.max((Number(o.totalAmount) || 0) - (Number(o.advancePayment) || 0), 0), 0),
         stores: [...storeCounts.entries()].sort((a, b) => b[1] - a[1]).map(([s]) => s).slice(0, 4),
     };

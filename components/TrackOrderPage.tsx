@@ -57,6 +57,8 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
 
     const active = orders.filter((o) => !isDelivered(o) && !isCancelled(o));
     const past = orders.filter((o) => isDelivered(o) || isCancelled(o));
+    // Once orders are showing, the hero shrinks to just the search bar so the tracking sits near the top.
+    const showingResults = status !== "idle";
 
     return (
         <div className="min-h-[70vh] bg-[var(--store-soft)] pb-20 text-[var(--store-ink)]">
@@ -64,19 +66,21 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
             <section className="relative overflow-hidden bg-gradient-to-br from-[#062c45] via-[#073856] to-[#0b4b70] text-white">
                 <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-[#f48b28]/20 blur-3xl" />
                 <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-20 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl" />
-                <div className="relative mx-auto w-full max-w-3xl px-4 pb-24 pt-12 sm:px-6 sm:pt-16">
+                <div className={`relative mx-auto w-full max-w-3xl px-4 sm:px-6 ${showingResults ? "pb-16 pt-5 sm:pt-6" : "pb-24 pt-12 sm:pt-16"}`}>
+                    {!showingResults && <>
                     <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[.14em] text-white/80">
                         <TruckIcon className="size-4 text-[#ffab68]" aria-hidden /> India → Nepal tracking
                     </span>
                     <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-5xl">Where&apos;s my order?</h1>
                     <p className="mt-3 max-w-xl text-sm text-white/75 sm:text-base">Enter the mobile number you ordered with to see live tracking and all your ParcelSewa orders.</p>
+                    </>}
 
                     <form
-                        className="mt-7 flex flex-col gap-3 sm:flex-row"
+                        className={`flex gap-2 sm:gap-3 ${showingResults ? "" : "mt-7 flex-col sm:flex-row"}`}
                         onSubmit={(e) => { e.preventDefault(); track(mobile); }}
                     >
                         <label htmlFor="track-mobile" className="sr-only">10-digit mobile number</label>
-                        <div className="flex flex-1 items-center rounded-2xl bg-white p-1.5 shadow-xl shadow-black/20 ring-1 ring-black/5 focus-within:ring-2 focus-within:ring-[#f48b28] dark:bg-[#111c2d]">
+                        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-white p-1.5 shadow-xl shadow-black/20 ring-1 ring-black/5 focus-within:ring-2 focus-within:ring-[#f48b28] dark:bg-[#111c2d]">
                             <span className="flex items-center gap-1.5 rounded-xl bg-[var(--store-soft)] px-3 py-3 text-sm font-semibold text-[var(--store-ink)]">+977</span>
                             <input
                                 id="track-mobile"
@@ -96,17 +100,18 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                         <button
                             type="submit"
                             disabled={!valid || status === "loading"}
-                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#f48b28] px-7 py-4 text-sm font-bold text-[#122235] shadow-lg shadow-[#f48b28]/30 transition hover:bg-[#ffad63] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-60"
+                            aria-label="Track orders"
+                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#f48b28] px-5 py-4 sm:px-7 text-sm font-bold text-[#122235] shadow-lg shadow-[#f48b28]/30 transition hover:bg-[#ffad63] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {status === "loading" ? <ArrowPathIcon className="size-5 animate-spin" aria-hidden /> : <MagnifyingGlassIcon className="size-5" aria-hidden />}
-                            Track orders
+                            <span className={showingResults ? "hidden sm:inline" : ""}>Track orders</span>
                         </button>
                     </form>
                     {mobile && !valid && mobile.length === 10 && <p className="mt-2 text-xs text-[#ffab68]">Nepal mobile numbers start with 9.</p>}
                 </div>
             </section>
 
-            <div className="relative mx-auto -mt-14 w-full max-w-3xl space-y-6 px-4 sm:px-6">
+            <div className={`relative mx-auto w-full max-w-3xl space-y-4 px-4 sm:px-6 ${showingResults ? "-mt-10" : "-mt-14"}`}>
                 {status === "idle" && <HowItWorks />}
                 {status === "loading" && <LoadingCards />}
                 {status === "error" && (
@@ -142,7 +147,7 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                         />
 
                         {active.length > 0 && (
-                            <section className="space-y-4">
+                            <section className="space-y-3">
                                 <SectionTitle>On the way</SectionTitle>
                                 {active.map((o, i) => <OrderCard key={o.id} order={o} defaultOpen={i === 0} />)}
                             </section>
@@ -154,13 +159,10 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                             </section>
                         )}
 
-                        <Panel className="flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
-                            <div>
-                                <p className="font-semibold">Questions about a delivery?</p>
-                                <p className="text-sm text-[var(--store-text)]">Our team replies fastest on WhatsApp.</p>
-                            </div>
-                            <WhatsAppLink>WhatsApp support</WhatsAppLink>
-                        </Panel>
+                        <div className="flex flex-wrap items-center justify-center gap-3 pt-2 text-sm text-[var(--store-text)]">
+                            Questions about a delivery?
+                            <WhatsAppLink className="!min-h-0 !py-2 !text-xs">Chat on WhatsApp</WhatsAppLink>
+                        </div>
                     </>
                 )}
             </div>
@@ -168,26 +170,26 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
     );
 }
 
-// The customer's profile: who they are (masked), how long they've shopped with us, and totals across their orders.
+// The customer's profile: who they are, how long they've shopped with us, and totals across their orders.
 function ProfileCard({ orders, mobile, onChangeNumber }: { orders: any[]; mobile: string; onChangeNumber: () => void }) {
     const p = useMemo(() => customerProfile(orders), [orders]);
     return (
         <section aria-label="Your profile" className="overflow-hidden rounded-3xl border border-[var(--store-line)] bg-[var(--store-paper)] shadow-lg shadow-black/5">
-            <div className="flex flex-wrap items-center gap-4 p-5 sm:p-6">
-                <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#f48b28] to-[#c85b13] text-xl font-bold text-white shadow-md shadow-[#f48b28]/30">
+            <div className="flex flex-wrap items-center gap-3 p-4 sm:gap-4 sm:p-5">
+                <div className="flex size-12 shrink-0 sm:size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#f48b28] to-[#c85b13] text-lg font-bold text-white shadow-md shadow-[#f48b28]/30">
                     {p.initials}
                 </div>
                 <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-[.14em] text-[var(--store-text)]">Namaste</p>
-                    <p className="truncate text-xl font-bold">{p.name}</p>
+                    <p className="truncate text-lg font-bold sm:text-xl"><span className="font-medium text-[var(--store-text)]">Namaste,</span> {p.name}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-[var(--store-text)]">
                         <span className="inline-flex items-center gap-1"><PhoneIcon className="size-3.5" aria-hidden />+977 {mobile}</span>
                         {p.city && <span className="inline-flex items-center gap-1"><MapPinIcon className="size-3.5" aria-hidden />{p.city}</span>}
                         {p.memberSince && <span className="inline-flex items-center gap-1"><CalendarDaysIcon className="size-3.5" aria-hidden />Since {p.memberSince.toLocaleDateString("en-GB", { month: "short", year: "numeric" })}</span>}
+                        {p.stores.length > 0 && <span className="inline-flex items-center gap-1"><ShoppingBagIcon className="size-3.5" aria-hidden />{p.stores.join(", ")}</span>}
                     </div>
                 </div>
                 <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:flex-col sm:items-end">
-                    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-[#f48b28]/12 px-3 py-1 text-xs font-bold text-[#c85b13] ring-1 ring-[#f48b28]/30 dark:text-[#ffab68]">
+                    <span title={p.tier.next ?? undefined} className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full bg-[#f48b28]/12 px-3 py-1 text-xs font-bold text-[#c85b13] ring-1 ring-[#f48b28]/30 dark:text-[#ffab68]">
                         <SparklesIcon className="size-3.5" aria-hidden />{p.tier.label}
                     </span>
                     <button type="button" onClick={onChangeNumber} className="whitespace-nowrap text-xs font-semibold text-[var(--store-text)] underline-offset-2 hover:text-[var(--store-ink)] hover:underline">
@@ -196,26 +198,13 @@ function ProfileCard({ orders, mobile, onChangeNumber }: { orders: any[]; mobile
                 </div>
             </div>
 
-            <div className="grid grid-cols-3 border-t border-[var(--store-line)] sm:grid-cols-6">
+            <div className="grid grid-cols-5 border-t border-[var(--store-line)]">
                 <ProfileStat label="Orders" value={p.orders} />
                 <ProfileStat label="On the way" value={p.onTheWay} tone="amber" />
                 <ProfileStat label="Delivered" value={p.delivered} tone="green" />
-                <ProfileStat label="Items bought" value={p.items} />
-                <ProfileStat label="Total shopped" value={`Rs. ${p.spent.toLocaleString("en-IN")}`} />
-                <ProfileStat label="Due now" value={`Rs. ${p.due.toLocaleString("en-IN")}`} tone={p.due > 0 ? "amber" : "green"} />
+                <ProfileStat label="Items" value={p.items} />
+                <ProfileStat label="Due (Rs.)" value={p.due.toLocaleString("en-IN")} tone={p.due > 0 ? "amber" : "green"} />
             </div>
-
-            {(p.stores.length > 0 || p.tier.next) && (
-                <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--store-line)] bg-[var(--store-soft)]/60 px-5 py-3 sm:px-6">
-                    {p.stores.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1.5">
-                            <span className="mr-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--store-text)]">Favourite stores</span>
-                            {p.stores.map((s) => <span key={s} className="rounded-full border border-[var(--store-line)] bg-[var(--store-paper)] px-2.5 py-0.5 text-xs font-medium">{s}</span>)}
-                        </div>
-                    )}
-                    {p.tier.next && <span className="text-[11px] text-[var(--store-text)]">{p.tier.next}</span>}
-                </div>
-            )}
         </section>
     );
 }
@@ -223,9 +212,9 @@ function ProfileCard({ orders, mobile, onChangeNumber }: { orders: any[]; mobile
 function ProfileStat({ label, value, tone = "slate" }: { label: string; value: string | number; tone?: "amber" | "green" | "slate" }) {
     const color = { amber: "text-[#c85b13] dark:text-[#ffab68]", green: "text-emerald-600 dark:text-emerald-400", slate: "text-[var(--store-ink)]" }[tone];
     return (
-        <div className="border-b border-r border-[var(--store-line)] px-3 py-3 text-center [&:nth-child(3n)]:border-r-0 [&:nth-last-child(-n+3)]:border-b-0 sm:border-b-0 sm:[&:nth-child(3n)]:border-r sm:last:border-r-0">
-            <p className={`truncate text-base font-bold sm:text-lg ${color}`}>{value}</p>
-            <p className="text-[10px] font-medium uppercase tracking-wide text-[var(--store-text)]">{label}</p>
+        <div className="min-w-0 border-r border-[var(--store-line)] px-1 py-2.5 text-center last:border-r-0">
+            <p className={`truncate text-sm font-bold sm:text-lg ${color}`}>{value}</p>
+            <p className="truncate text-[9px] font-medium uppercase tracking-wide text-[var(--store-text)] sm:text-[10px]">{label}</p>
         </div>
     );
 }
@@ -238,14 +227,12 @@ function OrderCard({ order, defaultOpen = false, compact = false }: { order: any
     const delivered = isDelivered(order);
     // The order moves at the pace of its slowest product.
     const headline = groups[0]?.tracking;
-    const total = Number(order.totalAmount) || 0;
-    const paid = Number(order.advancePayment) || 0;
-    const balance = Math.max(total - paid, 0);
+    const due = delivered || cancelled ? 0 : Math.max((Number(order.totalAmount) || 0) - (Number(order.advancePayment) || 0), 0);
     const deliveredOn = delivered ? headline?.steps.at(-1)?.date ?? null : null;
 
     return (
-        <article className={`overflow-hidden rounded-3xl border border-[var(--store-line)] bg-[var(--store-paper)] shadow-sm transition ${open ? "shadow-lg" : "hover:shadow-md"}`}>
-            <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center gap-4 p-4 text-left sm:p-5">
+        <article className={`overflow-hidden rounded-2xl border border-[var(--store-line)] bg-[var(--store-paper)] shadow-sm transition ${open ? "shadow-lg" : "hover:shadow-md"}`}>
+            <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center gap-3 p-4 text-left sm:gap-4">
                 <Thumbs images={products.map((p) => p.image)} />
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -256,33 +243,27 @@ function OrderCard({ order, defaultOpen = false, compact = false }: { order: any
                         {order.storeName ? `${order.storeName} · ` : ""}{products.length} item{products.length === 1 ? "" : "s"} · Ordered {formatDay(orderDate(order))}
                     </p>
                     {!cancelled && headline && (
-                        <p className="mt-1.5 truncate text-sm font-semibold">
+                        <p className="mt-1 truncate text-sm font-semibold">
                             {delivered ? `Delivered ${formatDay(deliveredOn)}` : headline.current.title}
                         </p>
                     )}
+                    {due > 0 && <p className="mt-1 text-xs font-semibold text-[#c85b13] dark:text-[#ffab68]">Due on delivery: Rs. {due.toLocaleString("en-IN")}</p>}
                 </div>
                 <ChevronDownIcon className={`size-5 shrink-0 text-[var(--store-text)] transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
             </button>
 
-            {!compact && !cancelled && headline && <div className="px-4 pb-5 sm:px-5"><RouteBar tracking={headline} /></div>}
+            {!compact && !cancelled && headline && <div className="px-4 pb-4"><RouteBar tracking={headline} /></div>}
 
             {open && (
-                <div className="border-t border-[var(--store-line)] bg-[var(--store-soft)]/60 p-4 sm:p-5">
+                <div className="border-t border-[var(--store-line)] bg-[var(--store-soft)]/60 p-3 sm:p-4">
                     {cancelled ? (
                         <p className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">This order was cancelled. Contact us on WhatsApp if you have any questions about it.</p>
                     ) : (
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                             {compact && headline && <RouteBar tracking={headline} />}
                             {groups.map((g, i) => (
                                 <ProductGroup key={i} images={g.products} tracking={g.tracking} single={groups.length === 1} />
                             ))}
-                        </div>
-                    )}
-                    {total > 0 && (
-                        <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl border border-[var(--store-line)] bg-[var(--store-paper)] p-3 text-center">
-                            <Money label="Order total" value={total} />
-                            <Money label="Paid" value={paid} />
-                            <Money label={delivered ? "Balance" : "Due on delivery"} value={balance} highlight={!delivered && !cancelled && balance > 0} />
                         </div>
                     )}
                 </div>
@@ -296,8 +277,8 @@ function RouteBar({ tracking }: { tracking: ProductTracking }) {
     const reached = legIndex(tracking.leg);
     const pct = Math.round(tracking.progress * 100);
     return (
-        <div className="rounded-2xl bg-gradient-to-br from-[var(--store-soft)] to-[var(--store-paper)] p-4 ring-1 ring-[var(--store-line)]">
-            <div className="relative mx-3 mt-3 h-1.5 rounded-full bg-[var(--store-line)]">
+        <div className="rounded-xl bg-gradient-to-br from-[var(--store-soft)] to-[var(--store-paper)] px-3 pb-2.5 pt-5 ring-1 ring-[var(--store-line)]">
+            <div className="relative mx-3 h-1.5 rounded-full bg-[var(--store-line)]">
                 <div className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[#f48b28] to-emerald-500 transition-all duration-700" style={{ width: `${pct}%` }} />
                 {LEGS.map((l, i) => (
                     <span
@@ -308,17 +289,16 @@ function RouteBar({ tracking }: { tracking: ProductTracking }) {
                 ))}
                 {!tracking.delivered && (
                     <span className="absolute top-1/2 -translate-x-1/2 -translate-y-[130%] transition-all duration-700" style={{ left: `${pct}%` }}>
-                        <span className="flex size-8 items-center justify-center rounded-full bg-[#073856] text-white shadow-lg ring-4 ring-[#f48b28]/25 dark:bg-[#f48b28] dark:text-[#122235]">
+                        <span className="flex size-7 items-center justify-center rounded-full bg-[#073856] text-white shadow-lg ring-4 ring-[#f48b28]/25 dark:bg-[#f48b28] dark:text-[#122235]">
                             <TruckIcon className="size-4" aria-hidden />
                         </span>
                     </span>
                 )}
             </div>
-            <div className="mt-4 grid grid-cols-4 text-center">
+            <div className="mt-3 grid grid-cols-4 text-center">
                 {LEGS.map((l, i) => (
                     <div key={l.leg} className={i === 0 ? "text-left" : i === 3 ? "text-right" : ""}>
                         <p className={`text-xs font-semibold ${i <= reached || tracking.delivered ? "text-[var(--store-ink)]" : "text-[var(--store-text)]/70"}`}>{l.label}</p>
-                        <p className="text-[10px] text-[var(--store-text)]">{l.sub}</p>
                     </div>
                 ))}
             </div>
@@ -331,36 +311,35 @@ function ProductGroup({ images, tracking, single }: { images: { index: number; i
     // Upcoming India sub-steps add noise; show what's happened plus the big milestones still to come.
     const visible = tracking.steps.filter((s) => s.status !== "upcoming" || s.leg !== "india" || s.key === "near-border");
     const doneSteps = visible.filter((s) => s.status !== "upcoming");
-    const collapsed = !showAll && doneSteps.length > 4;
-    // The journey reads top to bottom; older updates fold away so the current step stays near the top.
-    const shown = collapsed ? [...doneSteps.slice(-3), ...visible.filter((s) => s.status === "upcoming")] : visible;
+    const upcoming = visible.filter((s) => s.status === "upcoming");
+    // Folded: the latest update and the next milestone. Unfolded: the whole journey, top to bottom.
+    const shown = showAll ? visible : [...doneSteps.slice(-1), ...upcoming.slice(0, 1)];
 
     return (
-        <div className="rounded-2xl border border-[var(--store-line)] bg-[var(--store-paper)] p-4">
-            <div className="flex items-center gap-3">
-                <div className="flex -space-x-3">
-                    {images.slice(0, 4).map((p) => (
-                        <div key={p.index} className="relative size-14 overflow-hidden rounded-xl border-2 border-[var(--store-paper)] bg-[var(--store-soft)] shadow-sm">
-                            <img src={p.image} alt="" loading="lazy" className="h-full w-full object-cover" />
-                            {p.quantity !== "1" && <span className="absolute bottom-0.5 right-0.5 rounded-full bg-black/70 px-1.5 text-[10px] font-bold text-white">×{p.quantity}</span>}
-                        </div>
-                    ))}
-                    {images.length > 4 && <div className="flex size-14 items-center justify-center rounded-xl border-2 border-[var(--store-paper)] bg-[var(--store-soft)] text-xs font-bold">+{images.length - 4}</div>}
+        <div className="rounded-xl border border-[var(--store-line)] bg-[var(--store-paper)] p-3 sm:p-4">
+            {!single && (
+                <div className="mb-3 flex items-center gap-3">
+                    <div className="flex -space-x-3">
+                        {images.slice(0, 4).map((p) => (
+                            <div key={p.index} className="relative size-10 overflow-hidden rounded-lg border-2 border-[var(--store-paper)] bg-[var(--store-soft)] shadow-sm">
+                                <img src={p.image} alt="" loading="lazy" className="h-full w-full object-cover" />
+                                {p.quantity !== "1" && <span className="absolute bottom-0 right-0 rounded-full bg-black/70 px-1 text-[9px] font-bold text-white">×{p.quantity}</span>}
+                            </div>
+                        ))}
+                        {images.length > 4 && <div className="flex size-10 items-center justify-center rounded-lg border-2 border-[var(--store-paper)] bg-[var(--store-soft)] text-xs font-bold">+{images.length - 4}</div>}
+                    </div>
+                    <p className="text-xs font-medium text-[var(--store-text)]">{images.length} item{images.length === 1 ? "" : "s"}</p>
                 </div>
-                <div className="min-w-0">
-                    <p className="text-xs font-medium text-[var(--store-text)]">{single ? "All items" : `${images.length} item${images.length === 1 ? "" : "s"}`}</p>
-                    <p className={`text-sm font-bold ${tracking.delivered ? "text-emerald-600 dark:text-emerald-400" : ""}`}>{tracking.delivered ? "Delivered" : tracking.current.title}</p>
-                </div>
-            </div>
-
-            {doneSteps.length > 4 && (
-                <button type="button" onClick={() => setShowAll(!showAll)} className="ml-11 mt-4 text-xs font-semibold text-[#c85b13] hover:underline dark:text-[#ffab68]">
-                    {showAll ? "Hide earlier updates" : `Show ${doneSteps.length - 3} earlier update${doneSteps.length - 3 === 1 ? "" : "s"}`}
-                </button>
             )}
-            <ol className="mt-4">
+            <ol>
                 {shown.map((step, i) => <TimelineStep key={step.key} step={step} last={i === shown.length - 1} />)}
             </ol>
+            {visible.length > shown.length || showAll ? (
+                <button type="button" onClick={() => setShowAll(!showAll)} className="ml-11 mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[#c85b13] hover:underline dark:text-[#ffab68]">
+                    {showAll ? "Show less" : `View full journey (${visible.length} steps)`}
+                    <ChevronDownIcon className={`size-3.5 transition-transform ${showAll ? "rotate-180" : ""}`} aria-hidden />
+                </button>
+            ) : null}
         </div>
     );
 }
@@ -370,7 +349,7 @@ function TimelineStep({ step, last }: { step: TrackingStep; last: boolean }) {
     const current = step.status === "current";
     const isHome = step.key === "home";
     return (
-        <li className="relative flex gap-3 pb-5 last:pb-1">
+        <li className="relative flex gap-3 pb-3 last:pb-1">
             {!last && <span aria-hidden className={`absolute left-[15px] top-8 bottom-0 w-0.5 ${step.status === "upcoming" ? "border-l-2 border-dashed border-[var(--store-line)]" : "bg-emerald-500/60"}`} />}
             <span className="relative z-[1] flex size-8 shrink-0 items-center justify-center">
                 {current ? (
@@ -384,15 +363,15 @@ function TimelineStep({ step, last }: { step: TrackingStep; last: boolean }) {
                     <span className="size-3.5 rounded-full border-2 border-[var(--store-line)] bg-[var(--store-paper)]" />
                 )}
             </span>
-            <div className={`min-w-0 flex-1 ${current ? "-mt-0.5 rounded-xl bg-[#f48b28]/10 p-3 ring-1 ring-[#f48b28]/30" : "pt-1"}`}>
+            <div className={`min-w-0 flex-1 ${current ? "-mt-0.5 rounded-xl bg-[#f48b28]/10 px-3 py-2 ring-1 ring-[#f48b28]/30" : "pt-1"}`}>
                 <div className="flex flex-wrap items-baseline justify-between gap-x-3">
                     <p className={`text-sm font-semibold ${step.status === "upcoming" ? "text-[var(--store-text)]/70" : ""}`}>{step.title}</p>
                     {step.date && step.status !== "upcoming" && <p className="text-xs font-medium text-[var(--store-text)]">{formatDay(step.date)}</p>}
                 </div>
-                {step.status !== "upcoming" && <p className="mt-0.5 text-xs leading-relaxed text-[var(--store-text)]">{step.detail}</p>}
-                <p className={`mt-1 inline-flex items-center gap-1 text-[11px] ${isHome && done ? "font-semibold text-emerald-700 dark:text-emerald-400" : "text-[var(--store-text)]/80"}`}>
+                {current && <p className="mt-0.5 text-xs leading-relaxed text-[var(--store-text)]">{step.detail}</p>}
+                {(step.status !== "upcoming" || isHome) && <p className={`mt-1 inline-flex items-center gap-1 text-[11px] ${isHome && done ? "font-semibold text-emerald-700 dark:text-emerald-400" : "text-[var(--store-text)]/80"}`}>
                     <MapPinIcon className="size-3.5 shrink-0" aria-hidden />{step.place}
-                </p>
+                </p>}
             </div>
         </li>
     );
@@ -415,15 +394,6 @@ function StatusBadge({ cancelled, delivered }: { cancelled: boolean; delivered: 
             ? ["Delivered", "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"]
             : ["In transit", "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"];
     return <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${cls}`}>{label}</span>;
-}
-
-function Money({ label, value, highlight = false }: { label: string; value: number; highlight?: boolean }) {
-    return (
-        <div>
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--store-text)]">{label}</p>
-            <p className={`mt-0.5 text-sm font-bold ${highlight ? "text-[#c85b13] dark:text-[#ffab68]" : ""}`}>Rs. {value.toLocaleString("en-IN")}</p>
-        </div>
-    );
 }
 
 function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
