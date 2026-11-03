@@ -16,13 +16,11 @@ const navigation = [
   { name: "Track order", href: "/trackOrder" },
   { name: "FAQs", href: "/faqs" },
 ];
-const hiddenPaths = ["/huggai-delete-account", "/huggai-privacy-policy", "/vixoai-delete-account", "/vixoai-privacy-policy"];
 
 export default function Navbar() {
   const pathname = usePathname();
   const inAdmin = pathname === "/admin" || pathname.startsWith("/admin/");
   const statsActive = pathname.startsWith("/admin/stats");
-  if (hiddenPaths.includes(pathname)) return null;
 
   return (
     <Disclosure as="header" className="site-header">

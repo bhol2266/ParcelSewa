@@ -8,7 +8,7 @@ import BrandLogo from "@/components/BrandLogo";
 
 export default function Footer() {
   const pathname = usePathname();
-  if (["/huggai-delete-account", "/huggai-privacy-policy", "/vixoai-delete-account", "/vixoai-privacy-policy", "/admin/quotation-calculator"].includes(pathname)) return null;
+  if (pathname === "/admin/quotation-calculator") return null;
   return (
     <footer className="site-footer">
       <div className="page-container">
