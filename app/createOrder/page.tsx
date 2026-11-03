@@ -6,6 +6,7 @@ import { db } from "@/lib/firebase/firebaseClient";
 import { logOrderActivity } from "@/lib/order-logs";
 import toast, { Toaster } from "react-hot-toast";
 import brands from "@/constants/brands";
+import { PRODUCT_IMAGE_ACCEPT, pastedImages, uploadProductImages } from "@/lib/upload-product-image";
 
 type Brand = {
     name: string;
@@ -38,44 +39,11 @@ const CreateOrder: React.FC = () => {
 
     const [uploading, setUploading] = useState(false);
 
-    // Phone photos are often over Vercel's 4.5 MB body limit, so resize to a sensible product-image size first.
-    const shrinkImage = (file: File): Promise<Blob> =>
-        new Promise((resolve) => {
-            if (file.type === "image/gif") return resolve(file);
-            const img = new Image();
-            const src = URL.createObjectURL(file);
-            img.onload = () => {
-                URL.revokeObjectURL(src);
-                const scale = Math.min(1, 1600 / Math.max(img.width, img.height));
-                const canvas = document.createElement("canvas");
-                canvas.width = Math.round(img.width * scale);
-                canvas.height = Math.round(img.height * scale);
-                canvas.getContext("2d")?.drawImage(img, 0, 0, canvas.width, canvas.height);
-                canvas.toBlob((blob) => resolve(blob || file), "image/webp", 0.85);
-            };
-            img.onerror = () => {
-                URL.revokeObjectURL(src);
-                resolve(file);
-            };
-            img.src = src;
-        });
-
-    const handleUploadImages = async (files: FileList | null) => {
-        if (!files || files.length === 0) return;
+    const handleUploadImages = async (files: File[]) => {
+        if (files.length === 0) return;
         setUploading(true);
-        const urls: string[] = [];
-        for (const file of Array.from(files)) {
-            try {
-                const body = new FormData();
-                body.append("file", await shrinkImage(file), file.name);
-                const res = await fetch("/api/upload-product-image", { method: "POST", body });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.error || "Upload failed");
-                urls.push(data.url);
-            } catch (err) {
-                toast.error(`${file.name}: ${err instanceof Error ? err.message : "Upload failed"}`);
-            }
-        }
+        const { urls, errors } = await uploadProductImages(files);
+        errors.forEach((msg) => toast.error(msg));
         if (urls.length > 0) {
             setProductItems((prev) => {
                 const items = [...prev];
@@ -94,14 +62,10 @@ const CreateOrder: React.FC = () => {
     // Ctrl+V of a screenshot or copied image uploads it; pasting text behaves normally.
     useEffect(() => {
         const onPaste = (e: ClipboardEvent) => {
-            const images = Array.from(e.clipboardData?.files || []).filter((f) => f.type.startsWith("image/"));
+            const images = pastedImages(e);
             if (images.length === 0) return;
             e.preventDefault();
-            const list = new DataTransfer();
-            images.forEach((f, i) =>
-                list.items.add(f.name && f.name !== "image.png" ? f : new File([f], `pasted-${Date.now()}-${i}.png`, { type: f.type }))
-            );
-            handleUploadImages(list.files);
+            handleUploadImages(images);
         };
         window.addEventListener("paste", onPaste);
         return () => window.removeEventListener("paste", onPaste);
@@ -599,11 +563,11 @@ const CreateOrder: React.FC = () => {
                         )}
                         <input
                             type="file"
-                            accept="image/jpeg,image/png,image/webp,image/gif,image/avif"
+                            accept={PRODUCT_IMAGE_ACCEPT}
                             multiple
                             disabled={uploading}
                             onChange={(e) => {
-                                handleUploadImages(e.target.files);
+                                handleUploadImages(Array.from(e.target.files || []));
                                 e.target.value = "";
                             }}
                             className="hidden"
