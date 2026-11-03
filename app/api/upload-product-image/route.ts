@@ -30,6 +30,9 @@ export async function POST(req: NextRequest) {
     if (!ext) {
         return NextResponse.json({ error: "Only JPG, PNG, WebP, GIF or AVIF images are allowed." }, { status: 400 });
     }
+    if (file.size === 0) {
+        return NextResponse.json({ error: "The image is empty." }, { status: 400 });
+    }
     if (file.size > MAX_BYTES) {
         return NextResponse.json({ error: "Image is larger than 4 MB." }, { status: 413 });
     }
@@ -42,16 +45,18 @@ export async function POST(req: NextRequest) {
         region: "auto",
     });
 
-    const body = await file.arrayBuffer();
-    // aws4fetch already retries R2 5xx replies; this also retries dropped connections.
+    const body = new Uint8Array(await file.arrayBuffer());
     let failure = "";
     for (let attempt = 1; attempt <= 3; attempt++) {
         try {
-            const res = await r2.fetch(`${R2_ENDPOINT}/${R2_BUCKET}/${key}`, {
+            // Sign with aws4fetch but send with a plain fetch: passing its signed Request object on
+            // Vercel streams the body without Content-Length, and R2 rejects that (411 MissingContentLength).
+            const signed = await r2.sign(`${R2_ENDPOINT}/${R2_BUCKET}/${key}`, {
                 method: "PUT",
                 body,
                 headers: { "Content-Type": file.type },
             });
+            const res = await fetch(signed.url, { method: "PUT", headers: signed.headers, body, cache: "no-store" });
             if (res.ok) {
                 failure = "";
                 break;
@@ -60,7 +65,7 @@ export async function POST(req: NextRequest) {
             // R2 replies with S3-style XML, e.g. <Code>SignatureDoesNotMatch</Code>.
             failure = `${res.status} ${text.match(/<Code>([^<]+)<\/Code>/)?.[1] || ""}`.trim();
             console.error("R2 upload failed", attempt, failure, text);
-            if (res.status < 500) break;
+            if (res.status < 500 && res.status !== 429) break;
         } catch (err) {
             failure = err instanceof Error ? err.message : String(err);
             console.error("R2 upload threw", attempt, failure);
