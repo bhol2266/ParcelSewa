@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AwsClient } from "aws4fetch";
 
+// Server-only route, so these keys never reach the browser.
+const R2_ENDPOINT = "https://9aeac94ae706da39970cfebc2424b877.eu.r2.cloudflarestorage.com";
+const R2_BUCKET = "aivideogenerator";
+const R2_ACCESS_KEY_ID = "a7a30d7f72c216cefa17630f0cd90949";
+const R2_SECRET_ACCESS_KEY = "5fc8d2119c436dd99904f96e973782f9bd54a72b5ab984db34ff27ca00bece86";
+const R2_PUBLIC_URL = "https://pub-9030acd52c624ce0899f976b6f7ea284.r2.dev";
+
 // Vercel rejects request bodies over 4.5 MB, so the client shrinks images before sending.
 const MAX_BYTES = 4 * 1024 * 1024;
 
@@ -13,11 +20,6 @@ const EXTENSIONS: Record<string, string> = {
 };
 
 export async function POST(req: NextRequest) {
-    const { R2_ENDPOINT, R2_BUCKET, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_PUBLIC_URL } = process.env;
-    if (!R2_ENDPOINT || !R2_BUCKET || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY || !R2_PUBLIC_URL) {
-        return NextResponse.json({ error: "Image upload is not configured." }, { status: 500 });
-    }
-
     const form = await req.formData().catch(() => null);
     const file = form?.get("file");
     if (!(file instanceof File)) {
@@ -50,5 +52,5 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: "Upload to storage failed." }, { status: 502 });
     }
 
-    return NextResponse.json({ url: `${R2_PUBLIC_URL.replace(/\/$/, "")}/${key}` });
+    return NextResponse.json({ url: `${R2_PUBLIC_URL}/${key}` });
 }
