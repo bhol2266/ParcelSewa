@@ -516,7 +516,7 @@ function ProfileStat({ label, value, tone = "slate" }: { label: string; value: s
     );
 }
 
-// Every order is shown in full: header, route, delivery and payment details, every item, and the whole journey.
+// Orders on the way are shown in full: header, route, delivery and payment details, every item, and the whole journey.
 function OrderCard({ order }: { order: any }) {
     const groups = useMemo(() => groupProducts(order), [order]);
     const products = orderProducts(order);
@@ -528,6 +528,9 @@ function OrderCard({ order }: { order: any }) {
     const due = delivered || cancelled ? 0 : Math.max((Number(order.totalAmount) || 0) - (Number(order.advancePayment) || 0), 0);
     const deliveredOn = delivered ? headline?.steps.at(-1)?.date ?? null : null;
     const trackingFor = new Map(groups.flatMap((g) => g.products.map((p) => [p.index, g.tracking] as const)));
+    // Finished orders (delivered or cancelled) start as a short summary; the customer opens the rest if they want it.
+    const finished = delivered || cancelled;
+    const [open, setOpen] = useState(!finished);
 
     return (
         <article className="overflow-hidden rounded-2xl border border-[var(--store-line)] bg-[var(--store-paper)] shadow-sm">
@@ -552,9 +555,21 @@ function OrderCard({ order }: { order: any }) {
 
             {products.length > 1 && <ProductStrip products={products} />}
 
-            {!cancelled && headline && <div className="px-4 pb-4"><RouteBar tracking={headline} /></div>}
+            {!finished && headline && <div className="px-4 pb-4"><RouteBar tracking={headline} /></div>}
 
-            <div className="space-y-3 border-t border-[var(--store-line)] bg-[var(--store-soft)]/60 p-3 sm:p-4">
+            {finished && (
+                <button
+                    type="button"
+                    onClick={() => setOpen((o) => !o)}
+                    aria-expanded={open}
+                    className="flex w-full items-center justify-center gap-1.5 border-t border-[var(--store-line)] px-4 py-2.5 text-xs font-semibold text-[var(--store-text)] transition hover:bg-[var(--store-soft)] hover:text-[var(--store-ink)]"
+                >
+                    {open ? "Hide details" : "View details"}
+                    <ChevronDownIcon className={`size-4 transition ${open ? "rotate-180" : ""}`} aria-hidden />
+                </button>
+            )}
+
+            {open && <div className="space-y-3 border-t border-[var(--store-line)] bg-[var(--store-soft)]/60 p-3 sm:p-4">
                 {cancelled && (
                     <p className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">This order was cancelled. Contact us on WhatsApp if you have any questions about it.</p>
                 )}
@@ -564,7 +579,7 @@ function OrderCard({ order }: { order: any }) {
                 {!cancelled && groups.map((g, i) => (
                     <ProductGroup key={i} images={g.products} tracking={g.tracking} single={groups.length === 1} />
                 ))}
-            </div>
+            </div>}
         </article>
     );
 }
@@ -603,7 +618,6 @@ function OrderDetails({ order, delivered, withCourier, cancelled, deliveredOn, d
                 <dl className="divide-y divide-[var(--store-line)]">
                     <DetailRow label="Order total">{rs(total)}</DetailRow>
                     <DetailRow label="Advance paid">{rs(advance)}</DetailRow>
-                    {order.courierCharge && <DetailRow label="Courier charge">{order.courierCharge}</DetailRow>}
                     <DetailRow label={delivered ? "Balance" : "Due on delivery"}>
                         {cancelled
                             ? "—"
