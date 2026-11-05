@@ -31,6 +31,7 @@ const OTP_ERRORS: Record<string, string> = {
     "invalid-number": "That number doesn't look right.",
     "not-configured": "SMS login isn't set up yet. Please message us on WhatsApp for now.",
     "sms-failed": "We couldn't send the SMS just now. Please try again in a minute, or message us on WhatsApp.",
+    "verify-failed": "We couldn't check the code just now. Please try again in a minute.",
 };
 const otpError = (code: string) => OTP_ERRORS[code] ?? "Something went wrong. Please try again in a minute, or message us on WhatsApp.";
 

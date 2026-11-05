@@ -1,26 +1,25 @@
-// Server-only: OTP login for /trackOrder. Codes go out by SMS through Sparrow SMS; a signed cookie keeps the
+// Server-only: OTP login for /trackOrder. NepalOTP generates, texts and checks the codes; a signed cookie keeps the
 // customer signed in for TRACK_SESSION_DAYS. Firebase phone auth can't send SMS to Nepal numbers (error -39).
-import { createHash, createHmac, randomInt, timingSafeEqual } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 import type { NextRequest } from "next/server";
 import { TRACK_SESSION_DAYS } from "./track-session";
 
-// ── Fill these in ────────────────────────────────────────────────────────────
-// Sparrow SMS dashboard → API: the token, and the approved sender identity ("from").
-export const SPARROW_TOKEN = "";
-export const SPARROW_FROM = "";
-// Any long random string (e.g. 64 characters). It signs login cookies; changing it signs everyone out.
-const SESSION_SECRET = "";
-// ─────────────────────────────────────────────────────────────────────────────
+// NepalOTP dashboard → Apps → API key (npot_live_… sends real SMS; npot_test_… always uses code 123456).
+const NEPALOTP_API_KEY = "npot_live_Ef0ChER3oAnwX01vdYqw3SqdkFeeTh0DvL4MHHFd";
+// Signs login cookies; changing it signs every customer out.
+const SESSION_SECRET = "4SPBPXFFsMaHLQ6iRaUHXdkd_PanGx5O4XrIIWDDb2MHU-9w";
+
+const NEPALOTP_URL = "https://nepalotp.com/api/v1";
 
 export const SESSION_COOKIE = "ps_track";
 export const SESSION_MAX_AGE = TRACK_SESSION_DAYS * 86_400;
 
+// NepalOTP codes expire after 5 minutes and allow 3 tries; these limits keep SMS spend down on our side too.
 export const OTP_TTL_MS = 5 * 60_000;
 export const RESEND_MS = 60_000;
 export const MAX_SENDS_PER_DAY = 5;
-export const MAX_ATTEMPTS = 5;
 
-export const isConfigured = () => !!(SPARROW_TOKEN && SPARROW_FROM && SESSION_SECRET);
+export const isConfigured = () => !!(NEPALOTP_API_KEY && SESSION_SECRET);
 
 const b64url = (s: string) => Buffer.from(s).toString("base64url");
 const sign = (data: string) => createHmac("sha256", SESSION_SECRET).update(data).digest("base64url");
@@ -31,13 +30,7 @@ export function nepalMobile(value: unknown): string | null {
     return /^9\d{9}$/.test(digits) ? digits : null;
 }
 
-export const newCode = () => String(randomInt(0, 1_000_000)).padStart(6, "0");
-
-// The OTP store is readable like the rest of Firestore, so only a keyed hash of the code is saved.
-export const hashCode = (mobile: string, code: string) =>
-    createHash("sha256").update(`${SESSION_SECRET}:${mobile}:${code}`).digest("hex");
-
-export function sameHash(a: string, b: string) {
+function sameText(a: string, b: string) {
     const x = Buffer.from(a), y = Buffer.from(b);
     return x.length === y.length && timingSafeEqual(x, y);
 }
@@ -54,7 +47,7 @@ export function readSession(req: NextRequest): Session {
     const raw = req.cookies.get(SESSION_COOKIE)?.value;
     if (!raw || !SESSION_SECRET) return null;
     const [body, sig] = raw.split(".");
-    if (!body || !sig || !sameHash(sign(body), sig)) return null;
+    if (!body || !sig || !sameText(sign(body), sig)) return null;
     try {
         const { m, t } = JSON.parse(Buffer.from(body, "base64url").toString());
         const mobile = nepalMobile(m);
@@ -74,17 +67,33 @@ export const cookieOptions = {
     maxAge: SESSION_MAX_AGE,
 };
 
-// Sparrow SMS v2: POST form fields token, from, to (10 digits), text. A 200 response_code means it was accepted.
-export async function sendSms(mobile: string, text: string): Promise<boolean> {
-    const res = await fetch("https://api.sparrowsms.com/v2/sms/", {
+// NepalOTP replies { success, code?, message, otp_id?, data }; errors keep code/message/data at the top level.
+type NepalOtpReply = { success?: boolean; code?: string; message?: string; otp_id?: string; data?: Record<string, unknown> };
+
+async function nepalOtp(path: string, body: Record<string, string>): Promise<NepalOtpReply & { status: number }> {
+    const res = await fetch(`${NEPALOTP_URL}${path}`, {
         method: "POST",
-        body: new URLSearchParams({ token: SPARROW_TOKEN, from: SPARROW_FROM, to: mobile, text }),
+        headers: { "Content-Type": "application/json", "X-API-Key": NEPALOTP_API_KEY },
+        body: JSON.stringify(body),
         signal: AbortSignal.timeout(15_000),
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || Number(data.response_code) !== 200) {
-        console.error("Sparrow SMS failed", res.status, data);
-        return false;
-    }
-    return true;
+    const data = (await res.json().catch(() => ({}))) as NepalOtpReply;
+    return { ...data, status: res.status };
+}
+
+// Texts "Your OTP is: 123456…" to the number. Returns the otp_id to verify against, or NepalOTP's error code.
+export async function sendOtp(mobile: string): Promise<{ otpId: string } | { error: string; retryAfter?: number }> {
+    const reply = await nepalOtp("/otp/send", { phone: `+977${mobile}`, reference: "trackOrder" });
+    if (reply.success && reply.otp_id) return { otpId: reply.otp_id };
+    console.error("NepalOTP send failed", reply.status, reply.code, reply.message);
+    const retryAfter = Number(reply.data?.retry_after) || undefined;
+    return { error: reply.code ?? `HTTP_${reply.status}`, retryAfter };
+}
+
+// "ok", or NepalOTP's error code: INVALID_OTP, OTP_EXPIRED, MAX_ATTEMPTS_EXCEEDED, OTP_NOT_FOUND, …
+export async function verifyOtp(otpId: string, code: string): Promise<"ok" | string> {
+    const reply = await nepalOtp("/otp/verify", { otp_id: otpId, otp: code });
+    if (reply.success) return "ok";
+    if (reply.code !== "INVALID_OTP") console.error("NepalOTP verify failed", reply.status, reply.code, reply.message);
+    return reply.code ?? `HTTP_${reply.status}`;
 }
