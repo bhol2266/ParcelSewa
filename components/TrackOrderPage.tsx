@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { collection, getDocs, query, where } from "firebase/firestore";
-import { db } from "@/lib/firebase/firebaseClient";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { onAuthStateChanged, RecaptchaVerifier, signInWithPhoneNumber, signOut, type ConfirmationResult, type User } from "firebase/auth";
+import { auth } from "@/lib/firebase/firebaseAuth";
+import { reviveDates, TRACK_SESSION_DAYS } from "@/lib/track-session";
 import WhatsAppLink from "@/components/WhatsAppLink";
 import { customerProfile, formatDay, groupProducts, isCancelled, isDelivered, orderDate, orderProducts, type Leg, type ProductTracking, type TrackingStep } from "@/lib/order-tracking";
-import { ArrowPathIcon, CalendarDaysIcon, CheckIcon, ChevronDownIcon, MagnifyingGlassIcon, MapPinIcon, PhoneIcon, ShoppingBagIcon, SparklesIcon, TruckIcon, XCircleIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, CalendarDaysIcon, CheckIcon, ChevronDownIcon, LockClosedIcon, MapPinIcon, PhoneIcon, ShoppingBagIcon, SparklesIcon, TruckIcon, XCircleIcon } from "@heroicons/react/24/outline";
 import { CheckBadgeIcon } from "@heroicons/react/24/solid";
 
 const LAST_NUMBER_KEY = "parcelsewa:track-mobile";
+const RESEND_SECONDS = 60;
 const LEGS: { leg: Leg; label: string; sub: string }[] = [
     { leg: "india", label: "India", sub: "Seller" },
     { leg: "border", label: "Raxaul", sub: "Border" },
@@ -18,6 +20,19 @@ const LEGS: { leg: Leg; label: string; sub: string }[] = [
 const legIndex = (leg: Leg) => LEGS.findIndex((l) => l.leg === leg);
 
 type Status = "idle" | "loading" | "done" | "error";
+// checking: Firebase is restoring a saved login. phone/code: the two OTP steps. in: signed in.
+type Login = "checking" | "phone" | "code" | "in";
+
+// Firebase error codes in plain words. Each SMS beyond the daily free quota costs money, so limits are explained, not retried.
+function otpError(err: unknown): string {
+    const code = (err as { code?: string })?.code ?? "";
+    if (code === "auth/invalid-verification-code") return "That code isn't right. Check the SMS and try again.";
+    if (code === "auth/code-expired") return "That code has expired. Send a new one.";
+    if (code === "auth/too-many-requests" || code === "auth/quota-exceeded") return "Too many attempts. Please try again later, or message us on WhatsApp.";
+    if (code === "auth/invalid-phone-number") return "That number doesn't look right.";
+    if (code === "auth/network-request-failed") return "No internet connection. Check it and try again.";
+    return "Couldn't send the code right now. Please try again in a minute, or message us on WhatsApp.";
+}
 
 export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?: string }) {
     const [mobile, setMobile] = useState(initialMobile.replace(/\D/g, "").slice(-10));
@@ -26,43 +41,105 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
     const [searched, setSearched] = useState("");
     const valid = /^9\d{9}$/.test(mobile);
 
-    const track = useCallback(async (digits: string) => {
-        if (!/^9\d{9}$/.test(digits)) return;
+    const [login, setLogin] = useState<Login>("checking");
+    const [code, setCode] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [loginError, setLoginError] = useState("");
+    const [resendIn, setResendIn] = useState(0);
+    const confirmation = useRef<ConfirmationResult | null>(null);
+    const verifier = useRef<RecaptchaVerifier | null>(null);
+
+    const loadOrders = useCallback(async (user: User) => {
         setStatus("loading");
-        setSearched(digits);
         try {
-            const snap = await getDocs(query(collection(db, "Confirm Orders"), where("mobile", "==", `+977${digits}`)));
-            const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+            const res = await fetch("/api/track/orders", { headers: { Authorization: `Bearer ${await user.getIdToken()}` }, cache: "no-store" });
+            const data = await res.json();
+            if (res.status === 401) {
+                // Past the 180 days (or the login is no longer valid): ask for a fresh OTP.
+                setLoginError(data.error === "expired" ? `For your security, please verify your number again (every ${TRACK_SESSION_DAYS} days).` : "");
+                await signOut(auth);
+                return;
+            }
+            if (!res.ok) throw new Error(data.error);
+            const list = reviveDates<typeof orders>(data.orders);
             list.sort((a, b) => (orderDate(b)?.getTime() ?? 0) - (orderDate(a)?.getTime() ?? 0));
             setOrders(list);
+            setSearched(String(data.phone).slice(-10));
             setStatus("done");
-            try { localStorage.setItem(LAST_NUMBER_KEY, digits); } catch {}
-            const url = new URL(window.location.href);
-            url.searchParams.set("mobile", digits);
-            window.history.replaceState(null, "", url);
         } catch {
             setStatus("error");
         }
     }, []);
 
-    // A number in the link tracks straight away; otherwise prefill the last number used on this device.
+    // Firebase keeps the customer signed in on this browser, so a returning visitor goes straight to their orders.
+    useEffect(() => onAuthStateChanged(auth, (user) => {
+        if (user?.phoneNumber) {
+            setLogin("in");
+            setMobile(user.phoneNumber.slice(-10));
+            loadOrders(user);
+        } else {
+            setLogin("phone");
+            setStatus("idle");
+            setOrders([]);
+            setCode("");
+            // A number from the link, or the last one used here, saves typing it again.
+            try {
+                const last = localStorage.getItem(LAST_NUMBER_KEY);
+                if (last) setMobile((current) => current || last);
+            } catch {}
+        }
+    }), [loadOrders]);
+
     useEffect(() => {
-        if (/^9\d{9}$/.test(mobile)) { track(mobile); return; }
+        if (resendIn <= 0) return;
+        const timer = setTimeout(() => setResendIn((s) => s - 1), 1000);
+        return () => clearTimeout(timer);
+    }, [resendIn]);
+
+    const sendCode = async () => {
+        if (!valid || busy || resendIn > 0) return;
+        setBusy(true);
+        setLoginError("");
         try {
-            const last = localStorage.getItem(LAST_NUMBER_KEY);
-            if (last && !mobile) setMobile(last);
-        } catch {}
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+            verifier.current ??= new RecaptchaVerifier(auth, "track-recaptcha", { size: "invisible" });
+            confirmation.current = await signInWithPhoneNumber(auth, `+977${mobile}`, verifier.current);
+            try { localStorage.setItem(LAST_NUMBER_KEY, mobile); } catch {}
+            setCode("");
+            setLogin("code");
+            setResendIn(RESEND_SECONDS);
+            setTimeout(() => document.getElementById("track-code")?.focus(), 100);
+        } catch (err) {
+            setLoginError(otpError(err));
+            // A used or failed reCAPTCHA can't be reused; the next attempt makes a fresh one.
+            verifier.current?.clear();
+            verifier.current = null;
+        } finally {
+            setBusy(false);
+        }
+    };
+
+    const verifyCode = async () => {
+        if (!confirmation.current || code.length !== 6 || busy) return;
+        setBusy(true);
+        setLoginError("");
+        try {
+            await confirmation.current.confirm(code);
+            // onAuthStateChanged takes it from here and loads the orders.
+        } catch (err) {
+            setLoginError(otpError(err));
+        } finally {
+            setBusy(false);
+        }
+    };
 
     const active = orders.filter((o) => !isDelivered(o) && !isCancelled(o));
     const past = orders.filter((o) => isDelivered(o) || isCancelled(o));
-    // Once orders are showing, the hero shrinks to just the search bar so the tracking sits near the top.
-    const showingResults = status !== "idle";
+    // Once orders are showing, the hero shrinks so the tracking sits near the top.
+    const showingResults = login === "in";
 
     return (
         <div className="min-h-[70vh] bg-[var(--store-soft)] pb-20 text-[var(--store-ink)]">
-            {/* Hero + search */}
+            {/* Hero + login */}
             <section className="relative overflow-hidden bg-gradient-to-br from-[#062c45] via-[#073856] to-[#0b4b70] text-white">
                 <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-[#f48b28]/20 blur-3xl" />
                 <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-20 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl" />
@@ -72,54 +149,99 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                         <TruckIcon className="size-4 text-[#ffab68]" aria-hidden /> India → Nepal tracking
                     </span>
                     <h1 className="mt-4 text-3xl font-bold tracking-tight sm:text-5xl">Where&apos;s my order?</h1>
-                    <p className="mt-3 max-w-xl text-sm text-white/75 sm:text-base">Enter the mobile number you ordered with to see live tracking and all your ParcelSewa orders.</p>
+                    <p className="mt-3 max-w-xl text-sm text-white/75 sm:text-base">
+                        {login === "code"
+                            ? <>We sent a 6-digit code by SMS to <strong className="text-white">+977 {mobile}</strong>.</>
+                            : "Verify the mobile number you ordered with to see live tracking and all your ParcelSewa orders. You only do this once on this device."}
+                    </p>
                     </>}
 
-                    <form
-                        className={`flex gap-2 sm:gap-3 ${showingResults ? "" : "mt-7 flex-col sm:flex-row"}`}
-                        onSubmit={(e) => { e.preventDefault(); track(mobile); }}
-                    >
-                        <label htmlFor="track-mobile" className="sr-only">10-digit mobile number</label>
-                        <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-white p-1.5 shadow-xl shadow-black/20 ring-1 ring-black/5 focus-within:ring-2 focus-within:ring-[#f48b28] dark:bg-[#111c2d]">
-                            <span className="flex items-center gap-1.5 rounded-xl bg-[var(--store-soft)] px-3 py-3 text-sm font-semibold text-[var(--store-ink)]">+977</span>
-                            <input
-                                id="track-mobile"
-                                type="tel"
-                                inputMode="numeric"
-                                autoComplete="tel-national"
-                                maxLength={10}
-                                placeholder="98XXXXXXXX"
-                                value={mobile}
-                                onChange={(e) => setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                                className="min-w-0 flex-1 !border-0 !bg-transparent px-3 py-3 text-lg font-semibold tracking-wider text-[var(--store-ink)] outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-400"
-                            />
-                            {mobile && (
-                                <span className={`mr-2 hidden text-xs font-medium sm:inline ${valid ? "text-emerald-600" : "text-gray-400"}`}>{mobile.length}/10</span>
-                            )}
+                    {login === "checking" && (
+                        <div className="mt-7 flex items-center gap-2 text-sm text-white/75"><ArrowPathIcon className="size-5 animate-spin" aria-hidden /> Loading…</div>
+                    )}
+
+                    {login === "phone" && (
+                        <form className="mt-7 flex flex-col gap-2 sm:flex-row sm:gap-3" onSubmit={(e) => { e.preventDefault(); sendCode(); }}>
+                            <label htmlFor="track-mobile" className="sr-only">10-digit mobile number</label>
+                            <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-white p-1.5 shadow-xl shadow-black/20 ring-1 ring-black/5 focus-within:ring-2 focus-within:ring-[#f48b28] dark:bg-[#111c2d]">
+                                <span className="flex items-center gap-1.5 rounded-xl bg-[var(--store-soft)] px-3 py-3 text-sm font-semibold text-[var(--store-ink)]">+977</span>
+                                <input
+                                    id="track-mobile"
+                                    type="tel"
+                                    inputMode="numeric"
+                                    autoComplete="tel-national"
+                                    maxLength={10}
+                                    placeholder="98XXXXXXXX"
+                                    value={mobile}
+                                    onChange={(e) => setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                                    className="min-w-0 flex-1 !border-0 !bg-transparent px-3 py-3 text-lg font-semibold tracking-wider text-[var(--store-ink)] outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-400"
+                                />
+                                {mobile && (
+                                    <span className={`mr-2 hidden text-xs font-medium sm:inline ${valid ? "text-emerald-600" : "text-gray-400"}`}>{mobile.length}/10</span>
+                                )}
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={!valid || busy || resendIn > 0}
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#f48b28] px-5 py-4 sm:px-7 text-sm font-bold text-[#122235] shadow-lg shadow-[#f48b28]/30 transition hover:bg-[#ffad63] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {busy ? <ArrowPathIcon className="size-5 animate-spin" aria-hidden /> : <LockClosedIcon className="size-5" aria-hidden />}
+                                {resendIn > 0 ? `Send code (${resendIn}s)` : "Send code"}
+                            </button>
+                        </form>
+                    )}
+
+                    {login === "code" && (
+                        <form className="mt-7 flex flex-col gap-2 sm:flex-row sm:gap-3" onSubmit={(e) => { e.preventDefault(); verifyCode(); }}>
+                            <label htmlFor="track-code" className="sr-only">6-digit code</label>
+                            <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-white p-1.5 shadow-xl shadow-black/20 ring-1 ring-black/5 focus-within:ring-2 focus-within:ring-[#f48b28] dark:bg-[#111c2d]">
+                                <input
+                                    id="track-code"
+                                    type="text"
+                                    inputMode="numeric"
+                                    autoComplete="one-time-code"
+                                    maxLength={6}
+                                    placeholder="6-digit code"
+                                    value={code}
+                                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                                    className="min-w-0 flex-1 !border-0 !bg-transparent px-3 py-3 text-center text-xl font-semibold tracking-[.4em] text-[var(--store-ink)] outline-none placeholder:text-base placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-400"
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={code.length !== 6 || busy}
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#f48b28] px-5 py-4 sm:px-7 text-sm font-bold text-[#122235] shadow-lg shadow-[#f48b28]/30 transition hover:bg-[#ffad63] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {busy ? <ArrowPathIcon className="size-5 animate-spin" aria-hidden /> : <CheckIcon className="size-5" aria-hidden />}
+                                Verify &amp; track
+                            </button>
+                        </form>
+                    )}
+                    {login === "code" && (
+                        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/75">
+                            <button type="button" onClick={() => { setLogin("phone"); setLoginError(""); }} className="font-semibold underline-offset-2 hover:text-white hover:underline">Change number</button>
+                            {resendIn > 0
+                                ? <span>Resend code in {resendIn}s</span>
+                                : <button type="button" onClick={sendCode} disabled={busy} className="font-semibold underline-offset-2 hover:text-white hover:underline">Resend code</button>}
                         </div>
-                        <button
-                            type="submit"
-                            disabled={!valid || status === "loading"}
-                            aria-label="Track orders"
-                            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#f48b28] px-5 py-4 sm:px-7 text-sm font-bold text-[#122235] shadow-lg shadow-[#f48b28]/30 transition hover:bg-[#ffad63] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                            {status === "loading" ? <ArrowPathIcon className="size-5 animate-spin" aria-hidden /> : <MagnifyingGlassIcon className="size-5" aria-hidden />}
-                            <span className={showingResults ? "hidden sm:inline" : ""}>Track orders</span>
-                        </button>
-                    </form>
-                    {mobile && !valid && mobile.length === 10 && <p className="mt-2 text-xs text-[#ffab68]">Nepal mobile numbers start with 9.</p>}
+                    )}
+
+                    {login === "phone" && mobile && !valid && mobile.length === 10 && <p className="mt-2 text-xs text-[#ffab68]">Nepal mobile numbers start with 9.</p>}
+                    {loginError && !showingResults && <p role="alert" className="mt-3 text-sm font-medium text-[#ffab68]">{loginError}</p>}
+                    {/* Invisible reCAPTCHA that Firebase needs before sending an SMS. */}
+                    <div id="track-recaptcha" />
                 </div>
             </section>
 
             <div className={`relative mx-auto w-full max-w-3xl space-y-4 px-4 sm:px-6 ${showingResults ? "-mt-10" : "-mt-14"}`}>
-                {status === "idle" && <HowItWorks />}
-                {status === "loading" && <LoadingCards />}
+                {!showingResults && <HowItWorks />}
+                {showingResults && status === "loading" && <LoadingCards />}
                 {status === "error" && (
                     <Panel className="text-center">
                         <XCircleIcon className="mx-auto size-10 text-rose-500" aria-hidden />
                         <p className="mt-3 font-semibold">We couldn&apos;t load your orders</p>
                         <p className="mt-1 text-sm text-[var(--store-text)]">Check your internet connection and try again.</p>
-                        <button onClick={() => track(mobile)} className="mt-4 rounded-xl bg-[#073856] px-5 py-2.5 text-sm font-semibold text-white dark:bg-[#f48b28] dark:text-[#122235]">Try again</button>
+                        <button onClick={() => auth.currentUser && loadOrders(auth.currentUser)} className="mt-4 rounded-xl bg-[#073856] px-5 py-2.5 text-sm font-semibold text-white dark:bg-[#f48b28] dark:text-[#122235]">Try again</button>
                     </Panel>
                 )}
                 {status === "done" && orders.length === 0 && (
@@ -135,12 +257,12 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                         <ProfileCard
                             orders={orders}
                             mobile={searched}
-                            onChangeNumber={() => {
+                            onChangeNumber={async () => {
                                 setMobile("");
-                                setStatus("idle");
-                                setOrders([]);
                                 try { localStorage.removeItem(LAST_NUMBER_KEY); } catch {}
                                 window.history.replaceState(null, "", window.location.pathname);
+                                // Signing out means the next number needs its own OTP.
+                                await signOut(auth);
                                 window.scrollTo({ top: 0, behavior: "smooth" });
                                 setTimeout(() => document.getElementById("track-mobile")?.focus(), 300);
                             }}
