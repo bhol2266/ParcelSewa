@@ -31,8 +31,9 @@ function otpError(err: unknown): string {
     if (code === "auth/too-many-requests" || code === "auth/quota-exceeded") return "Too many attempts. Please try again later, or message us on WhatsApp.";
     if (code === "auth/invalid-phone-number") return "That number doesn't look right.";
     if (code === "auth/network-request-failed") return "No internet connection. Check it and try again.";
-    // Anything else is a setup or Firebase problem: show the code so it can be looked up.
-    return `Couldn't send the code right now. Please try again in a minute, or message us on WhatsApp.${code ? ` (${code})` : ""}`;
+    // Anything else is a setup or Firebase problem: show the code (or, for reCAPTCHA errors, the message) so it can be looked up.
+    const reason = code || (err instanceof Error ? err.message : String(err ?? "")).slice(0, 120);
+    return `Couldn't send the code right now. Please try again in a minute, or message us on WhatsApp.${reason ? ` (${reason})` : ""}`;
 }
 
 export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?: string }) {
