@@ -1,8 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { onAuthStateChanged, RecaptchaVerifier, signInWithPhoneNumber, signOut, type ConfirmationResult, type User } from "firebase/auth";
-import { auth } from "@/lib/firebase/firebaseAuth";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { reviveDates, TRACK_SESSION_DAYS } from "@/lib/track-session";
 import WhatsAppLink from "@/components/WhatsAppLink";
 import { customerProfile, formatDay, groupProducts, isCancelled, isDelivered, orderDate, orderProducts, type Leg, type ProductTracking, type TrackingStep } from "@/lib/order-tracking";
@@ -20,20 +18,25 @@ const LEGS: { leg: Leg; label: string; sub: string }[] = [
 const legIndex = (leg: Leg) => LEGS.findIndex((l) => l.leg === leg);
 
 type Status = "idle" | "loading" | "done" | "error";
-// checking: Firebase is restoring a saved login. phone/code: the two OTP steps. in: signed in.
+// checking: looking for a saved login. phone/code: the two OTP steps. in: signed in.
 type Login = "checking" | "phone" | "code" | "in";
 
-// Firebase error codes in plain words. Each SMS beyond the daily free quota costs money, so limits are explained, not retried.
-function otpError(err: unknown): string {
-    const code = (err as { code?: string })?.code ?? "";
-    if (code === "auth/invalid-verification-code") return "That code isn't right. Check the SMS and try again.";
-    if (code === "auth/code-expired") return "That code has expired. Send a new one.";
-    if (code === "auth/too-many-requests" || code === "auth/quota-exceeded") return "Too many attempts. Please try again later, or message us on WhatsApp.";
-    if (code === "auth/invalid-phone-number") return "That number doesn't look right.";
-    if (code === "auth/network-request-failed") return "No internet connection. Check it and try again.";
-    // Anything else is a setup or Firebase problem: show the code (or, for reCAPTCHA errors, the message) so it can be looked up.
-    const reason = code || (err instanceof Error ? err.message : String(err ?? "")).slice(0, 120);
-    return `Couldn't send the code right now. Please try again in a minute, or message us on WhatsApp.${reason ? ` (${reason})` : ""}`;
+// Error replies from /api/track/otp/* in plain words. Each SMS costs credit, so limits are explained, not retried.
+const OTP_ERRORS: Record<string, string> = {
+    "wrong-code": "That code isn't right. Check the SMS and try again.",
+    expired: "That code has expired. Send a new one.",
+    "too-many": "Too many wrong tries. Send a new code.",
+    wait: "Please wait a minute before asking for another code.",
+    "daily-limit": "Too many codes for this number today. Try again tomorrow, or message us on WhatsApp.",
+    "invalid-number": "That number doesn't look right.",
+    "not-configured": "SMS login isn't set up yet. Please message us on WhatsApp for now.",
+    "sms-failed": "We couldn't send the SMS just now. Please try again in a minute, or message us on WhatsApp.",
+};
+const otpError = (code: string) => OTP_ERRORS[code] ?? "Something went wrong. Please try again in a minute, or message us on WhatsApp.";
+
+async function post(url: string, body: unknown) {
+    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    return { ok: res.ok, data: await res.json().catch(() => ({})) };
 }
 
 export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?: string }) {
@@ -50,18 +53,29 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
     // The number was checked and has no orders, so no code was sent.
     const [noOrders, setNoOrders] = useState(false);
     const [resendIn, setResendIn] = useState(0);
-    const confirmation = useRef<ConfirmationResult | null>(null);
-    const verifier = useRef<RecaptchaVerifier | null>(null);
 
-    const loadOrders = useCallback(async (user: User) => {
+    const showLogin = useCallback(() => {
+        setLogin("phone");
+        setStatus("idle");
+        setOrders([]);
+        setCode("");
+        // A number from the link, or the last one used here, saves typing it again.
+        try {
+            const last = localStorage.getItem(LAST_NUMBER_KEY);
+            if (last) setMobile((current) => current || last);
+        } catch {}
+    }, []);
+
+    // The login cookie lives on the server; a 401 here just means "show the login form".
+    const loadOrders = useCallback(async () => {
         setStatus("loading");
         try {
-            const res = await fetch("/api/track/orders", { headers: { Authorization: `Bearer ${await user.getIdToken()}` }, cache: "no-store" });
+            const res = await fetch("/api/track/orders", { cache: "no-store" });
             const data = await res.json();
             if (res.status === 401) {
-                // Past the 180 days (or the login is no longer valid): ask for a fresh OTP.
-                setLoginError(data.error === "expired" ? `For your security, please verify your number again (every ${TRACK_SESSION_DAYS} days).` : "");
-                await signOut(auth);
+                // Past the 180 days: ask for a fresh OTP.
+                if (data.error === "expired") setLoginError(`For your security, please verify your number again (every ${TRACK_SESSION_DAYS} days).`);
+                showLogin();
                 return;
             }
             if (!res.ok) throw new Error(data.error);
@@ -69,30 +83,20 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
             list.sort((a, b) => (orderDate(b)?.getTime() ?? 0) - (orderDate(a)?.getTime() ?? 0));
             setOrders(list);
             setSearched(String(data.phone).slice(-10));
+            setMobile(String(data.phone).slice(-10));
+            setLogin("in");
             setStatus("done");
         } catch {
+            setLogin("in");
             setStatus("error");
         }
-    }, []);
+    }, [showLogin]);
 
-    // Firebase keeps the customer signed in on this browser, so a returning visitor goes straight to their orders.
-    useEffect(() => onAuthStateChanged(auth, (user) => {
-        if (user?.phoneNumber) {
-            setLogin("in");
-            setMobile(user.phoneNumber.slice(-10));
-            loadOrders(user);
-        } else {
-            setLogin("phone");
-            setStatus("idle");
-            setOrders([]);
-            setCode("");
-            // A number from the link, or the last one used here, saves typing it again.
-            try {
-                const last = localStorage.getItem(LAST_NUMBER_KEY);
-                if (last) setMobile((current) => current || last);
-            } catch {}
-        }
-    }), [loadOrders]);
+    // A returning visitor with a saved login goes straight to their orders.
+    useEffect(() => {
+        const first = setTimeout(loadOrders, 0);
+        return () => clearTimeout(first);
+    }, [loadOrders]);
 
     useEffect(() => {
         if (resendIn <= 0) return;
@@ -106,40 +110,42 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
         setLoginError("");
         setNoOrders(false);
         try {
-            // Only spend an SMS on a number that has orders to show.
-            const check = await fetch("/api/track/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mobile }) });
-            if (!check.ok) throw new Error("check failed");
-            if (!(await check.json()).exists) {
+            // The server only spends an SMS on a number that has orders to show.
+            const { ok, data } = await post("/api/track/otp/send", { mobile });
+            if (data.error === "no-orders") {
                 setNoOrders(true);
                 return;
             }
-            verifier.current ??= new RecaptchaVerifier(auth, "track-recaptcha", { size: "invisible" });
-            confirmation.current = await signInWithPhoneNumber(auth, `+977${mobile}`, verifier.current);
+            if (data.error === "wait" && data.retryIn) setResendIn(data.retryIn);
+            if (!ok) {
+                setLoginError(otpError(data.error));
+                return;
+            }
             try { localStorage.setItem(LAST_NUMBER_KEY, mobile); } catch {}
             setCode("");
             setLogin("code");
             setResendIn(RESEND_SECONDS);
             setTimeout(() => document.getElementById("track-code")?.focus(), 100);
-        } catch (err) {
-            console.error("OTP send failed", err);
-            setLoginError(otpError(err));
-            // A used or failed reCAPTCHA can't be reused; the next attempt makes a fresh one.
-            verifier.current?.clear();
-            verifier.current = null;
+        } catch {
+            setLoginError("No internet connection. Check it and try again.");
         } finally {
             setBusy(false);
         }
     };
 
     const verifyCode = async () => {
-        if (!confirmation.current || code.length !== 6 || busy) return;
+        if (code.length !== 6 || busy) return;
         setBusy(true);
         setLoginError("");
         try {
-            await confirmation.current.confirm(code);
-            // onAuthStateChanged takes it from here and loads the orders.
-        } catch (err) {
-            setLoginError(otpError(err));
+            const { ok, data } = await post("/api/track/otp/verify", { mobile, code });
+            if (!ok) {
+                setLoginError(otpError(data.error));
+                return;
+            }
+            await loadOrders();
+        } catch {
+            setLoginError("No internet connection. Check it and try again.");
         } finally {
             setBusy(false);
         }
@@ -150,7 +156,8 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
         setMobile("");
         try { localStorage.removeItem(LAST_NUMBER_KEY); } catch {}
         window.history.replaceState(null, "", window.location.pathname);
-        await signOut(auth);
+        await post("/api/track/logout", {}).catch(() => null);
+        showLogin();
         window.scrollTo({ top: 0, behavior: "smooth" });
         setTimeout(() => document.getElementById("track-mobile")?.focus(), 300);
     };
@@ -251,8 +258,6 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
 
                     {login === "phone" && mobile && !valid && mobile.length === 10 && <p className="mt-2 text-xs text-[#ffab68]">Nepal mobile numbers start with 9.</p>}
                     {loginError && !showingResults && <p role="alert" className="mt-3 text-sm font-medium text-[#ffab68]">{loginError}</p>}
-                    {/* Invisible reCAPTCHA that Firebase needs before sending an SMS. */}
-                    <div id="track-recaptcha" />
                 </div>
             </section>
 
@@ -271,7 +276,7 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                         <XCircleIcon className="mx-auto size-10 text-rose-500" aria-hidden />
                         <p className="mt-3 font-semibold">We couldn&apos;t load your orders</p>
                         <p className="mt-1 text-sm text-[var(--store-text)]">Check your internet connection and try again.</p>
-                        <button onClick={() => auth.currentUser && loadOrders(auth.currentUser)} className="mt-4 rounded-xl bg-[#073856] px-5 py-2.5 text-sm font-semibold text-white dark:bg-[#f48b28] dark:text-[#122235]">Try again</button>
+                        <button onClick={loadOrders} className="mt-4 rounded-xl bg-[#073856] px-5 py-2.5 text-sm font-semibold text-white dark:bg-[#f48b28] dark:text-[#122235]">Try again</button>
                     </Panel>
                 )}
                 {status === "done" && orders.length === 0 && (

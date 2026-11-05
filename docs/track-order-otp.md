@@ -1,24 +1,32 @@
 # Track order OTP login
 
-Customers verify their mobile number once on `/trackOrder` with Firebase Phone Auth. Firebase keeps them
-signed in on that browser, and `/api/track/orders` asks for a new OTP once the sign-in is older than
-`TRACK_SESSION_DAYS` (180, in `lib/track-session.ts`).
+Customers verify their mobile number once on `/trackOrder` with a 6-digit SMS code, then stay signed in on that
+browser for `TRACK_SESSION_DAYS` (180, in `lib/track-session.ts`) through a signed, httpOnly `ps_track` cookie.
 
-## Firebase console setup (project `parcel-sewa`, done 2026-11-05)
+Firebase Phone Auth was tried first but Google refused to send SMS to Nepal numbers (`auth/error-code:-39`,
+even on the Blaze plan), so SMS goes through **Sparrow SMS** instead.
 
-- Authentication → Sign-in method → **Phone: enabled**.
-- Plan: **Spark (free)**. Firebase caps sent SMS at **10 per day** on this plan, so there is no SMS bill.
-  More than 10 codes a day needs a billing account (Blaze) at about $0.23 per SMS to Nepal.
-- Settings → Authorized domains: `parcelsewa.com`, `www.parcelsewa.com` (plus the defaults, incl. `localhost`).
-- Settings → SMS region policy: **Allow Nepal (NP) only**.
+## How it works
 
-## Testing without sending SMS
+- `POST /api/track/otp/send` — only for numbers that have orders; texts the code through Sparrow.
+  Limits: one code per minute and 5 per day per number. Codes expire after 5 minutes.
+- `POST /api/track/otp/verify` — 5 wrong tries per code; a right code sets the login cookie. Codes can't be reused.
+- `GET /api/track/orders` — returns orders for the number in the signed cookie only.
+- `POST /api/track/logout` — clears the cookie ("Not you? Change number").
 
-Fictional test number set in Phone → Phone numbers for testing. It never sends an SMS and doesn't use the
-daily quota:
+Codes are kept in the Firestore collection `Track OTPs` (one doc per number) as a keyed hash, never in plain text.
 
-| Number | Code |
+## Setup
+
+Fill in the three values at the top of `lib/track-auth.ts`:
+
+| Constant | Where it comes from |
 | --- | --- |
-| +977 9800000000 | 123456 |
+| `SPARROW_TOKEN` | Sparrow SMS dashboard → API token |
+| `SPARROW_FROM` | Your approved sender identity in Sparrow |
+| `SESSION_SECRET` | Any long random string. Changing it signs every customer out. |
 
-It has no orders, so it shows "No orders found" after signing in.
+Until all three are set, the page says "SMS login isn't set up yet" instead of sending.
+
+The Firebase Phone provider, its test number and the SMS region policy (Nepal only) are no longer used by the
+site and can be left as they are or switched off.
