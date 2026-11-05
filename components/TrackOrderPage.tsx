@@ -6,7 +6,7 @@ import { auth } from "@/lib/firebase/firebaseAuth";
 import { reviveDates, TRACK_SESSION_DAYS } from "@/lib/track-session";
 import WhatsAppLink from "@/components/WhatsAppLink";
 import { customerProfile, formatDay, groupProducts, isCancelled, isDelivered, orderDate, orderProducts, type Leg, type ProductTracking, type TrackingStep } from "@/lib/order-tracking";
-import { ArrowPathIcon, CalendarDaysIcon, CheckIcon, ChevronDownIcon, LockClosedIcon, MapPinIcon, PhoneIcon, ShoppingBagIcon, SparklesIcon, TruckIcon, XCircleIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, CalendarDaysIcon, CheckIcon, LockClosedIcon, MapPinIcon, PhoneIcon, ShoppingBagIcon, SparklesIcon, TruckIcon, XCircleIcon } from "@heroicons/react/24/outline";
 import { CheckBadgeIcon } from "@heroicons/react/24/solid";
 
 const LAST_NUMBER_KEY = "parcelsewa:track-mobile";
@@ -276,13 +276,13 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                         {active.length > 0 && (
                             <section className="space-y-3">
                                 <SectionTitle>On the way</SectionTitle>
-                                {active.map((o, i) => <OrderCard key={o.id} order={o} defaultOpen={i === 0} />)}
+                                {active.map((o) => <OrderCard key={o.id} order={o} />)}
                             </section>
                         )}
                         {past.length > 0 && (
                             <section className="space-y-3">
                                 <SectionTitle>Previous orders</SectionTitle>
-                                {past.map((o) => <OrderCard key={o.id} order={o} compact />)}
+                                {past.map((o) => <OrderCard key={o.id} order={o} />)}
                             </section>
                         )}
 
@@ -346,8 +346,8 @@ function ProfileStat({ label, value, tone = "slate" }: { label: string; value: s
     );
 }
 
-function OrderCard({ order, defaultOpen = false, compact = false }: { order: any; defaultOpen?: boolean; compact?: boolean }) {
-    const [open, setOpen] = useState(defaultOpen);
+// Every order is shown in full: header, route, delivery and payment details, every item, and the whole journey.
+function OrderCard({ order }: { order: any }) {
     const groups = useMemo(() => groupProducts(order), [order]);
     const products = orderProducts(order);
     const cancelled = isCancelled(order);
@@ -356,10 +356,11 @@ function OrderCard({ order, defaultOpen = false, compact = false }: { order: any
     const headline = groups[0]?.tracking;
     const due = delivered || cancelled ? 0 : Math.max((Number(order.totalAmount) || 0) - (Number(order.advancePayment) || 0), 0);
     const deliveredOn = delivered ? headline?.steps.at(-1)?.date ?? null : null;
+    const trackingFor = new Map(groups.flatMap((g) => g.products.map((p) => [p.index, g.tracking] as const)));
 
     return (
-        <article className={`overflow-hidden rounded-2xl border border-[var(--store-line)] bg-[var(--store-paper)] shadow-sm transition ${open ? "shadow-lg" : "hover:shadow-md"}`}>
-            <button type="button" onClick={() => setOpen(!open)} aria-expanded={open} className="flex w-full items-center gap-3 p-4 text-left sm:gap-4">
+        <article className="overflow-hidden rounded-2xl border border-[var(--store-line)] bg-[var(--store-paper)] shadow-sm">
+            <div className="flex w-full items-center gap-3 p-4 text-left sm:gap-4">
                 {products.length <= 1 && <Thumbs images={products.map((p) => p.image)} />}
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
@@ -376,28 +377,105 @@ function OrderCard({ order, defaultOpen = false, compact = false }: { order: any
                     )}
                     {due > 0 && <p className="mt-1 text-xs font-semibold text-[#c85b13] dark:text-[#ffab68]">Due on delivery: Rs. {due.toLocaleString("en-IN")}</p>}
                 </div>
-                <ChevronDownIcon className={`size-5 shrink-0 text-[var(--store-text)] transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
-            </button>
+            </div>
 
             {products.length > 1 && <ProductStrip products={products} />}
 
-            {!compact && !cancelled && headline && <div className="px-4 pb-4"><RouteBar tracking={headline} /></div>}
+            {!cancelled && headline && <div className="px-4 pb-4"><RouteBar tracking={headline} /></div>}
 
-            {open && (
-                <div className="border-t border-[var(--store-line)] bg-[var(--store-soft)]/60 p-3 sm:p-4">
-                    {cancelled ? (
-                        <p className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">This order was cancelled. Contact us on WhatsApp if you have any questions about it.</p>
-                    ) : (
-                        <div className="space-y-3">
-                            {compact && headline && <RouteBar tracking={headline} />}
-                            {groups.map((g, i) => (
-                                <ProductGroup key={i} images={g.products} tracking={g.tracking} single={groups.length === 1} />
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
+            <div className="space-y-3 border-t border-[var(--store-line)] bg-[var(--store-soft)]/60 p-3 sm:p-4">
+                {cancelled && (
+                    <p className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">This order was cancelled. Contact us on WhatsApp if you have any questions about it.</p>
+                )}
+                <OrderDetails order={order} delivered={delivered} cancelled={cancelled} deliveredOn={deliveredOn} due={due} />
+                <ItemList order={order} products={products} trackingFor={trackingFor} cancelled={cancelled} />
+                {!cancelled && groups.map((g, i) => (
+                    <ProductGroup key={i} images={g.products} tracking={g.tracking} single={groups.length === 1} />
+                ))}
+            </div>
         </article>
+    );
+}
+
+function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+        <div className="flex justify-between gap-4 py-1.5 text-sm">
+            <dt className="shrink-0 text-[var(--store-text)]">{label}</dt>
+            <dd className="min-w-0 text-right font-medium [overflow-wrap:anywhere]">{children}</dd>
+        </div>
+    );
+}
+
+// Delivery and payment details. Commission, order notes and error notes are written by staff, so they stay internal.
+function OrderDetails({ order, delivered, cancelled, deliveredOn, due }: { order: any; delivered: boolean; cancelled: boolean; deliveredOn: Date | null; due: number }) {
+    const total = Number(order.totalAmount) || 0;
+    const advance = Number(order.advancePayment) || 0;
+    const rs = (n: number) => `Rs. ${n.toLocaleString("en-IN")}`;
+    return (
+        <div className="grid gap-3 sm:grid-cols-2">
+            <section className="rounded-xl border border-[var(--store-line)] bg-[var(--store-paper)] p-3 sm:p-4">
+                <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-[var(--store-text)]">Delivery</h3>
+                <dl className="divide-y divide-[var(--store-line)]">
+                    <DetailRow label="Order ID">#{order.id.toUpperCase()}</DetailRow>
+                    {order.name && <DetailRow label="Name">{order.name}</DetailRow>}
+                    {order.mobile && <DetailRow label="Phone">{String(order.mobile).replace(/^\+977/, "+977 ")}</DetailRow>}
+                    {order.address && <DetailRow label="Address">{order.address}</DetailRow>}
+                    {order.storeName && <DetailRow label="Store">{order.storeName}</DetailRow>}
+                    <DetailRow label="Ordered">{formatDay(orderDate(order)) || "—"}</DetailRow>
+                    <DetailRow label="Status">{cancelled ? "Cancelled" : delivered ? `Delivered${deliveredOn ? ` ${formatDay(deliveredOn)}` : ""}` : "On the way"}</DetailRow>
+                </dl>
+            </section>
+            <section className="rounded-xl border border-[var(--store-line)] bg-[var(--store-paper)] p-3 sm:p-4">
+                <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-[var(--store-text)]">Payment</h3>
+                <dl className="divide-y divide-[var(--store-line)]">
+                    <DetailRow label="Order total">{rs(total)}</DetailRow>
+                    <DetailRow label="Advance paid">{rs(advance)}</DetailRow>
+                    {order.courierCharge && <DetailRow label="Courier charge">{order.courierCharge}</DetailRow>}
+                    <DetailRow label={delivered ? "Balance" : "Due on delivery"}>
+                        {cancelled
+                            ? "—"
+                            : due > 0
+                                ? <span className="font-bold text-[#c85b13] dark:text-[#ffab68]">{rs(due)}</span>
+                                : <span className="font-bold text-emerald-600 dark:text-emerald-400">Paid in full</span>}
+                    </DetailRow>
+                </dl>
+            </section>
+        </div>
+    );
+}
+
+// Every item with its quantity, where it is now, and links to its image and store page.
+function ItemList({ order, products, trackingFor, cancelled }: { order: any; products: ReturnType<typeof orderProducts>; trackingFor: Map<number, ProductTracking>; cancelled: boolean }) {
+    if (products.length === 0) return null;
+    return (
+        <section className="rounded-xl border border-[var(--store-line)] bg-[var(--store-paper)] p-3 sm:p-4">
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--store-text)]">Items ({products.length})</h3>
+            <ul className="divide-y divide-[var(--store-line)]">
+                {products.map((p, i) => {
+                    const tracking = trackingFor.get(p.index);
+                    const page = order.productPageUrls?.[p.index];
+                    return (
+                        <li key={p.index} className="flex items-center gap-3 py-2">
+                            <a href={p.image} target="_blank" rel="noopener noreferrer" className="size-14 shrink-0 overflow-hidden rounded-lg bg-[var(--store-soft)] ring-1 ring-[var(--store-line)]">
+                                <img src={p.image} alt={`Item ${i + 1}`} loading="lazy" className="h-full w-full object-cover" />
+                            </a>
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold">Item {i + 1} <span className="font-medium text-[var(--store-text)]">· Qty {p.quantity}</span></p>
+                                {!cancelled && tracking && (
+                                    <p className={`text-xs ${tracking.delivered ? "text-emerald-600 dark:text-emerald-400" : "text-[var(--store-text)]"}`}>
+                                        {tracking.delivered ? "Delivered" : tracking.current.title}
+                                    </p>
+                                )}
+                                <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs font-semibold">
+                                    <a href={p.image} target="_blank" rel="noopener noreferrer" className="text-[#c85b13] hover:underline dark:text-[#ffab68]">View image</a>
+                                    {page && <a href={page} target="_blank" rel="noopener noreferrer" className="text-[#c85b13] hover:underline dark:text-[#ffab68]">Product page</a>}
+                                </div>
+                            </div>
+                        </li>
+                    );
+                })}
+            </ul>
+        </section>
     );
 }
 
@@ -435,14 +513,9 @@ function RouteBar({ tracking }: { tracking: ProductTracking }) {
     );
 }
 
+// The whole journey, every step, top to bottom.
 function ProductGroup({ images, tracking, single }: { images: { index: number; image: string; quantity: string }[]; tracking: ProductTracking; single: boolean }) {
-    const [showAll, setShowAll] = useState(false);
-    // Upcoming India sub-steps add noise; show what's happened plus the big milestones still to come.
-    const visible = tracking.steps.filter((s) => s.status !== "upcoming" || s.leg !== "india" || s.key === "near-border");
-    const doneSteps = visible.filter((s) => s.status !== "upcoming");
-    const upcoming = visible.filter((s) => s.status === "upcoming");
-    // Folded: the latest update and the next milestone. Unfolded: the whole journey, top to bottom.
-    const shown = showAll ? visible : [...doneSteps.slice(-1), ...upcoming.slice(0, 1)];
+    const shown = tracking.steps;
 
     return (
         <div className="rounded-xl border border-[var(--store-line)] bg-[var(--store-paper)] p-3 sm:p-4">
@@ -460,15 +533,10 @@ function ProductGroup({ images, tracking, single }: { images: { index: number; i
                     <p className="text-xs font-medium text-[var(--store-text)]">{images.length} item{images.length === 1 ? "" : "s"}</p>
                 </div>
             )}
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--store-text)]">Journey</h3>
             <ol>
                 {shown.map((step, i) => <TimelineStep key={step.key} step={step} last={i === shown.length - 1} />)}
             </ol>
-            {visible.length > shown.length || showAll ? (
-                <button type="button" onClick={() => setShowAll(!showAll)} className="ml-11 mt-1 inline-flex items-center gap-1 text-xs font-semibold text-[#c85b13] hover:underline dark:text-[#ffab68]">
-                    {showAll ? "Show less" : `View full journey (${visible.length} steps)`}
-                    <ChevronDownIcon className={`size-3.5 transition-transform ${showAll ? "rotate-180" : ""}`} aria-hidden />
-                </button>
-            ) : null}
         </div>
     );
 }
@@ -497,10 +565,10 @@ function TimelineStep({ step, last }: { step: TrackingStep; last: boolean }) {
                     <p className={`text-sm font-semibold ${step.status === "upcoming" ? "text-[var(--store-text)]/70" : ""}`}>{step.title}</p>
                     {step.date && step.status !== "upcoming" && <p className="text-xs font-medium text-[var(--store-text)]">{formatDay(step.date)}</p>}
                 </div>
-                {current && <p className="mt-0.5 text-xs leading-relaxed text-[var(--store-text)]">{step.detail}</p>}
-                {(step.status !== "upcoming" || isHome) && <p className={`mt-1 inline-flex items-center gap-1 text-[11px] ${isHome && done ? "font-semibold text-emerald-700 dark:text-emerald-400" : "text-[var(--store-text)]/80"}`}>
+                <p className={`mt-0.5 text-xs leading-relaxed ${step.status === "upcoming" ? "text-[var(--store-text)]/70" : "text-[var(--store-text)]"}`}>{step.detail}</p>
+                <p className={`mt-1 inline-flex items-center gap-1 text-[11px] ${isHome && done ? "font-semibold text-emerald-700 dark:text-emerald-400" : "text-[var(--store-text)]/80"}`}>
                     <MapPinIcon className="size-3.5 shrink-0" aria-hidden />{step.place}
-                </p>}
+                </p>
             </div>
         </li>
     );
