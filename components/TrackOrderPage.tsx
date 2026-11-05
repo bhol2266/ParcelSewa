@@ -132,6 +132,16 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
         }
     };
 
+    // Signing out means the next number needs its own OTP.
+    const changeNumber = async () => {
+        setMobile("");
+        try { localStorage.removeItem(LAST_NUMBER_KEY); } catch {}
+        window.history.replaceState(null, "", window.location.pathname);
+        await signOut(auth);
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        setTimeout(() => document.getElementById("track-mobile")?.focus(), 300);
+    };
+
     const active = orders.filter((o) => !isDelivered(o) && !isCancelled(o));
     const past = orders.filter((o) => isDelivered(o) || isCancelled(o));
     // Once orders are showing, the hero shrinks so the tracking sits near the top.
@@ -250,6 +260,9 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                         <p className="mt-4 text-lg font-semibold">No orders found for +977 {searched}</p>
                         <p className="mx-auto mt-1 max-w-sm text-sm text-[var(--store-text)]">Make sure it&apos;s the number you gave when ordering. Still stuck? Message us and we&apos;ll check for you.</p>
                         <div className="mt-5 flex justify-center"><WhatsAppLink>Ask on WhatsApp</WhatsAppLink></div>
+                        <button type="button" onClick={changeNumber} className="mt-4 text-sm font-semibold text-[var(--store-text)] underline-offset-2 hover:text-[var(--store-ink)] hover:underline">
+                            Use a different number
+                        </button>
                     </Panel>
                 )}
                 {status === "done" && orders.length > 0 && (
@@ -257,15 +270,7 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                         <ProfileCard
                             orders={orders}
                             mobile={searched}
-                            onChangeNumber={async () => {
-                                setMobile("");
-                                try { localStorage.removeItem(LAST_NUMBER_KEY); } catch {}
-                                window.history.replaceState(null, "", window.location.pathname);
-                                // Signing out means the next number needs its own OTP.
-                                await signOut(auth);
-                                window.scrollTo({ top: 0, behavior: "smooth" });
-                                setTimeout(() => document.getElementById("track-mobile")?.focus(), 300);
-                            }}
+                            onChangeNumber={changeNumber}
                         />
 
                         {active.length > 0 && (
