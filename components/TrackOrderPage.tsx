@@ -795,7 +795,8 @@ function TimelineStep({ step, last }: { step: TrackingStep; last: boolean }) {
 // Every product in the order, in a row that scrolls sideways on small screens; tapping one opens the full image.
 function ProductStrip({ products }: { products: { index: number; image: string; quantity: string }[] }) {
     return (
-        <div className="-mt-1 flex gap-2 overflow-x-auto px-4 pb-4 [scrollbar-width:thin]">
+        // Phones swipe through the row (no visible scrollbar); wider screens wrap onto more rows instead.
+        <div className="-mt-1 flex gap-2 overflow-x-auto px-4 pb-4 [scrollbar-width:none] sm:flex-wrap sm:overflow-visible [&::-webkit-scrollbar]:hidden">
             {products.map((p) => (
                 <a key={p.index} href={p.image} target="_blank" rel="noopener noreferrer" className="relative size-16 shrink-0 overflow-hidden rounded-xl bg-[var(--store-soft)] ring-1 ring-[var(--store-line)] transition hover:ring-2 hover:ring-[#f48b28]">
                     <img src={p.image} alt={`Product ${p.index + 1}`} loading="lazy" className="h-full w-full object-cover" />
