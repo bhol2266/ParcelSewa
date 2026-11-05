@@ -2,7 +2,7 @@
 // them. Offices and numbers are from aramex.com/np/en/find-aramex-office (checked 5 Nov 2026).
 
 export const ARAMEX_TRACK_URL = "https://www.aramex.com/ae/en/track/shipments";
-export const ARAMEX_LABEL_IMAGE = "/tracking/aramex-tracking-number.webp";
+export const ARAMEX_LABEL_IMAGE = "/tracking/aramex-tracking-number-example.webp";
 
 export type AramexOffice = { place: string; area: string; phone: string; tel: string; hours: string };
 

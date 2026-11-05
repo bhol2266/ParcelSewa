@@ -876,12 +876,13 @@ function CourierPanel({ handedOver }: { handedOver: Date | null }) {
             {open === "number" && (
                 <div className="mt-3 rounded-xl border border-[var(--store-line)] bg-[var(--store-paper)] p-3">
                     <p className="text-xs leading-relaxed text-[var(--store-text)]">
-                        The tracking number is the number printed <strong className="text-[var(--store-ink)]">under the barcode</strong> on the Aramex (Expo Express) label on your parcel. Enter it on the Aramex tracking page. Don&apos;t have the label? Ask us on WhatsApp for your tracking number.
+                        We send you a photo of your Aramex receipt on <strong className="text-[var(--store-ink)]">WhatsApp</strong>. Your tracking number is the number printed <strong className="text-[var(--store-ink)]">under the barcode</strong> on it. Enter that number on the Aramex tracking page.
                     </p>
+                    <p className="mt-1.5 text-xs font-semibold text-[var(--store-ink)]">Didn&apos;t get the receipt? Ask us on WhatsApp and we&apos;ll send it.</p>
                     <a href={ARAMEX_LABEL_IMAGE} target="_blank" rel="noopener noreferrer" className="mx-auto mt-3 block max-w-[260px] overflow-hidden rounded-lg ring-1 ring-[var(--store-line)]">
-                        <img src={ARAMEX_LABEL_IMAGE} alt="Aramex courier label with the tracking number under the barcode highlighted" loading="lazy" className="h-auto w-full bg-white" />
+                        <img src={ARAMEX_LABEL_IMAGE} alt="Example Aramex receipt showing where the tracking number is, under the barcode" loading="lazy" className="h-auto w-full bg-white" />
                     </a>
-                    <div className="mt-3 flex justify-center"><WhatsAppLink className="!min-h-0 !py-2 !text-xs">Ask for my tracking number</WhatsAppLink></div>
+                    <div className="mt-3 flex justify-center"><WhatsAppLink className="!min-h-0 !py-2 !text-xs">Ask for my receipt on WhatsApp</WhatsAppLink></div>
                 </div>
             )}
         </section>
