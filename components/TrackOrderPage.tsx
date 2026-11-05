@@ -576,9 +576,8 @@ function OrderCard({ order }: { order: any }) {
                 {withCourier && <CourierPanel handedOver={handedOverAt(order)} />}
                 <OrderDetails order={order} delivered={delivered} withCourier={withCourier} cancelled={cancelled} deliveredOn={deliveredOn} due={due} />
                 <ItemList order={order} products={products} trackingFor={trackingFor} cancelled={cancelled} />
-                {!cancelled && groups.map((g, i) => (
-                    <ProductGroup key={i} images={g.products} tracking={g.tracking} single={groups.length === 1} />
-                ))}
+                {/* One journey per order, following its slowest items; each item's own stage is in the list above. */}
+                {!cancelled && headline && <ProductGroup images={groups[0].products} tracking={headline} single />}
             </div>}
         </article>
     );
