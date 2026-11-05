@@ -26,7 +26,7 @@ const CreateOrder: React.FC = () => {
     const [notes, setNotes] = useState("");
     const [address, setAddress] = useState("");
     const [storeName, setStoreName] = useState("Amazon");
-    const [commission, setCommission] = useState("20%");
+    const [commission, setCommission] = useState("30%");
     const [totalAmount, setTotalAmount] = useState(""); // store as string
     const [advancePayment, setAdvancePayment] = useState(""); // store as string
 
@@ -163,7 +163,7 @@ const CreateOrder: React.FC = () => {
             setNotes("");
             setAddress("");
             setStoreName("");
-            setCommission("15%");
+            setCommission("30%");
             setTotalAmount("");
             setAdvancePayment("");
             setProductItems([{ url: "", quantity: "1" }]);
