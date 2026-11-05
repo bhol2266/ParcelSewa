@@ -634,26 +634,39 @@ function OrderDetails({ order, delivered, withCourier, cancelled, deliveredOn, d
 // Every item with its quantity, where it is now, and links to its image and store page.
 function ItemList({ order, products, trackingFor, cancelled }: { order: any; products: ReturnType<typeof orderProducts>; trackingFor: Map<number, ProductTracking>; cancelled: boolean }) {
     if (products.length === 0) return null;
+    const statuses = products.map((p) => (cancelled ? null : itemStatus(trackingFor.get(p.index))));
+    // How many items are at each stage, for the summary chips beside the heading.
+    const counts = new Map<string, { status: ItemStatus; n: number }>();
+    for (const s of statuses) if (s) counts.set(s.label, { status: s, n: (counts.get(s.label)?.n ?? 0) + 1 });
     return (
         <section className="rounded-xl border border-[var(--store-line)] bg-[var(--store-paper)] p-3 sm:p-4">
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--store-text)]">Items ({products.length})</h3>
-            <ul className="divide-y divide-[var(--store-line)]">
+            <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--store-text)]">Items ({products.length})</h3>
+                {counts.size > 1 && [...counts.values()].map(({ status, n }) => (
+                    <span key={status.label} className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${status.pill}`}>
+                        <span className={`size-1.5 rounded-full ${status.dot}`} aria-hidden />{n} · {status.label}
+                    </span>
+                ))}
+            </div>
+            <ul className="grid gap-2 sm:grid-cols-2">
                 {products.map((p, i) => {
-                    const tracking = trackingFor.get(p.index);
+                    const status = statuses[i];
                     const page = order.productPageUrls?.[p.index];
                     return (
-                        <li key={p.index} className="flex items-center gap-3 py-2">
-                            <a href={p.image} target="_blank" rel="noopener noreferrer" className="size-14 shrink-0 overflow-hidden rounded-lg bg-[var(--store-soft)] ring-1 ring-[var(--store-line)]">
+                        <li key={p.index} className={`flex items-center gap-2.5 rounded-lg border-l-4 p-2 ring-1 ring-[var(--store-line)] ${status ? status.tile : "border-l-[var(--store-line)]"}`}>
+                            <a href={p.image} target="_blank" rel="noopener noreferrer" className="relative size-12 shrink-0 overflow-hidden rounded-md bg-[var(--store-soft)]">
                                 <img src={p.image} alt={`Item ${i + 1}`} loading="lazy" className="h-full w-full object-cover" />
                             </a>
                             <div className="min-w-0 flex-1">
-                                <p className="text-sm font-semibold">Item {i + 1} <span className="font-medium text-[var(--store-text)]">· Qty {p.quantity}</span></p>
-                                {!cancelled && tracking && (
-                                    <p className={`text-xs ${tracking.delivered ? "text-emerald-600 dark:text-emerald-400" : "text-[var(--store-text)]"}`}>
-                                        {tracking.delivered ? "Delivered" : tracking.current.title}
-                                    </p>
-                                )}
-                                <div className="mt-0.5 flex flex-wrap gap-x-3 text-xs font-semibold">
+                                <div className="flex items-center justify-between gap-2">
+                                    <p className="text-sm font-semibold">Item {i + 1} <span className="font-medium text-[var(--store-text)]">· Qty {p.quantity}</span></p>
+                                    {status && (
+                                        <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${status.pill}`}>
+                                            {status.reached ? <CheckIcon className="size-3" strokeWidth={3} aria-hidden /> : <ClockIcon className="size-3" aria-hidden />}{status.label}
+                                        </span>
+                                    )}
+                                </div>
+                                <div className="mt-0.5 flex flex-wrap gap-x-3 text-[11px] font-semibold">
                                     <a href={p.image} target="_blank" rel="noopener noreferrer" className="text-[#c85b13] hover:underline dark:text-[#ffab68]">View image</a>
                                     {page && <a href={page} target="_blank" rel="noopener noreferrer" className="text-[#c85b13] hover:underline dark:text-[#ffab68]">Product page</a>}
                                 </div>
@@ -664,6 +677,20 @@ function ItemList({ order, products, trackingFor, cancelled }: { order: any; pro
             </ul>
         </section>
     );
+}
+
+type ItemStatus = { label: string; reached: boolean; pill: string; dot: string; tile: string };
+
+// One short, coloured label per item: amber until it reaches our Raxaul facility, green once it has.
+function itemStatus(tracking: ProductTracking | undefined): ItemStatus | null {
+    if (!tracking) return null;
+    const green = { reached: true, pill: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300", dot: "bg-emerald-500", tile: "border-l-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/20" };
+    if (tracking.delivered) return { label: "Delivered", ...green };
+    const key = tracking.current.key;
+    if (key === "courier") return { label: "With Aramex", reached: true, pill: "bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300", dot: "bg-sky-500", tile: "border-l-sky-500 bg-sky-50/60 dark:bg-sky-950/20" };
+    if (key === "birgunj") return { label: "At Birgunj hub", ...green };
+    if (key === "raxaul") return { label: "At Raxaul border", ...green };
+    return { label: "Not at border yet", reached: false, pill: "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300", dot: "bg-amber-500", tile: "border-l-amber-400 bg-amber-50/50 dark:bg-amber-950/20" };
 }
 
 // Four-leg route with the truck sitting at the order's progress.
@@ -703,6 +730,7 @@ function RouteBar({ tracking }: { tracking: ProductTracking }) {
 // The whole journey, every step, top to bottom.
 function ProductGroup({ images, tracking, single }: { images: { index: number; image: string; quantity: string }[]; tracking: ProductTracking; single: boolean }) {
     const shown = tracking.steps;
+    const status = single ? null : itemStatus(tracking);
 
     return (
         <div className="rounded-xl border border-[var(--store-line)] bg-[var(--store-paper)] p-3 sm:p-4">
@@ -718,6 +746,7 @@ function ProductGroup({ images, tracking, single }: { images: { index: number; i
                         {images.length > 4 && <div className="flex size-10 items-center justify-center rounded-lg border-2 border-[var(--store-paper)] bg-[var(--store-soft)] text-xs font-bold">+{images.length - 4}</div>}
                     </div>
                     <p className="text-xs font-medium text-[var(--store-text)]">{images.length} item{images.length === 1 ? "" : "s"}</p>
+                    {status && <span className={`ml-auto inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${status.pill}`}>{status.reached ? <CheckIcon className="size-3" strokeWidth={3} aria-hidden /> : <ClockIcon className="size-3" aria-hidden />}{status.label}</span>}
                 </div>
             )}
             <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-[var(--store-text)]">Journey</h3>
