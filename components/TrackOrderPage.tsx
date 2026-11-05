@@ -8,6 +8,9 @@ import { ArrowPathIcon, CalendarDaysIcon, CheckIcon, LockClosedIcon, MapPinIcon,
 import { CheckBadgeIcon } from "@heroicons/react/24/solid";
 
 const LAST_NUMBER_KEY = "parcelsewa:track-mobile";
+// SMS (OTP) login is switched off for now: customers sign in with their number and last payment amount. Set to true
+// to bring back "Send code", with the payment amount as the "No SMS?" option.
+const SMS_LOGIN = false;
 const RESEND_SECONDS = 60;
 const LEGS: { leg: Leg; label: string; sub: string }[] = [
     { leg: "india", label: "India", sub: "Seller" },
@@ -168,7 +171,7 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
     };
 
     const verifyAmount = async () => {
-        if (!amount || busy) return;
+        if (!valid || !amount || busy) return;
         setBusy(true);
         setLoginError("");
         try {
@@ -225,7 +228,9 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                             ? <>We sent a 6-digit code by SMS to <strong className="text-white">+977 {mobile}</strong>.</>
                             : login === "amount"
                             ? <>Enter your last payment amount for <strong className="text-white">+977 {mobile}</strong>. It can be the advance or remaining payment from any of your last 3 orders.</>
-                            : "Verify the mobile number you ordered with to see live tracking and all your ParcelSewa orders. You only do this once on this device."}
+                            : SMS_LOGIN
+                            ? "Verify the mobile number you ordered with to see live tracking and all your ParcelSewa orders. You only do this once on this device."
+                            : "Enter the mobile number you ordered with and your last payment amount to see live tracking and all your ParcelSewa orders. You only do this once on this device."}
                     </p>
                     </>}
 
@@ -233,7 +238,58 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                         <div className="mt-7 flex items-center gap-2 text-sm text-white/75"><ArrowPathIcon className="size-5 animate-spin" aria-hidden /> Loading…</div>
                     )}
 
-                    {login === "phone" && (
+                    {login === "phone" && !SMS_LOGIN && (
+                        <form className="mt-7 max-w-xl space-y-3" onSubmit={(e) => { e.preventDefault(); verifyAmount(); }}>
+                            <div>
+                                <label htmlFor="track-mobile" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-white/70">Mobile number</label>
+                                <div className="flex min-w-0 items-center rounded-2xl bg-white p-1.5 shadow-xl shadow-black/20 ring-1 ring-black/5 focus-within:ring-2 focus-within:ring-[#f48b28] dark:bg-[#111c2d]">
+                                    <span className="flex items-center gap-1.5 rounded-xl bg-[var(--store-soft)] px-3 py-3 text-sm font-semibold text-[var(--store-ink)]">+977</span>
+                                    <input
+                                        id="track-mobile"
+                                        type="tel"
+                                        inputMode="numeric"
+                                        autoComplete="tel-national"
+                                        maxLength={10}
+                                        placeholder="98XXXXXXXX"
+                                        value={mobile}
+                                        onChange={(e) => { setMobile(e.target.value.replace(/\D/g, "").slice(0, 10)); setNoOrders(false); setLoginError(""); }}
+                                        className="min-w-0 flex-1 !border-0 !bg-transparent px-3 py-3 text-lg font-semibold tracking-wider text-[var(--store-ink)] outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-400"
+                                    />
+                                    {mobile && (
+                                        <span className={`mr-2 hidden text-xs font-medium sm:inline ${valid ? "text-emerald-600" : "text-gray-400"}`}>{mobile.length}/10</span>
+                                    )}
+                                </div>
+                            </div>
+                            <div>
+                                <label htmlFor="track-amount" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-white/70">Enter your last payment amount</label>
+                                <div className="flex min-w-0 items-center rounded-2xl bg-white p-1.5 shadow-xl shadow-black/20 ring-1 ring-black/5 focus-within:ring-2 focus-within:ring-[#f48b28] dark:bg-[#111c2d]">
+                                    <span className="flex items-center gap-1.5 rounded-xl bg-[var(--store-soft)] px-3 py-3 text-sm font-semibold text-[var(--store-ink)]">Rs.</span>
+                                    <input
+                                        id="track-amount"
+                                        type="text"
+                                        inputMode="numeric"
+                                        autoComplete="off"
+                                        maxLength={8}
+                                        placeholder="e.g. 2500"
+                                        value={amount}
+                                        onChange={(e) => { setAmount(e.target.value.replace(/\D/g, "").slice(0, 8)); setLoginError(""); }}
+                                        className="min-w-0 flex-1 !border-0 !bg-transparent px-3 py-3 text-lg font-semibold tracking-wider text-[var(--store-ink)] outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-400"
+                                    />
+                                </div>
+                                <p className="mt-1.5 text-xs text-white/65">The advance or remaining payment from any of your last 3 orders.</p>
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={!valid || !amount || busy}
+                                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#f48b28] px-5 py-4 text-sm font-bold text-[#122235] shadow-lg shadow-[#f48b28]/30 transition hover:bg-[#ffad63] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {busy ? <ArrowPathIcon className="size-5 animate-spin" aria-hidden /> : <LockClosedIcon className="size-5" aria-hidden />}
+                                Verify &amp; track
+                            </button>
+                        </form>
+                    )}
+
+                    {login === "phone" && SMS_LOGIN && (
                         <form className="mt-7 flex flex-col gap-2 sm:flex-row sm:gap-3" onSubmit={(e) => { e.preventDefault(); sendCode(); }}>
                             <label htmlFor="track-mobile" className="sr-only">10-digit mobile number</label>
                             <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-white p-1.5 shadow-xl shadow-black/20 ring-1 ring-black/5 focus-within:ring-2 focus-within:ring-[#f48b28] dark:bg-[#111c2d]">
@@ -290,7 +346,7 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                             </button>
                         </form>
                     )}
-                    {login === "phone" && (
+                    {login === "phone" && SMS_LOGIN && (
                         <div className="mt-3 text-xs text-white/75">
                             No SMS?{" "}
                             <button type="button" onClick={() => valid ? startAmount() : setLoginError("Enter your 10-digit mobile number first.")} disabled={busy} className="font-semibold text-white underline underline-offset-2 hover:text-[#ffab68]">
@@ -329,9 +385,9 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                     {login === "amount" && (
                         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/75">
                             <button type="button" onClick={() => { setLogin("phone"); setLoginError(""); }} className="font-semibold underline-offset-2 hover:text-white hover:underline">Change number</button>
-                            <button type="button" onClick={() => { setLogin("phone"); sendCode(); }} disabled={busy || resendIn > 0} className="font-semibold underline-offset-2 hover:text-white hover:underline disabled:opacity-60">
+                            {SMS_LOGIN && <button type="button" onClick={() => { setLogin("phone"); sendCode(); }} disabled={busy || resendIn > 0} className="font-semibold underline-offset-2 hover:text-white hover:underline disabled:opacity-60">
                                 {resendIn > 0 ? `Get an SMS code instead (${resendIn}s)` : "Get an SMS code instead"}
-                            </button>
+                            </button>}
                         </div>
                     )}
 

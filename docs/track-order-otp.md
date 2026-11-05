@@ -1,5 +1,9 @@
 # Track order OTP login
 
+> **SMS login is switched off for now** (`SMS_LOGIN = false` in `components/TrackOrderPage.tsx`): the page asks for
+> the mobile number and the last payment amount on one form. Set it to `true` to bring back "Send code", with the
+> payment amount as the "No SMS?" option. The OTP routes below stay in place.
+
 Customers verify their mobile number once on `/trackOrder` with a 6-digit SMS code, then stay signed in on that
 browser for `TRACK_SESSION_DAYS` (180, in `lib/track-session.ts`) through a signed, httpOnly `ps_track` cookie.
 
