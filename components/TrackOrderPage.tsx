@@ -31,7 +31,8 @@ function otpError(err: unknown): string {
     if (code === "auth/too-many-requests" || code === "auth/quota-exceeded") return "Too many attempts. Please try again later, or message us on WhatsApp.";
     if (code === "auth/invalid-phone-number") return "That number doesn't look right.";
     if (code === "auth/network-request-failed") return "No internet connection. Check it and try again.";
-    return "Couldn't send the code right now. Please try again in a minute, or message us on WhatsApp.";
+    // Anything else is a setup or Firebase problem: show the code so it can be looked up.
+    return `Couldn't send the code right now. Please try again in a minute, or message us on WhatsApp.${code ? ` (${code})` : ""}`;
 }
 
 export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?: string }) {
@@ -45,6 +46,8 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
     const [code, setCode] = useState("");
     const [busy, setBusy] = useState(false);
     const [loginError, setLoginError] = useState("");
+    // The number was checked and has no orders, so no code was sent.
+    const [noOrders, setNoOrders] = useState(false);
     const [resendIn, setResendIn] = useState(0);
     const confirmation = useRef<ConfirmationResult | null>(null);
     const verifier = useRef<RecaptchaVerifier | null>(null);
@@ -100,7 +103,15 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
         if (!valid || busy || resendIn > 0) return;
         setBusy(true);
         setLoginError("");
+        setNoOrders(false);
         try {
+            // Only spend an SMS on a number that has orders to show.
+            const check = await fetch("/api/track/check", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mobile }) });
+            if (!check.ok) throw new Error("check failed");
+            if (!(await check.json()).exists) {
+                setNoOrders(true);
+                return;
+            }
             verifier.current ??= new RecaptchaVerifier(auth, "track-recaptcha", { size: "invisible" });
             confirmation.current = await signInWithPhoneNumber(auth, `+977${mobile}`, verifier.current);
             try { localStorage.setItem(LAST_NUMBER_KEY, mobile); } catch {}
@@ -109,6 +120,7 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
             setResendIn(RESEND_SECONDS);
             setTimeout(() => document.getElementById("track-code")?.focus(), 100);
         } catch (err) {
+            console.error("OTP send failed", err);
             setLoginError(otpError(err));
             // A used or failed reCAPTCHA can't be reused; the next attempt makes a fresh one.
             verifier.current?.clear();
@@ -183,7 +195,7 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                                     maxLength={10}
                                     placeholder="98XXXXXXXX"
                                     value={mobile}
-                                    onChange={(e) => setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                                    onChange={(e) => { setMobile(e.target.value.replace(/\D/g, "").slice(0, 10)); setNoOrders(false); }}
                                     className="min-w-0 flex-1 !border-0 !bg-transparent px-3 py-3 text-lg font-semibold tracking-wider text-[var(--store-ink)] outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-400"
                                 />
                                 {mobile && (
@@ -244,7 +256,14 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
             </section>
 
             <div className={`relative mx-auto w-full max-w-3xl space-y-4 px-4 sm:px-6 ${showingResults ? "-mt-10" : "-mt-14"}`}>
-                {!showingResults && <HowItWorks />}
+                {!showingResults && (noOrders ? (
+                    <Panel className="text-center">
+                        <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-[var(--store-soft)]"><ShoppingBagIcon className="size-7 text-[var(--store-text)]" aria-hidden /></div>
+                        <p className="mt-4 text-lg font-semibold">No orders found for +977 {mobile}</p>
+                        <p className="mx-auto mt-1 max-w-sm text-sm text-[var(--store-text)]">Make sure it&apos;s the number you gave when ordering. Still stuck? Message us and we&apos;ll check for you.</p>
+                        <div className="mt-5 flex justify-center"><WhatsAppLink>Ask on WhatsApp</WhatsAppLink></div>
+                    </Panel>
+                ) : <HowItWorks />)}
                 {showingResults && status === "loading" && <LoadingCards />}
                 {status === "error" && (
                     <Panel className="text-center">
