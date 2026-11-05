@@ -218,7 +218,7 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
             <section className="relative overflow-hidden bg-gradient-to-br from-[#062c45] via-[#073856] to-[#0b4b70] text-white">
                 <div aria-hidden className="pointer-events-none absolute -right-24 -top-24 h-80 w-80 rounded-full bg-[#f48b28]/20 blur-3xl" />
                 <div aria-hidden className="pointer-events-none absolute -bottom-32 -left-20 h-72 w-72 rounded-full bg-sky-400/10 blur-3xl" />
-                <div className={`relative mx-auto w-full max-w-3xl px-4 sm:px-6 ${showingResults ? "pb-16 pt-5 sm:pt-6" : "pb-24 pt-12 sm:pt-16"}`}>
+                <div className={`relative mx-auto w-full max-w-3xl px-4 sm:px-6 ${showingResults ? "pb-16 pt-5 sm:pt-6 lg:max-w-6xl" : "pb-24 pt-12 sm:pt-16"}`}>
                     {!showingResults && <>
                     <span className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[.14em] text-white/80">
                         <TruckIcon className="size-4 text-[#ffab68]" aria-hidden /> India → Nepal tracking
@@ -406,7 +406,7 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                 </div>
             </section>
 
-            <div className={`relative mx-auto w-full max-w-3xl space-y-4 px-4 sm:px-6 ${showingResults ? "-mt-10" : "-mt-14"}`}>
+            <div className={`relative mx-auto w-full max-w-3xl space-y-4 px-4 sm:px-6 ${showingResults ? "-mt-10 lg:max-w-6xl" : "-mt-14"}`}>
                 {!showingResults && (noOrders ? (
                     <Panel className="text-center">
                         <div className="mx-auto flex size-14 items-center justify-center rounded-full bg-[var(--store-soft)]"><ShoppingBagIcon className="size-7 text-[var(--store-text)]" aria-hidden /></div>
@@ -569,15 +569,18 @@ function OrderCard({ order }: { order: any }) {
                 </button>
             )}
 
-            {open && <div className="space-y-3 border-t border-[var(--store-line)] bg-[var(--store-soft)]/60 p-3 sm:p-4">
-                {cancelled && (
-                    <p className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">This order was cancelled. Contact us on WhatsApp if you have any questions about it.</p>
-                )}
-                {withCourier && <CourierPanel handedOver={handedOverAt(order)} />}
-                <OrderDetails order={order} delivered={delivered} withCourier={withCourier} cancelled={cancelled} deliveredOn={deliveredOn} due={due} />
-                <ItemList order={order} products={products} trackingFor={trackingFor} cancelled={cancelled} />
-                {/* One journey per order, following its slowest items; each item's own stage is in the list above. */}
-                {!cancelled && headline && <ProductGroup images={groups[0].products} tracking={headline} single />}
+            {/* On laptops the details and items sit on the left with the journey beside them; on phones it all stacks. */}
+            {open && <div className={`grid items-start gap-3 border-t border-[var(--store-line)] bg-[var(--store-soft)]/60 p-3 sm:p-4 ${!cancelled && headline ? "lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:gap-4" : ""}`}>
+                <div className="min-w-0 space-y-3">
+                    {cancelled && (
+                        <p className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">This order was cancelled. Contact us on WhatsApp if you have any questions about it.</p>
+                    )}
+                    {withCourier && <CourierPanel handedOver={handedOverAt(order)} />}
+                    <OrderDetails order={order} delivered={delivered} withCourier={withCourier} cancelled={cancelled} deliveredOn={deliveredOn} due={due} />
+                    <ItemList order={order} products={products} trackingFor={trackingFor} cancelled={cancelled} />
+                </div>
+                {/* One journey per order, following its slowest items; each item's own stage is in the list. */}
+                {!cancelled && headline && <div className="min-w-0 lg:sticky lg:top-24"><ProductGroup images={groups[0].products} tracking={headline} single /></div>}
             </div>}
         </article>
     );
@@ -657,8 +660,8 @@ function ItemList({ order, products, trackingFor, cancelled }: { order: any; pro
                                 <img src={p.image} alt={`Item ${i + 1}`} loading="lazy" className="h-full w-full object-cover" />
                             </a>
                             <div className="min-w-0 flex-1">
-                                <div className="flex items-center justify-between gap-2">
-                                    <p className="text-sm font-semibold">Item {i + 1} <span className="font-medium text-[var(--store-text)]">· Qty {p.quantity}</span></p>
+                                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5">
+                                    <p className="whitespace-nowrap text-sm font-semibold">Item {i + 1} <span className="font-medium text-[var(--store-text)]">· Qty {p.quantity}</span></p>
                                     {status && (
                                         <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${status.pill}`}>
                                             {status.reached ? <CheckIcon className="size-3" strokeWidth={3} aria-hidden /> : <ClockIcon className="size-3" aria-hidden />}{status.label}
@@ -848,7 +851,7 @@ function CourierPanel({ handedOver }: { handedOver: Date | null }) {
                     <PhoneIcon className="size-4" aria-hidden /> Courier contacts <ChevronDownIcon className={`size-3.5 transition ${open === "contacts" ? "rotate-180" : ""}`} aria-hidden />
                 </button>
                 <button type="button" onClick={() => toggle("number")} aria-expanded={open === "number"} className={`${btn} bg-[var(--store-paper)] ring-1 ring-[var(--store-line)] hover:ring-sky-400`}>
-                    <QuestionMarkCircleIcon className="size-4" aria-hidden /> Find tracking number <ChevronDownIcon className={`size-3.5 transition ${open === "number" ? "rotate-180" : ""}`} aria-hidden />
+                    <QuestionMarkCircleIcon className="size-4 shrink-0" aria-hidden /> Tracking number <ChevronDownIcon className={`size-3.5 transition ${open === "number" ? "rotate-180" : ""}`} aria-hidden />
                 </button>
             </div>
 
