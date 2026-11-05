@@ -29,12 +29,8 @@ export type ProductTracking = {
 // India leg: [days after ordering, step]. The last one holds until the product is ticked as received.
 const INDIA_STEPS: [number, Omit<TrackingStep, "status" | "date" | "leg">][] = [
     [0, { key: "placed", title: "Order placed", detail: "We've received your order and payment details.", place: "ParcelSewa" }],
-    [1, { key: "confirmed", title: "Order confirmed with seller", detail: "Your items have been purchased from the Indian store.", place: "India" }],
-    [2, { key: "dispatched", title: "Dispatched by seller", detail: "The seller has packed and shipped your items.", place: "India" }],
-    [3, { key: "transit", title: "In transit within India", detail: "Your parcel is moving through the courier network.", place: "India" }],
-    [5, { key: "sorting", title: "Reached regional sorting hub", detail: "Sorted and routed towards the Nepal border.", place: "India" }],
-    [7, { key: "to-border", title: "On the way to Raxaul border", detail: "Your parcel is heading to our border facility.", place: "Bihar, India" }],
-    [9, { key: "near-border", title: "Arriving at Raxaul border soon", detail: "Almost at the border. Some sellers take a little longer, up to 10 days.", place: "Bihar, India" }],
+    [2, { key: "shipped", title: "Shipped by seller", detail: "Bought from the Indian store and moving through the courier network.", place: "India" }],
+    [5, { key: "near-border", title: "On the way to Raxaul border", detail: "Heading to our border facility. Some sellers take a little longer, up to 10 days.", place: "Bihar, India" }],
 ];
 
 // Days from reaching Raxaul to reaching the Birgunj hub.
@@ -85,10 +81,8 @@ export function trackProduct(order: any, index: number, now = new Date()): Produ
     if (birgunjAt && deliveredAt && deliveredAt < birgunjAt) birgunjAt = deliveredAt;
     const crossed = delivered || (received && (!birgunjAt || birgunjAt <= now));
     steps.push(
-        { key: "origin", title: "Departed origin facility", detail: "Handed over from the Indian courier for the border run.", place: "India", leg: "border", date: borderAt, status: received ? "done" : "upcoming" },
-        { key: "raxaul", title: "Received at Raxaul Border", detail: "Your parcel is at our Raxaul border facility.", place: "Raxaul, India", leg: "border", date: borderAt, status: received ? "done" : "upcoming" },
-        { key: "crossed", title: "Border crossed into Nepal", detail: "Cleared at the Raxaul–Birgunj crossing.", place: "Nepal border", leg: "nepal", date: crossed ? birgunjAt : null, status: crossed ? "done" : "upcoming" },
-        { key: "birgunj", title: "Received at Birgunj Hub", detail: delivered ? "Sorted for delivery to your address." : "Being prepared for delivery to your address.", place: "Birgunj, Nepal", leg: "nepal", date: crossed ? birgunjAt : null, status: crossed ? "done" : "upcoming" },
+        { key: "raxaul", title: "Received at Raxaul border", detail: "Your parcel is at our border facility, ready to cross into Nepal.", place: "Raxaul, India", leg: "border", date: borderAt, status: received ? "done" : "upcoming" },
+        { key: "birgunj", title: "Crossed into Nepal, at Birgunj hub", detail: delivered ? "Cleared the border and sorted for delivery to your address." : "Cleared the border and being prepared for delivery to your address.", place: "Birgunj, Nepal", leg: "nepal", date: crossed ? birgunjAt : null, status: crossed ? "done" : "upcoming" },
         { key: "home", title: "Dispatched to your location", detail: delivered ? "Delivered to your address. Thank you for shopping with ParcelSewa!" : "Out to your address once it leaves Birgunj.", place: delivered && order.address ? order.address : "Your location, Nepal", leg: "home", date: deliveredAt, status: delivered ? "done" : "upcoming" },
     );
 
