@@ -27,11 +27,9 @@ const CreateOrder: React.FC = () => {
     const [address, setAddress] = useState("");
     const [storeName, setStoreName] = useState("Amazon");
     const [commission, setCommission] = useState("20%");
-    const [courierCharge, setCourierCharge] = useState("Included");
     const [totalAmount, setTotalAmount] = useState(""); // store as string
     const [advancePayment, setAdvancePayment] = useState(""); // store as string
 
-    const [deliveryStatus, setDeliveryStatus] = useState(false);
     const [productItems, setProductItems] = useState([{ url: "", quantity: "1" }]);
     const [loading, setLoading] = useState(false);
 
@@ -105,11 +103,6 @@ const CreateOrder: React.FC = () => {
             return;
         }
 
-        if (!courierCharge.trim()) {
-            toast.error("Courier charge selection is required.");
-            return;
-        }
-
         if (totalAmountNum < 0) {
             toast.error("Total amount cannot be negative.");
             return;
@@ -149,10 +142,11 @@ const CreateOrder: React.FC = () => {
                 storeName,
                 orderedDate: Timestamp.now(),
                 commission,
-                courierCharge,
+                courierCharge: "Included",
                 totalAmount: totalAmountNum,
                 advancePayment: advancePaymentNum,
-                deliveryStatus,
+                // New orders always start as not delivered; the admin page marks delivery.
+                deliveryStatus: false,
                 productUrls: productItems.map((item) => item.url),
                 productItems,
                 createdAt: Timestamp.now(),
@@ -170,10 +164,8 @@ const CreateOrder: React.FC = () => {
             setAddress("");
             setStoreName("");
             setCommission("15%");
-            setCourierCharge("Included");
             setTotalAmount("");
             setAdvancePayment("");
-            setDeliveryStatus(false);
             setProductItems([{ url: "", quantity: "1" }]);
         } catch (error) {
             console.log("Error creating order:", error);
@@ -484,29 +476,6 @@ const CreateOrder: React.FC = () => {
 
                 </div>
 
-
-                {/* Courier Charge */}
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Courier Charge</label>
-                <select
-                    value={courierCharge}
-                    onChange={(e) => setCourierCharge(e.target.value)}
-                    className="w-full border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 mb-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                >
-                    {["Included", "Not Included"].map((c) => (
-                        <option key={c} value={c}>{c}</option>
-                    ))}
-                </select>
-
-                {/* Delivery Status */}
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                    <input
-                        type="checkbox"
-                        checked={deliveryStatus}
-                        onChange={(e) => setDeliveryStatus(e.target.checked)}
-                        className="w-4 h-4"
-                    />
-                    Delivered?
-                </label>
 
                 {/* Notes */}
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes</label>
