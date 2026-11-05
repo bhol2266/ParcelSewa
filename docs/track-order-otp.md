@@ -14,6 +14,10 @@ through **NepalOTP** (nepalotp.com), which generates, texts and checks the code.
   Codes expire after 5 minutes. The SMS reads "Your OTP is: 123456. Valid for 5 minutes. Do not share this code."
 - `POST /api/track/otp/verify` — checks the code with NepalOTP (3 tries per code); a right code sets the login
   cookie. Used codes can't be reused.
+- `POST /api/track/payment/verify` — the no-SMS option, "Enter your last payment amount": signs in when the amount
+  is within Rs. 30 of the advance or remaining payment of any of the number's last 3 orders (by ordered date).
+  Payments under Rs. 100 never count (too easy to guess), and a number gets 5 wrong amounts a day (`payDay`,
+  `payTries` in its `Track OTPs` doc); a right amount resets the count.
 - `GET /api/track/orders` — returns orders for the number in the signed cookie only.
 - `POST /api/track/logout` — clears the cookie ("Not you? Change number").
 

@@ -18,8 +18,9 @@ const LEGS: { leg: Leg; label: string; sub: string }[] = [
 const legIndex = (leg: Leg) => LEGS.findIndex((l) => l.leg === leg);
 
 type Status = "idle" | "loading" | "done" | "error";
-// checking: looking for a saved login. phone/code: the two OTP steps. in: signed in.
-type Login = "checking" | "phone" | "code" | "in";
+// checking: looking for a saved login. phone/code: the two OTP steps. amount: signing in with a past payment
+// instead of an SMS. in: signed in.
+type Login = "checking" | "phone" | "code" | "amount" | "in";
 
 // Error replies from /api/track/otp/* in plain words. Each SMS costs credit, so limits are explained, not retried.
 const OTP_ERRORS: Record<string, string> = {
@@ -32,6 +33,9 @@ const OTP_ERRORS: Record<string, string> = {
     "not-configured": "SMS login isn't set up yet. Please message us on WhatsApp for now.",
     "sms-failed": "We couldn't send the SMS just now. Please try again in a minute, or message us on WhatsApp.",
     "verify-failed": "We couldn't check the code just now. Please try again in a minute.",
+    "wrong-amount": "That amount doesn't match your last 3 orders. Check the advance or remaining payment and try again.",
+    "invalid-amount": "Enter the amount in rupees, for example 2500.",
+    "pay-limit": "Too many wrong amounts today. Use an SMS code instead, or message us on WhatsApp.",
 };
 const otpError = (code: string) => OTP_ERRORS[code] ?? "Something went wrong. Please try again in a minute, or message us on WhatsApp.";
 
@@ -49,6 +53,7 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
 
     const [login, setLogin] = useState<Login>("checking");
     const [code, setCode] = useState("");
+    const [amount, setAmount] = useState("");
     const [busy, setBusy] = useState(false);
     const [loginError, setLoginError] = useState("");
     // The number was checked and has no orders, so no code was sent.
@@ -152,6 +157,41 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
         }
     };
 
+    // No SMS needed: the advance or remaining payment of one of the last 3 orders (±Rs. 30) proves the number.
+    const startAmount = () => {
+        if (!valid || busy) return;
+        setLoginError("");
+        setNoOrders(false);
+        setAmount("");
+        setLogin("amount");
+        setTimeout(() => document.getElementById("track-amount")?.focus(), 100);
+    };
+
+    const verifyAmount = async () => {
+        if (!amount || busy) return;
+        setBusy(true);
+        setLoginError("");
+        try {
+            const { ok, data } = await post("/api/track/payment/verify", { mobile, amount });
+            if (data.error === "no-orders") {
+                setNoOrders(true);
+                setLogin("phone");
+                return;
+            }
+            if (!ok) {
+                const left = data.error === "wrong-amount" && data.triesLeft ? ` ${data.triesLeft} ${data.triesLeft === 1 ? "try" : "tries"} left today.` : "";
+                setLoginError(otpError(data.error) + left);
+                return;
+            }
+            try { localStorage.setItem(LAST_NUMBER_KEY, mobile); } catch {}
+            await loadOrders();
+        } catch {
+            setLoginError("No internet connection. Check it and try again.");
+        } finally {
+            setBusy(false);
+        }
+    };
+
     // Signing out means the next number needs its own OTP.
     const changeNumber = async () => {
         setMobile("");
@@ -183,6 +223,8 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                     <p className="mt-3 max-w-xl text-sm text-white/75 sm:text-base">
                         {login === "code"
                             ? <>We sent a 6-digit code by SMS to <strong className="text-white">+977 {mobile}</strong>.</>
+                            : login === "amount"
+                            ? <>Enter your last payment amount for <strong className="text-white">+977 {mobile}</strong>. It can be the advance or remaining payment from any of your last 3 orders.</>
                             : "Verify the mobile number you ordered with to see live tracking and all your ParcelSewa orders. You only do this once on this device."}
                     </p>
                     </>}
@@ -248,6 +290,51 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                             </button>
                         </form>
                     )}
+                    {login === "phone" && (
+                        <div className="mt-3 text-xs text-white/75">
+                            No SMS?{" "}
+                            <button type="button" onClick={() => valid ? startAmount() : setLoginError("Enter your 10-digit mobile number first.")} disabled={busy} className="font-semibold text-white underline underline-offset-2 hover:text-[#ffab68]">
+                                Enter your last payment amount
+                            </button>
+                        </div>
+                    )}
+
+                    {login === "amount" && (
+                        <form className="mt-7 flex flex-col gap-2 sm:flex-row sm:gap-3" onSubmit={(e) => { e.preventDefault(); verifyAmount(); }}>
+                            <label htmlFor="track-amount" className="sr-only">Your last payment amount in rupees</label>
+                            <div className="flex min-w-0 flex-1 items-center rounded-2xl bg-white p-1.5 shadow-xl shadow-black/20 ring-1 ring-black/5 focus-within:ring-2 focus-within:ring-[#f48b28] dark:bg-[#111c2d]">
+                                <span className="flex items-center gap-1.5 rounded-xl bg-[var(--store-soft)] px-3 py-3 text-sm font-semibold text-[var(--store-ink)]">Rs.</span>
+                                <input
+                                    id="track-amount"
+                                    type="text"
+                                    inputMode="numeric"
+                                    autoComplete="off"
+                                    maxLength={8}
+                                    placeholder="Last payment amount"
+                                    value={amount}
+                                    onChange={(e) => setAmount(e.target.value.replace(/\D/g, "").slice(0, 8))}
+                                    className="min-w-0 flex-1 !border-0 !bg-transparent px-3 py-3 text-lg font-semibold tracking-wider text-[var(--store-ink)] outline-none placeholder:text-base placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-400"
+                                />
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={!amount || busy}
+                                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#f48b28] px-5 py-4 sm:px-7 text-sm font-bold text-[#122235] shadow-lg shadow-[#f48b28]/30 transition hover:bg-[#ffad63] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {busy ? <ArrowPathIcon className="size-5 animate-spin" aria-hidden /> : <CheckIcon className="size-5" aria-hidden />}
+                                Verify &amp; track
+                            </button>
+                        </form>
+                    )}
+                    {login === "amount" && (
+                        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/75">
+                            <button type="button" onClick={() => { setLogin("phone"); setLoginError(""); }} className="font-semibold underline-offset-2 hover:text-white hover:underline">Change number</button>
+                            <button type="button" onClick={() => { setLogin("phone"); sendCode(); }} disabled={busy || resendIn > 0} className="font-semibold underline-offset-2 hover:text-white hover:underline disabled:opacity-60">
+                                {resendIn > 0 ? `Get an SMS code instead (${resendIn}s)` : "Get an SMS code instead"}
+                            </button>
+                        </div>
+                    )}
+
                     {login === "code" && (
                         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/75">
                             <button type="button" onClick={() => { setLogin("phone"); setLoginError(""); }} className="font-semibold underline-offset-2 hover:text-white hover:underline">Change number</button>
