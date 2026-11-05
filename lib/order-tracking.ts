@@ -1,6 +1,7 @@
 // Customer-facing tracking for /trackOrder. The only real event we record before delivery is Ankush ticking a
 // product as received (productItems[i].checkedAt), so the India leg is paced by days since the order, the border and
-// Birgunj steps follow the tick, and the order's delivered flag completes the journey.
+// Birgunj steps follow the tick. Marking an order delivered in /admin means it was handed to the Aramex courier on
+// its delivery date; customers see it with Aramex for COURIER_DAYS and delivered to them after that.
 
 const DAY = 86_400_000;
 
@@ -35,6 +36,8 @@ const INDIA_STEPS: [number, Omit<TrackingStep, "status" | "date" | "leg">][] = [
 
 // Days from reaching Raxaul to reaching the Birgunj hub.
 const BORDER_DAYS = 2;
+// Aramex takes 2-3 days from our handover to the customer's door.
+export const COURIER_DAYS = 3;
 
 const toDate = (value: any): Date | null => value?.toDate?.() ?? (value instanceof Date ? value : null);
 const addDays = (date: Date, days: number) => new Date(date.getTime() + days * DAY);
@@ -46,7 +49,20 @@ const daysBetween = (from: Date, to: Date) => {
 };
 
 export const orderDate = (order: any): Date | null => toDate(order.orderedDate) ?? toDate(order.createdAt);
-export const isDelivered = (order: any) => order.deliveryStatus === true;
+// Handed to Aramex (marked delivered in /admin). Orders marked without a date count as already delivered.
+const handedOver = (order: any) => order.deliveryStatus === true;
+export const handedOverAt = (order: any): Date | null => (handedOver(order) ? toDate(order.deliveryDate) : null);
+export const isDelivered = (order: any, now = new Date()) => {
+    if (!handedOver(order)) return false;
+    const at = handedOverAt(order);
+    return !at || daysBetween(at, now) >= COURIER_DAYS;
+};
+export const isWithCourier = (order: any, now = new Date()) => handedOver(order) && !isDelivered(order, now);
+// When the customer gets it: COURIER_DAYS after the handover.
+export const deliveredAt = (order: any, now = new Date()): Date | null => {
+    const at = handedOverAt(order);
+    return isDelivered(order, now) && at ? addDays(at, COURIER_DAYS) : null;
+};
 export const isCancelled = (order: any) => order.deliveryStatus === "cancelled";
 
 // The product links that are filled in, with their position in productUrls (that's where the received tick lives).
@@ -58,17 +74,19 @@ export function orderProducts(order: any): { index: number; image: string; quant
 
 export function trackProduct(order: any, index: number, now = new Date()): ProductTracking {
     const ordered = orderDate(order) ?? now;
-    const delivered = isDelivered(order);
+    const delivered = isDelivered(order, now);
+    const withCourier = handedOver(order);
     const item = order.productItems?.[index];
-    const received = item?.checked === true || delivered;
+    const received = item?.checked === true || withCourier;
     // Older ticks (and deliveries nobody ticked) have no date; those steps show as done without one.
     const receivedAt = item?.checked === true ? toDate(item.checkedAt) : null;
-    const deliveredAt = delivered ? toDate(order.deliveryDate) : null;
+    const courierAt = handedOverAt(order);
+    const doorAt = deliveredAt(order, now);
     const elapsed = daysBetween(ordered, now);
 
     const steps: TrackingStep[] = [];
     // Once it has arrived, India steps that would have come after the arrival are skipped rather than back-filled.
-    const arrivedAt = receivedAt ?? deliveredAt;
+    const arrivedAt = receivedAt ?? courierAt;
     for (const [day, step] of INDIA_STEPS) {
         const at = addDays(ordered, day);
         if (received && arrivedAt && day > 0 && at > arrivedAt) continue;
@@ -78,12 +96,13 @@ export function trackProduct(order: any, index: number, now = new Date()): Produ
 
     const borderAt = receivedAt;
     let birgunjAt = receivedAt ? addDays(receivedAt, BORDER_DAYS) : null;
-    if (birgunjAt && deliveredAt && deliveredAt < birgunjAt) birgunjAt = deliveredAt;
-    const crossed = delivered || (received && (!birgunjAt || birgunjAt <= now));
+    if (birgunjAt && courierAt && courierAt < birgunjAt) birgunjAt = courierAt;
+    const crossed = withCourier || (received && (!birgunjAt || birgunjAt <= now));
     steps.push(
         { key: "raxaul", title: "Received at Raxaul border", detail: "Your parcel is at our border facility, ready to cross into Nepal.", place: "Raxaul, India", leg: "border", date: borderAt, status: received ? "done" : "upcoming" },
-        { key: "birgunj", title: "Crossed into Nepal, at Birgunj hub", detail: delivered ? "Cleared the border and sorted for delivery to your address." : "Cleared the border and being prepared for delivery to your address.", place: "Birgunj, Nepal", leg: "nepal", date: crossed ? birgunjAt : null, status: crossed ? "done" : "upcoming" },
-        { key: "home", title: "Dispatched to your location", detail: delivered ? "Delivered to your address. Thank you for shopping with ParcelSewa!" : "Out to your address once it leaves Birgunj.", place: delivered && order.address ? order.address : "Your location, Nepal", leg: "home", date: deliveredAt, status: delivered ? "done" : "upcoming" },
+        { key: "birgunj", title: "Crossed into Nepal, at Birgunj hub", detail: withCourier ? "Cleared the border and sorted for delivery to your address." : "Cleared the border and being prepared for delivery to your address.", place: "Birgunj, Nepal", leg: "nepal", date: crossed ? birgunjAt : null, status: crossed ? "done" : "upcoming" },
+        { key: "courier", title: "Parcel forwarded to Aramex courier", detail: delivered ? "Handed to Aramex Nepal for delivery to your address." : "Handed to Aramex Nepal. They deliver to your address in 2-3 days and may call you before delivery.", place: "Aramex Nepal", leg: "nepal", date: courierAt, status: withCourier ? "done" : "upcoming" },
+        { key: "home", title: delivered ? "Delivered to you" : "Delivery to your location", detail: delivered ? "Delivered to your address. Thank you for shopping with ParcelSewa!" : withCourier ? "Aramex is bringing it to your address, usually within 2-3 days." : "Out to your address once it leaves Birgunj.", place: order.address || "Your location, Nepal", leg: "home", date: doorAt, status: delivered ? "done" : "upcoming" },
     );
 
     // The latest done step is the current one (unless everything is complete).
@@ -94,7 +113,9 @@ export function trackProduct(order: any, index: number, now = new Date()): Produ
     const legIndex = { india: 0, border: 1, nepal: 2, home: 3 }[current.leg];
     // Within the India leg, creep forward day by day so the bar visibly moves.
     const indiaShare = current.leg === "india" ? Math.min(elapsed, 9) / 10 : 0;
-    const progress = delivered ? 1 : (legIndex + indiaShare) / 3;
+    // With Aramex: most of the way from Birgunj to the door, a little further each day.
+    const courierShare = current.key === "courier" ? 0.5 + Math.min(courierAt ? daysBetween(courierAt, now) : 0, COURIER_DAYS - 1) * 0.15 : 0;
+    const progress = delivered ? 1 : (legIndex + indiaShare + courierShare) / 3;
 
     return { steps, current, leg: current.leg, progress: Math.min(progress, 1), delivered };
 }
@@ -158,7 +179,7 @@ export function customerProfile(orders: any[]): CustomerProfile {
         tier,
         orders: orders.length,
         onTheWay: live.filter((o) => !isDelivered(o)).length,
-        delivered: live.filter(isDelivered).length,
+        delivered: live.filter((o) => isDelivered(o)).length,
         items: live.reduce((sum, o) => sum + orderProducts(o).reduce((n, p) => n + (Number(p.quantity) || 1), 0), 0),
         due: live.filter((o) => !isDelivered(o)).reduce((sum, o) => sum + Math.max((Number(o.totalAmount) || 0) - (Number(o.advancePayment) || 0), 0), 0),
         stores: [...storeCounts.entries()].sort((a, b) => b[1] - a[1]).map(([s]) => s).slice(0, 4),

@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { reviveDates, TRACK_SESSION_DAYS } from "@/lib/track-session";
 import WhatsAppLink from "@/components/WhatsAppLink";
-import { customerProfile, formatDay, groupProducts, isCancelled, isDelivered, orderDate, orderProducts, type Leg, type ProductTracking, type TrackingStep } from "@/lib/order-tracking";
-import { ArrowPathIcon, CalendarDaysIcon, CheckIcon, LockClosedIcon, MapPinIcon, PhoneIcon, ShoppingBagIcon, SparklesIcon, TruckIcon, XCircleIcon } from "@heroicons/react/24/outline";
+import { ARAMEX_LABEL_IMAGE, ARAMEX_OFFICES, ARAMEX_TRACK_URL } from "@/lib/aramex";
+import { customerProfile, formatDay, groupProducts, handedOverAt, isCancelled, isDelivered, isWithCourier, orderDate, orderProducts, type Leg, type ProductTracking, type TrackingStep } from "@/lib/order-tracking";
+import { ArrowPathIcon, ArrowTopRightOnSquareIcon, CalendarDaysIcon, ChevronDownIcon, ClockIcon, QuestionMarkCircleIcon, CheckIcon, LockClosedIcon, MapPinIcon, PhoneIcon, ShoppingBagIcon, SparklesIcon, TruckIcon, XCircleIcon } from "@heroicons/react/24/outline";
 import { CheckBadgeIcon } from "@heroicons/react/24/solid";
 
 const LAST_NUMBER_KEY = "parcelsewa:track-mobile";
@@ -521,6 +522,7 @@ function OrderCard({ order }: { order: any }) {
     const products = orderProducts(order);
     const cancelled = isCancelled(order);
     const delivered = isDelivered(order);
+    const withCourier = isWithCourier(order);
     // The order moves at the pace of its slowest product.
     const headline = groups[0]?.tracking;
     const due = delivered || cancelled ? 0 : Math.max((Number(order.totalAmount) || 0) - (Number(order.advancePayment) || 0), 0);
@@ -534,7 +536,7 @@ function OrderCard({ order }: { order: any }) {
                 <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm font-bold">#{order.id.slice(0, 6).toUpperCase()}</span>
-                        <StatusBadge cancelled={cancelled} delivered={delivered} />
+                        <StatusBadge cancelled={cancelled} delivered={delivered} withCourier={withCourier} />
                     </div>
                     <p className="mt-0.5 truncate text-xs text-[var(--store-text)]">
                         {order.storeName ? `${order.storeName} · ` : ""}{products.length} item{products.length === 1 ? "" : "s"} · Ordered {formatDay(orderDate(order))}
@@ -556,7 +558,8 @@ function OrderCard({ order }: { order: any }) {
                 {cancelled && (
                     <p className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">This order was cancelled. Contact us on WhatsApp if you have any questions about it.</p>
                 )}
-                <OrderDetails order={order} delivered={delivered} cancelled={cancelled} deliveredOn={deliveredOn} due={due} />
+                {withCourier && <CourierPanel handedOver={handedOverAt(order)} />}
+                <OrderDetails order={order} delivered={delivered} withCourier={withCourier} cancelled={cancelled} deliveredOn={deliveredOn} due={due} />
                 <ItemList order={order} products={products} trackingFor={trackingFor} cancelled={cancelled} />
                 {!cancelled && groups.map((g, i) => (
                     <ProductGroup key={i} images={g.products} tracking={g.tracking} single={groups.length === 1} />
@@ -576,7 +579,7 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
 }
 
 // Delivery and payment details. Commission and the admin-only error notes stay internal.
-function OrderDetails({ order, delivered, cancelled, deliveredOn, due }: { order: any; delivered: boolean; cancelled: boolean; deliveredOn: Date | null; due: number }) {
+function OrderDetails({ order, delivered, withCourier, cancelled, deliveredOn, due }: { order: any; delivered: boolean; withCourier: boolean; cancelled: boolean; deliveredOn: Date | null; due: number }) {
     const total = Number(order.totalAmount) || 0;
     const advance = Number(order.advancePayment) || 0;
     const rs = (n: number) => `Rs. ${n.toLocaleString("en-IN")}`;
@@ -591,7 +594,7 @@ function OrderDetails({ order, delivered, cancelled, deliveredOn, due }: { order
                     {order.address && <DetailRow label="Address">{order.address}</DetailRow>}
                     {order.storeName && <DetailRow label="Store">{order.storeName}</DetailRow>}
                     <DetailRow label="Ordered">{formatDay(orderDate(order)) || "—"}</DetailRow>
-                    <DetailRow label="Status">{cancelled ? "Cancelled" : delivered ? `Delivered${deliveredOn ? ` ${formatDay(deliveredOn)}` : ""}` : "On the way"}</DetailRow>
+                    <DetailRow label="Status">{cancelled ? "Cancelled" : delivered ? `Delivered${deliveredOn ? ` ${formatDay(deliveredOn)}` : ""}` : withCourier ? "With Aramex courier" : "On the way"}</DetailRow>
                     {order.notes && <DetailRow label="Notes">{order.notes}</DetailRow>}
                 </dl>
             </section>
@@ -768,13 +771,75 @@ function Thumbs({ images }: { images: string[] }) {
     );
 }
 
-function StatusBadge({ cancelled, delivered }: { cancelled: boolean; delivered: boolean }) {
+function StatusBadge({ cancelled, delivered, withCourier }: { cancelled: boolean; delivered: boolean; withCourier: boolean }) {
     const [label, cls] = cancelled
         ? ["Cancelled", "bg-rose-100 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300"]
         : delivered
             ? ["Delivered", "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300"]
-            : ["In transit", "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"];
+            : withCourier
+                ? ["With Aramex", "bg-sky-100 text-sky-800 dark:bg-sky-950/60 dark:text-sky-300"]
+                : ["In transit", "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"];
     return <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${cls}`}>{label}</span>;
+}
+
+// While Aramex has the parcel: track it on their site, call the nearest office, and where to find the tracking number.
+function CourierPanel({ handedOver }: { handedOver: Date | null }) {
+    const [open, setOpen] = useState<"" | "contacts" | "number">("");
+    const toggle = (panel: "contacts" | "number") => setOpen((cur) => (cur === panel ? "" : panel));
+    const btn = "inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition active:scale-[.98]";
+    return (
+        <section className="rounded-xl border border-sky-200 bg-sky-50 p-3 sm:p-4 dark:border-sky-900/60 dark:bg-sky-950/30">
+            <div className="flex items-start gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-[#e30613] text-white shadow-sm"><TruckIcon className="size-5" aria-hidden /></span>
+                <div className="min-w-0">
+                    <p className="text-sm font-bold">Your parcel is with Aramex courier</p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-[var(--store-text)]">
+                        We handed it to Aramex Nepal{handedOver ? ` on ${formatDay(handedOver)}` : ""}. They usually deliver in 2-3 days and may call you before they come.
+                    </p>
+                </div>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                <a href={ARAMEX_TRACK_URL} target="_blank" rel="noopener noreferrer" className={`${btn} bg-[#e30613] text-white hover:bg-[#c10510]`}>
+                    Track on Aramex <ArrowTopRightOnSquareIcon className="size-4" aria-hidden />
+                </a>
+                <button type="button" onClick={() => toggle("contacts")} aria-expanded={open === "contacts"} className={`${btn} bg-[var(--store-paper)] ring-1 ring-[var(--store-line)] hover:ring-sky-400`}>
+                    <PhoneIcon className="size-4" aria-hidden /> Courier contacts <ChevronDownIcon className={`size-3.5 transition ${open === "contacts" ? "rotate-180" : ""}`} aria-hidden />
+                </button>
+                <button type="button" onClick={() => toggle("number")} aria-expanded={open === "number"} className={`${btn} bg-[var(--store-paper)] ring-1 ring-[var(--store-line)] hover:ring-sky-400`}>
+                    <QuestionMarkCircleIcon className="size-4" aria-hidden /> Find tracking number <ChevronDownIcon className={`size-3.5 transition ${open === "number" ? "rotate-180" : ""}`} aria-hidden />
+                </button>
+            </div>
+
+            {open === "contacts" && (
+                <ul className="mt-3 divide-y divide-[var(--store-line)] rounded-xl border border-[var(--store-line)] bg-[var(--store-paper)]">
+                    {ARAMEX_OFFICES.map((o) => (
+                        <li key={o.place} className="flex items-center gap-3 px-3 py-2.5">
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold">{o.place}</p>
+                                <p className="text-xs text-[var(--store-text)]">{o.area}</p>
+                                <p className="mt-0.5 inline-flex items-center gap-1 text-[11px] text-[var(--store-text)]/80"><ClockIcon className="size-3.5" aria-hidden />{o.hours}</p>
+                            </div>
+                            <a href={`tel:${o.tel}`} className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-700">
+                                <PhoneIcon className="size-3.5" aria-hidden />{o.phone}
+                            </a>
+                        </li>
+                    ))}
+                </ul>
+            )}
+
+            {open === "number" && (
+                <div className="mt-3 rounded-xl border border-[var(--store-line)] bg-[var(--store-paper)] p-3">
+                    <p className="text-xs leading-relaxed text-[var(--store-text)]">
+                        The tracking number is the number printed <strong className="text-[var(--store-ink)]">under the barcode</strong> on the Aramex (Expo Express) label on your parcel. Enter it on the Aramex tracking page. Don&apos;t have the label? Ask us on WhatsApp for your tracking number.
+                    </p>
+                    <a href={ARAMEX_LABEL_IMAGE} target="_blank" rel="noopener noreferrer" className="mx-auto mt-3 block max-w-[260px] overflow-hidden rounded-lg ring-1 ring-[var(--store-line)]">
+                        <img src={ARAMEX_LABEL_IMAGE} alt="Aramex courier label with the tracking number under the barcode highlighted" loading="lazy" className="h-auto w-full bg-white" />
+                    </a>
+                    <div className="mt-3 flex justify-center"><WhatsAppLink className="!min-h-0 !py-2 !text-xs">Ask for my tracking number</WhatsAppLink></div>
+                </div>
+            )}
+        </section>
+    );
 }
 
 function Panel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
