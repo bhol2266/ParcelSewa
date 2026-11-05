@@ -406,7 +406,7 @@ function DetailRow({ label, children }: { label: string; children: React.ReactNo
     );
 }
 
-// Delivery and payment details. Commission, order notes and error notes are written by staff, so they stay internal.
+// Delivery and payment details. Commission and the admin-only error notes stay internal.
 function OrderDetails({ order, delivered, cancelled, deliveredOn, due }: { order: any; delivered: boolean; cancelled: boolean; deliveredOn: Date | null; due: number }) {
     const total = Number(order.totalAmount) || 0;
     const advance = Number(order.advancePayment) || 0;
@@ -423,6 +423,7 @@ function OrderDetails({ order, delivered, cancelled, deliveredOn, due }: { order
                     {order.storeName && <DetailRow label="Store">{order.storeName}</DetailRow>}
                     <DetailRow label="Ordered">{formatDay(orderDate(order)) || "—"}</DetailRow>
                     <DetailRow label="Status">{cancelled ? "Cancelled" : delivered ? `Delivered${deliveredOn ? ` ${formatDay(deliveredOn)}` : ""}` : "On the way"}</DetailRow>
+                    {order.notes && <DetailRow label="Notes">{order.notes}</DetailRow>}
                 </dl>
             </section>
             <section className="rounded-xl border border-[var(--store-line)] bg-[var(--store-paper)] p-3 sm:p-4">
