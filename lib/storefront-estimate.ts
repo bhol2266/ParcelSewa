@@ -5,7 +5,7 @@ export const ESTIMATE_CONVERSION_RATE = 1.6;
 export const FLAT_FEE_LIMIT_INR = 2000;
 
 export function getDefaultServiceRate(itemPriceINR: number) {
-  return itemPriceINR < FLAT_FEE_LIMIT_INR ? "below_1500_1000" : itemPriceINR > 20000 ? 25 : 30;
+  return itemPriceINR < FLAT_FEE_LIMIT_INR ? "below_1500_1000" : 30;
 }
 
 export function calculateStorefrontEstimate(itemPriceINR: number, weightKg: number) {

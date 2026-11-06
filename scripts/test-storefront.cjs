@@ -14,13 +14,13 @@ const { calculateStorefrontEstimate: estimate, getDefaultServiceRate } = mod.exp
 test("public estimate keeps flat NPR fees and converts shipping correctly", () => {
   assert.deepEqual(estimate(1000, .5), { productNPR: 1600, serviceNPR: 1000, shippingNPR: 192, totalNPR: 2792 });
 });
-test("fee boundaries apply 30% through INR 20,000 and 25% above it", () => {
+test("fee boundaries apply a flat fee below INR 2,000 and 30% from it", () => {
   assert.equal(estimate(1500, 1).serviceNPR, 1000);
   assert.equal(estimate(1999.99, 1).serviceNPR, 1000);
   assert.equal(estimate(2000, 1).serviceNPR, 960);
   assert.equal(estimate(10000, 1).serviceNPR, 4800);
   assert.equal(estimate(20000, 1).serviceNPR, 9600);
-  assert.ok(Math.abs(estimate(20000.01, 1).serviceNPR - 8000.004) < 0.00001);
+  assert.ok(Math.abs(estimate(20000.01, 1).serviceNPR - 9600.0048) < 0.00001);
 });
 test("breakdown totals use the revised service fees for representative orders", () => {
   for (const [price, weight, expected] of [[2499, 1, 5437.92], [10000, 2, 21136], [500, .25, 1968]]) {
@@ -31,7 +31,8 @@ test("admin defaults match the same service tiers", () => {
   assert.equal(getDefaultServiceRate(1999.99), "below_1500_1000");
   assert.equal(getDefaultServiceRate(2000), 30);
   assert.equal(getDefaultServiceRate(20000), 30);
-  assert.equal(getDefaultServiceRate(20000.01), 25);
+  assert.equal(getDefaultServiceRate(20000.01), 30);
+  assert.equal(getDefaultServiceRate(100000), 30);
 });
 test("invalid and overflowing inputs do not return misleading amounts", () => {
   for (const price of [0, -1, NaN, Infinity]) assert.throws(() => estimate(price, 1), RangeError);
