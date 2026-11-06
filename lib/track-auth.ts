@@ -24,6 +24,9 @@ export const isConfigured = () => !!(NEPALOTP_API_KEY && SESSION_SECRET);
 const b64url = (s: string) => Buffer.from(s).toString("base64url");
 const sign = (data: string) => createHmac("sha256", SESSION_SECRET).update(data).digest("base64url");
 
+/** Signs other server-made links (e.g. /cart) with CART_LINK_SECRET when set, otherwise this login's secret. */
+export const signLink = (data: string) => createHmac("sha256", process.env.CART_LINK_SECRET || SESSION_SECRET).update(`link:${data}`).digest("base64url");
+
 // "98XXXXXXXX" from anything the customer typed; null unless it's a valid Nepal mobile number.
 export function nepalMobile(value: unknown): string | null {
     const digits = String(value ?? "").replace(/\D/g, "").slice(-10);

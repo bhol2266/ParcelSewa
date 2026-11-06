@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test:product-images": "node --test scripts/test-product-images.cjs",
     "test:stats": "node --test scripts/test-order-stats.cjs",
-    "test:storefront": "node --test scripts/test-storefront.cjs"
+    "test:storefront": "node --test scripts/test-storefront.cjs",
+    "test:cart": "node --test scripts/test-cart.cjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.106.0",
