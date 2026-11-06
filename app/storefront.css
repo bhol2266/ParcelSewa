@@ -220,15 +220,62 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px soli
 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .form-panel button { width: 100%; }
 .form-panel button:disabled { opacity: .6; cursor: wait; }
-.order-items { display: grid; gap: 14px; }
-.order-item { display: grid; gap: 14px; min-width: 0; margin: 0; border: 1px solid var(--store-line); border-radius: 10px; background: var(--store-soft); padding: 16px; }
-.order-item-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.order-item-head legend { float: left; padding: 0; color: var(--store-ink); font-size: 13px; font-weight: 650; }
-.form-panel .order-item-remove { width: auto; min-height: 32px; padding: 4px 12px; border: 1px solid var(--store-line); border-radius: 8px; background: var(--store-paper); color: #c0392b; font-size: 11px; font-weight: 600; cursor: pointer; }
-.form-panel .order-item-remove:hover { border-color: #c0392b; }
-.order-item-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-.order-item-add { border-style: dashed; }
+/* Order request form: numbered steps, one card per product, optional details added on demand. */
+.order-form { gap: 26px; }
+.order-step { display: grid; gap: 14px; }
+.order-step + .order-step { padding-top: 24px; border-top: 1px solid var(--store-line); }
+.order-step-title { display: flex; align-items: flex-start; gap: 12px; }
+.order-step-title > span { flex-shrink: 0; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #073856; color: #fff; font-size: 12px; font-weight: 700; }
+.dark .order-step-title > span { background: #f48b28; color: #122235; }
+.storefront .order-step-title h3 { font-size: 16px; line-height: 1.3; letter-spacing: -.015em; }
+.order-step-title p { margin-top: 3px; font-size: 11px; color: var(--store-text); }
+
+.order-item { display: grid; gap: 14px; min-width: 0; margin: 0; border: 1px solid var(--store-line); border-radius: 12px; background: var(--store-soft); padding: 16px; }
+.order-item-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 28px; }
+.order-item-title { color: var(--store-ink); font-size: 13px; font-weight: 650; }
+.form-panel .order-item-remove { width: auto; border: 0; background: none; padding: 4px 0; color: #c0392b; font-size: 11px; font-weight: 600; cursor: pointer; }
+.form-panel .order-item-remove:hover { text-decoration: underline; text-underline-offset: 3px; }
+.dark .form-panel .order-item-remove { color: #ff8a7a; }
+
+.order-item-qty { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.order-item-qty label { color: var(--store-ink); font-size: 12px; font-weight: 550; }
+.qty-stepper { display: inline-flex; align-items: center; border: 1px solid var(--store-line); border-radius: 8px; background: var(--store-paper); overflow: hidden; }
+.form-panel .qty-stepper button { width: 38px; height: 38px; border: 0; background: none; color: var(--store-ink); font-size: 17px; cursor: pointer; }
+.form-panel .qty-stepper button:hover:not(:disabled) { background: var(--store-soft); }
+.form-panel .qty-stepper button:disabled { opacity: .35; cursor: not-allowed; }
+.qty-stepper input { width: 46px; height: 38px; border: 0; border-inline: 1px solid var(--store-line); background: transparent; color: var(--store-ink); text-align: center; font-size: 13px; font-weight: 600; -moz-appearance: textfield; appearance: textfield; }
+.qty-stepper input::-webkit-outer-spin-button, .qty-stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.qty-stepper input:focus { outline: 2px solid #e9944e; outline-offset: -2px; }
+
+.order-details { display: grid; gap: 8px; }
+.order-detail { display: grid; grid-template-columns: 112px minmax(0, 1fr) 30px; align-items: center; gap: 8px; }
+.order-detail.is-notes { align-items: start; }
+.order-detail-name { min-width: 0; color: var(--store-ink); font-size: 12px; font-weight: 550; }
+input.order-detail-name { height: 40px; border: 1px dashed var(--store-line); border-radius: 8px; background: transparent; padding: 0 9px; }
+.order-detail > input:not(.order-detail-name), .order-detail > textarea { width: 100%; min-width: 0; min-height: 40px; border: 1px solid var(--store-line); border-radius: 8px; background: var(--store-paper); color: var(--store-ink); padding: 9px 11px; font-size: 13px; }
+.order-detail > textarea { resize: vertical; }
+.order-detail input:focus, .order-detail textarea:focus { outline: 2px solid #e9944e; outline-offset: 1px; }
+.order-detail.is-notes > .order-detail-name, .order-detail.is-notes > .order-detail-remove { margin-top: 6px; }
+.form-panel .order-detail-remove { width: 30px; height: 30px; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; color: var(--store-text); font-size: 18px; line-height: 1; cursor: pointer; }
+.form-panel .order-detail-remove:hover { background: var(--store-paper); color: #c0392b; }
+
+.form-panel .order-detail-toggle { width: auto; justify-self: start; display: inline-flex; align-items: center; gap: 6px; border: 0; background: none; padding: 2px 0; color: #c85b13; font-size: 12px; font-weight: 600; cursor: pointer; }
+.order-detail-toggle > span { display: grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; border: 1.5px solid currentColor; font-size: 13px; line-height: 1; }
+.form-panel .order-detail-toggle:hover { text-decoration: underline; text-underline-offset: 3px; }
+.dark .form-panel .order-detail-toggle { color: #f48b28; }
+.order-detail-options { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 10px; border: 1px dashed var(--store-line); border-radius: 10px; background: var(--store-paper); }
+.order-detail-options > span { font-size: 11px; font-weight: 600; color: var(--store-text); margin-right: 2px; }
+.form-panel .order-detail-options button { width: auto; min-height: 32px; padding: 5px 13px; border: 1px solid var(--store-line); border-radius: 999px; background: var(--store-soft); color: var(--store-ink); font-size: 12px; font-weight: 550; cursor: pointer; }
+.form-panel .order-detail-options button:hover { border-color: #e9944e; color: #c85b13; }
+.form-panel .order-detail-options .order-detail-close { margin-left: auto; width: 32px; padding: 0; border-color: transparent; background: none; font-size: 17px; color: var(--store-text); }
+
+.form-panel .order-item-add { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; border: 1.5px dashed var(--store-line); border-radius: 12px; background: none; color: var(--store-ink); font-size: 13px; font-weight: 600; cursor: pointer; }
+.form-panel .order-item-add:hover:not(:disabled) { border-color: #e9944e; color: #c85b13; }
 .form-panel .order-item-add:disabled { cursor: not-allowed; }
+
+.order-submit { display: grid; gap: 10px; padding-top: 22px; border-top: 1px solid var(--store-line); }
+.order-summary { font-size: 12px; color: var(--store-text); text-align: center; }
+.order-summary strong { color: var(--store-ink); }
 .form-error { font-size: 12px; color: #b43434; }
 .dark .form-error { color: #fca5a5; }
 .estimate-panel { margin-top: 28px; }
@@ -354,8 +401,13 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px soli
   .quotation-compact { padding: 24px 20px; }
   .quotation-result { padding: 24px; }
   .order-item { padding: 14px; }
-  .order-item-row { grid-template-columns: 1fr 1fr; }
-  .order-item-row > :first-child { grid-column: 1 / -1; }
+  .order-detail { grid-template-columns: minmax(0, 1fr) 30px; grid-template-areas: "name remove" "value value"; row-gap: 4px; }
+  .order-detail > .order-detail-name { grid-area: name; }
+  .order-detail > .order-detail-remove { grid-area: remove; }
+  .order-detail > :nth-child(2) { grid-area: value; }
+  .order-detail.is-notes > .order-detail-name, .order-detail.is-notes > .order-detail-remove { margin-top: 0; }
+  .order-detail.is-notes { align-items: center; }
+  input.order-detail-name { height: 32px; }
 }
 @media (max-width: 359px) {
   .hero-copy .button-row { grid-template-columns: 1fr; }
