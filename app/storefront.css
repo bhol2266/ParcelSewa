@@ -370,11 +370,13 @@ textarea.order-input { resize: vertical; min-height: 64px; }
 .dark .form-panel .order-item-remove { color: #ff8a7a; }
 
 .order-item-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
-.qty-stepper { display: inline-flex; align-items: center; border: 1px solid var(--store-line); border-radius: 10px; background: var(--store-paper); overflow: hidden; }
-.form-panel .qty-stepper button { width: 44px; height: 44px; border: 0; background: none; color: var(--store-ink); font-size: 19px; cursor: pointer; touch-action: manipulation; }
+.order-qty { display: inline-flex; align-items: center; gap: 10px; }
+.order-qty label { color: var(--store-ink); font-size: 12px; font-weight: 600; }
+.qty-stepper { display: inline-flex; align-items: center; border: 1px solid var(--store-line); border-radius: 8px; background: var(--store-paper); overflow: hidden; }
+.form-panel .qty-stepper button { width: 34px; height: 34px; border: 0; background: none; color: var(--store-ink); font-size: 16px; cursor: pointer; touch-action: manipulation; }
 .form-panel .qty-stepper button:active:not(:disabled) { background: var(--store-soft); }
 .form-panel .qty-stepper button:disabled { opacity: .3; cursor: not-allowed; }
-.qty-stepper input { width: 44px; height: 44px; border: 0; border-inline: 1px solid var(--store-line); background: transparent; color: var(--store-ink); text-align: center; font-size: 15px; font-weight: 650; -moz-appearance: textfield; appearance: textfield; }
+.qty-stepper input { width: 38px; height: 34px; border: 0; border-inline: 1px solid var(--store-line); background: transparent; color: var(--store-ink); text-align: center; font-size: 14px; font-weight: 650; -moz-appearance: textfield; appearance: textfield; }
 .qty-stepper input::-webkit-outer-spin-button, .qty-stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .qty-stepper input:focus { outline: 2px solid #e9944e; outline-offset: -2px; }
 

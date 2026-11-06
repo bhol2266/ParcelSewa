@@ -23,8 +23,9 @@ type Detail = { key: number; type: DetailType; label: string; value: string };
 type OrderItem = { key: number; productUrl: string; quantity: number; details: Detail[] };
 
 const MAX_ITEMS = 20;
+// The first product always uses key 0 so the server and browser render the same ids; later rows come from the counter.
 let nextKey = 1;
-const emptyItem = (): OrderItem => ({ key: nextKey++, productUrl: "", quantity: 1, details: [] });
+const emptyItem = (key = nextKey++): OrderItem => ({ key, productUrl: "", quantity: 1, details: [] });
 
 // Short code the customer and team can both quote in WhatsApp, e.g. PS-R-4K7Q2.
 function makeRequestId() {
@@ -44,7 +45,7 @@ function isValidUrl(value: string) {
 }
 
 export default function OrderRequestComponent({ festivalOffer = false }: { festivalOffer?: boolean }) {
-  const [items, setItems] = useState<OrderItem[]>(() => [emptyItem()]);
+  const [items, setItems] = useState<OrderItem[]>(() => [emptyItem(0)]);
   const [mobile, setMobile] = useState("+977");
   const [deliveryLocation, setDeliveryLocation] = useState("");
   const [notes, setNotes] = useState("");
@@ -107,7 +108,7 @@ export default function OrderRequestComponent({ festivalOffer = false }: { festi
       return;
     }
     if (!deliveryLocation.trim() || !/^\+9779\d{9}$/.test(mobile.trim())) {
-      toast.error("Check your delivery location and Nepal WhatsApp number.");
+      toast.error("Check your delivery address and Nepal WhatsApp number.");
       return;
     }
     // Empty details are dropped; a "Something else" with no name is saved as "Detail".
@@ -142,7 +143,7 @@ export default function OrderRequestComponent({ festivalOffer = false }: { festi
         `🧾 *Products:* ${cleanItems.length} (${cleanItems.reduce((sum, item) => sum + item.quantity, 0)} pcs)`,
         ...itemLines,
         "",
-        `📍 *Delivery Location:* ${deliveryLocation.trim()}`,
+        `📍 *Delivery Address:* ${deliveryLocation.trim()}`,
         `📞 *Customer WhatsApp:* ${mobile.trim()}`,
         offerRequested ? "🎉 *Festival offer requested:* First ParcelSewa order — 10% off the service fee only. Please confirm eligibility and the discounted quote." : null,
         notes.trim() ? `📝 *Notes:* ${notes.trim()}` : null,
@@ -170,7 +171,7 @@ export default function OrderRequestComponent({ festivalOffer = false }: { festi
         <div className="request-progress order-desktop-only"><strong>01 Your request</strong><span>→</span><span>02 Team review</span><span>→</span><span>03 Confirm your quote</span></div>
         <h1>Found it in India?{" "}<br /><span className="accent-text">Let’s bring it home.</span></h1>
         <p className="section-description">Paste your product links — we’ll send you a quote in NPR on WhatsApp. No payment now.</p>
-        <div className="form-tip order-desktop-only"><h2>A few details make a better quote</h2><ul><li>Add each product separately, with its own size, colour, or notes.</li><li>Tell us your city or municipality in Nepal.</li><li>Shopping for a festival date? Mention your deadline.</li><li>Wait for confirmation before making a payment.</li></ul></div>
+        <div className="form-tip order-desktop-only"><h2>A few details make a better quote</h2><ul><li>Add each product separately, with its own size, colour, or notes.</li><li>Tell us your full delivery address in Nepal.</li><li>Shopping for a festival date? Mention your deadline.</li><li>Wait for confirmation before making a payment.</li></ul></div>
         <div className="order-desktop-only"><Link href="/price-calculator" className="text-link mt-6">Want a budget estimate first? Try the calculator →</Link><p className="small-note mt-5">Need help choosing a link? <WhatsAppLink>Chat with our team</WhatsAppLink></p></div>
       </div>
       <div>
@@ -192,12 +193,12 @@ export default function OrderRequestComponent({ festivalOffer = false }: { festi
                   <input id={`order-product-${item.key}`} className="order-input" type="url" required autoComplete="off" inputMode="url" placeholder="Paste the product link here" value={item.productUrl} onChange={event => updateItem(item.key, { productUrl: event.target.value })} />
 
                   <div className="order-item-bar">
-                    <div className="qty-stepper" role="group" aria-label={`Quantity of product ${index + 1}`}>
+                    <div className="order-qty"><label htmlFor={`order-quantity-${item.key}`}>Quantity</label><div className="qty-stepper">
                       <button type="button" aria-label="Decrease quantity" disabled={!(item.quantity > 1)} onClick={() => updateItem(item.key, { quantity: Math.max(1, (item.quantity || 1) - 1) })}>−</button>
-                      <input id={`order-quantity-${item.key}`} type="number" min="1" step="1" required inputMode="numeric" aria-label="Quantity" value={Number.isNaN(item.quantity) ? "" : item.quantity} onChange={event => updateItem(item.key, { quantity: event.target.valueAsNumber })} />
+                      <input id={`order-quantity-${item.key}`} type="number" min="1" step="1" required inputMode="numeric" value={Number.isNaN(item.quantity) ? "" : item.quantity} onChange={event => updateItem(item.key, { quantity: event.target.valueAsNumber })} />
                       <button type="button" aria-label="Increase quantity" onClick={() => updateItem(item.key, { quantity: (item.quantity || 0) + 1 })}>+</button>
-                    </div>
-                    {!pickerOpen && <button type="button" className="order-detail-toggle" onClick={() => setOpenPicker(item.key)}><span aria-hidden="true">+</span> {item.details.length ? "More details" : "Size, colour, notes"}</button>}
+                    </div></div>
+                    {!pickerOpen && <button type="button" className="order-detail-toggle" onClick={() => setOpenPicker(item.key)}><span aria-hidden="true">+</span> {item.details.length ? "More details" : "Add details"}</button>}
                   </div>
 
                   {item.details.map(detail => {
@@ -228,7 +229,7 @@ export default function OrderRequestComponent({ festivalOffer = false }: { festi
           </div>
 
           <div className="order-contact">
-            <div className="form-field"><label htmlFor="order-location">Delivery city *</label><input id="order-location" className="order-input" name="deliveryLocation" required autoComplete="address-level2" placeholder="e.g. Kathmandu" value={deliveryLocation} onChange={event => setDeliveryLocation(event.target.value)} /></div>
+            <div className="form-field"><label htmlFor="order-location">Delivery address *</label><input id="order-location" className="order-input" name="deliveryLocation" required autoComplete="street-address" placeholder="New Baneswor, Kathmandu" value={deliveryLocation} onChange={event => setDeliveryLocation(event.target.value)} /></div>
             <div className="form-field"><label htmlFor="order-mobile">WhatsApp number *</label><input id="order-mobile" className="order-input" name="mobile" type="tel" required autoComplete="tel" inputMode="tel" pattern="\+9779[0-9]{9}" title="Enter +977 followed by your 10-digit Nepal mobile number." value={mobile} onChange={event => setMobile(event.target.value)} placeholder="+97798XXXXXXXX" /></div>
           </div>
 
