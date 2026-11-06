@@ -1,8 +1,11 @@
 export const ESTIMATE_CONVERSION_RATE = 1.6;
 
 // The public estimate and admin default use the owner's current service tiers.
+/** Orders below this IC price pay a flat NPR 1,000 service fee; from it upward, 30%. */
+export const FLAT_FEE_LIMIT_INR = 2000;
+
 export function getDefaultServiceRate(itemPriceINR: number) {
-  return itemPriceINR < 1500 ? "below_1500_1000" : itemPriceINR > 20000 ? 25 : 30;
+  return itemPriceINR < FLAT_FEE_LIMIT_INR ? "below_1500_1000" : itemPriceINR > 20000 ? 25 : 30;
 }
 
 export function calculateStorefrontEstimate(itemPriceINR: number, weightKg: number) {

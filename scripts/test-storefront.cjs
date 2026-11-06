@@ -15,8 +15,9 @@ test("public estimate keeps flat NPR fees and converts shipping correctly", () =
   assert.deepEqual(estimate(1000, .5), { productNPR: 1600, serviceNPR: 1000, shippingNPR: 192, totalNPR: 2792 });
 });
 test("fee boundaries apply 30% through INR 20,000 and 25% above it", () => {
-  assert.equal(estimate(1499.99, 1).serviceNPR, 1000);
-  assert.equal(estimate(1500, 1).serviceNPR, 720);
+  assert.equal(estimate(1500, 1).serviceNPR, 1000);
+  assert.equal(estimate(1999.99, 1).serviceNPR, 1000);
+  assert.equal(estimate(2000, 1).serviceNPR, 960);
   assert.equal(estimate(10000, 1).serviceNPR, 4800);
   assert.equal(estimate(20000, 1).serviceNPR, 9600);
   assert.ok(Math.abs(estimate(20000.01, 1).serviceNPR - 8000.004) < 0.00001);
@@ -27,8 +28,8 @@ test("breakdown totals use the revised service fees for representative orders", 
   }
 });
 test("admin defaults match the same service tiers", () => {
-  assert.equal(getDefaultServiceRate(1499.99), "below_1500_1000");
-  assert.equal(getDefaultServiceRate(1500), 30);
+  assert.equal(getDefaultServiceRate(1999.99), "below_1500_1000");
+  assert.equal(getDefaultServiceRate(2000), 30);
   assert.equal(getDefaultServiceRate(20000), 30);
   assert.equal(getDefaultServiceRate(20000.01), 25);
 });
@@ -60,6 +61,10 @@ test("admin messages preserve the price and disclose additional courier charges"
     assert.match(result.message, /\*TOTAL = NPR .+\* \+ courier charge/);
     assert.match(result.message, /Courier charge is additional/);
   }
+});
+test("quotes below IC 2000 explain the flat-fee rule; others do not", () => {
+  assert.match(quote(1999, "below_1500_1000").message, /Below IC 2000.+flat NPR 1,000.+30%/);
+  assert.doesNotMatch(quote(2000, 30).message, /Below IC 2000/);
 });
 test("removed flat NPR 600, 700 and 800 fees cannot be selected or calculated", () => {
   assert.deepEqual(commissionOptions.filter(option => typeof option.value === "string").map(option => option.label), ["Flat NPR 1,000"]);

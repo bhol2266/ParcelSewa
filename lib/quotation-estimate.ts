@@ -1,4 +1,4 @@
-import { ESTIMATE_CONVERSION_RATE } from "./storefront-estimate";
+import { ESTIMATE_CONVERSION_RATE, FLAT_FEE_LIMIT_INR } from "./storefront-estimate";
 
 export const FLAT_SERVICE_FEES = { below_1500_1000: 1000 } as const;
 export type CommissionOption = 5 | 10 | 15 | 20 | 25 | 30 | 35 | 40 | 50 | keyof typeof FLAT_SERVICE_FEES;
@@ -23,6 +23,7 @@ export function calculateAdminQuotation(amountINR: number, rate: CommissionOptio
     `*TOTAL = NPR ${totalNPR.toLocaleString("en-IN")}* + courier charge (180/kg)`, "",
     "Product + customs & service handling. Courier charge is additional.",
     "Estimated delivery time: up to 10 days (can be more in some cases).",
+    ...(amountINR < FLAT_FEE_LIMIT_INR ? ["", "Note: Below IC 2000, the service fee is a flat NPR 1,000. From IC 2000 and above, it is 30%."] : []),
   ].join("\n");
   return { productNPR, serviceNPR, totalNPR, serviceLabel, message };
 }
