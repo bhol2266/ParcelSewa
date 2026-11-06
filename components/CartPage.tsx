@@ -53,15 +53,15 @@ export default function CartPage({ apiQuery, mobile, admin, expiresAt }: Props) 
         <div className="surface-panel cart-notice"><h2>No current orders</h2><p className="small-note mt-2">Requests from the last 7 days show here.</p><Link href="/order" className="button-primary mt-5">Start a new order</Link></div>
       )}
       <div className="cart-requests">
-        {requests?.map(request => <RequestCard key={`${apiQuery}:${request.id}`} request={request} apiQuery={apiQuery} mobile={mobile} admin={admin} onSaved={replace} onCancelled={drop} />)}
+        {requests?.map(request => <RequestCard key={`${apiQuery}:${request.id}`} request={request} apiQuery={apiQuery} admin={admin} onSaved={replace} onCancelled={drop} />)}
       </div>
       {!admin && requests && requests.length > 0 && <p className="small-note cart-footnote">Changes are sent to our team when you save. Need help? <a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">Chat with us</a></p>}
     </section>
   );
 }
 
-function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }: {
-  request: CartRequest; apiQuery: string; mobile: string; admin: boolean; onSaved: (r: CartRequest) => void; onCancelled: (id: string) => void;
+function RequestCard({ request, apiQuery, admin, onSaved, onCancelled }: {
+  request: CartRequest; apiQuery: string; admin: boolean; onSaved: (r: CartRequest) => void; onCancelled: (id: string) => void;
 }) {
   const [items, setItems] = useState<EditorItem[]>(() => toEditorItems(request.items));
   const [deliveryLocation, setDeliveryLocation] = useState(request.deliveryLocation);
@@ -92,8 +92,8 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
       // Customers let the team know on WhatsApp with the updated list.
       if (!admin) {
         const message = requestMessage({
-          title: "✏️ *Order Request Updated*", requestId: request.requestId, items: products,
-          deliveryLocation: deliveryLocation.trim(), mobile: `+977${mobile}`, notes: notes.trim(), cartUrl: window.location.href,
+          title: "✏️ *Order Updated*", requestId: request.requestId, items: products,
+          deliveryLocation: deliveryLocation.trim(), notes: notes.trim(), cartUrl: window.location.href,
         });
         setUpdateLink(`${SUPPORT_URL}?text=${encodeURIComponent(message)}`);
       }

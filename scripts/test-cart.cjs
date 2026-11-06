@@ -83,7 +83,11 @@ test("a single product with quantity 1 gives exactly the calculator's message", 
   assert.equal(cartQuotation([{ priceInr: 1499, quantity: 1 }], "below_1500_1000").message, calculateAdminQuotation(1499, "below_1500_1000").message);
 });
 
-test("the WhatsApp message carries the cart link", () => {
-  const message = requestMessage({ title: "🛒 *New Order Request*", requestId: "PS-R-ABCDE", items: [{ productUrl: "https://a.in/x", quantity: 1, details: [] }], deliveryLocation: "New Baneswor, Kathmandu", mobile: "+9779817254118", cartUrl: "https://www.parcelsewa.com/cart?9817254118&t=1&k=2" });
-  assert.match(message, /✏️ \*Add, remove or edit products:\* https:\/\/www\.parcelsewa\.com\/cart\?9817254118/);
+test("the WhatsApp message is short and carries the cart link", () => {
+  const message = requestMessage({ title: "🛒 *New Order*", requestId: "PS-R-NZR7H", deliveryLocation: "Balkumari, Kathmandu", cartUrl: "https://www.parcelsewa.com/cart?9817254118&t=1&k=2",
+    items: [{ productUrl: "https://amzn.in/d/026pcloo", quantity: 1, details: [] }, { productUrl: "https://amzn.in/d/09PmcqYW", quantity: 2, details: [{ type: "size", label: "Size", value: "M" }] }] });
+  assert.equal(message, [
+    "🛒 *New Order* · PS-R-NZR7H", "", "*1.* https://amzn.in/d/026pcloo", "Qty: 1", "", "*2.* https://amzn.in/d/09PmcqYW", "Qty: 2 · Size: M",
+    "", "📍 Balkumari, Kathmandu", "", "✏️ Edit order: https://www.parcelsewa.com/cart?9817254118&t=1&k=2",
+  ].join("\n"));
 });
