@@ -13,7 +13,7 @@ type DetailType = "size" | "color" | "variant" | "notes" | "other";
 const DETAIL_TYPES: { type: DetailType; label: string; placeholder: string }[] = [
   { type: "size", label: "Size", placeholder: "e.g. M or UK 9" },
   { type: "color", label: "Colour", placeholder: "e.g. Navy blue" },
-  { type: "variant", label: "Model / variant", placeholder: "e.g. 8GB + 128GB" },
+  { type: "variant", label: "Model", placeholder: "e.g. 8GB + 128GB" },
   { type: "notes", label: "Notes", placeholder: "Anything else about this product" },
   { type: "other", label: "Something else", placeholder: "Details" },
 ];
@@ -53,6 +53,7 @@ export default function OrderRequestComponent({ festivalOffer = false }: { festi
   const [savedRequestId, setSavedRequestId] = useState("");
   const [firstOrderOfferRequested, setFirstOrderOfferRequested] = useState(false);
   const [openPicker, setOpenPicker] = useState<number | null>(null);
+  const [showNotes, setShowNotes] = useState(false);
   const offerRequested = festivalOffer && firstOrderOfferRequested;
   const totalUnits = items.reduce((sum, item) => sum + (Number.isInteger(item.quantity) && item.quantity > 0 ? item.quantity : 0), 0);
 
@@ -151,7 +152,7 @@ export default function OrderRequestComponent({ festivalOffer = false }: { festi
       setSavedRequestId(requestId);
       window.open(whatsappUrl, "_blank", "noopener,noreferrer");
       toast.success("Request saved. Send the prepared WhatsApp message to continue.");
-      setItems([emptyItem()]); setMobile("+977"); setDeliveryLocation(""); setNotes("");
+      setItems([emptyItem()]); setMobile("+977"); setDeliveryLocation(""); setNotes(""); setShowNotes(false);
       setFirstOrderOfferRequested(false);
     } catch (error) {
       console.error("Error submitting request:", error);
@@ -162,18 +163,22 @@ export default function OrderRequestComponent({ festivalOffer = false }: { festi
   }
 
   return (
-    <section className="storefront page-container inner-page form-page">
+    <section className="storefront page-container inner-page form-page order-page">
       <Toaster position="top-center" />
-      <div><p className="eyebrow">Let’s start with your wishlist</p><div className="request-progress"><strong>01 Your request</strong><span>→</span><span>02 Team review</span><span>→</span><span>03 Confirm your quote</span></div><h1>Found it in India?<br /><span className="accent-text">Let’s bring it home.</span></h1><p className="section-description">Paste the exact product links and tell us where you need them delivered. Add as many products as you like in one request — we’ll review them together and help you with a quote in NPR.</p><div className="form-tip"><h2>A few details make a better quote</h2><ul><li>Add each product separately, with its own size, colour, or notes.</li><li>Tell us your city or municipality in Nepal.</li><li>Shopping for a festival date? Mention your deadline.</li><li>Wait for confirmation before making a payment.</li></ul></div><Link href="/price-calculator" className="text-link mt-6">Want a budget estimate first? Try the calculator →</Link><p className="small-note mt-5">Need help choosing a link? <WhatsAppLink>Chat with our team</WhatsAppLink></p></div>
+      <div className="order-intro">
+        <p className="eyebrow order-desktop-only">Let’s start with your wishlist</p>
+        <div className="request-progress order-desktop-only"><strong>01 Your request</strong><span>→</span><span>02 Team review</span><span>→</span><span>03 Confirm your quote</span></div>
+        <h1>Found it in India?{" "}<br /><span className="accent-text">Let’s bring it home.</span></h1>
+        <p className="section-description">Paste your product links — we’ll send you a quote in NPR on WhatsApp. No payment now.</p>
+        <div className="form-tip order-desktop-only"><h2>A few details make a better quote</h2><ul><li>Add each product separately, with its own size, colour, or notes.</li><li>Tell us your city or municipality in Nepal.</li><li>Shopping for a festival date? Mention your deadline.</li><li>Wait for confirmation before making a payment.</li></ul></div>
+        <div className="order-desktop-only"><Link href="/price-calculator" className="text-link mt-6">Want a budget estimate first? Try the calculator →</Link><p className="small-note mt-5">Need help choosing a link? <WhatsAppLink>Chat with our team</WhatsAppLink></p></div>
+      </div>
       <div>
-        {whatsappDraft && <div className="surface-panel mb-5" role="status"><h2 className="text-xl">Your request {savedRequestId} is saved.</h2><p className="small-note mt-3">If WhatsApp didn’t open, use the button below. Send the prepared message to continue with our team. Mention {savedRequestId} if you need to change anything.</p><WhatsAppLink href={whatsappDraft} className="mt-4">Continue on WhatsApp</WhatsAppLink></div>}
-        <form onSubmit={handleSubmit} className="surface-panel form-panel order-form">
-          <div><h2>Your shopping request</h2><p className="small-note mt-2">No payment now — we’ll send you a quote first.</p></div>
+        {whatsappDraft && <div className="surface-panel order-saved mb-5" role="status"><h2 className="text-xl">Request {savedRequestId} saved</h2><p className="small-note mt-2">If WhatsApp didn’t open, tap below and press send. Mention {savedRequestId} if you need to change anything.</p><WhatsAppLink href={whatsappDraft} className="mt-4">Continue on WhatsApp</WhatsAppLink></div>}
+        <form onSubmit={handleSubmit} className="form-panel order-form">
           {festivalOffer && <div className="order-offer-panel"><p className="eyebrow">Dashain & Tihar offer</p><h3>10% off your first order’s service fee</h3><label htmlFor="first-order-offer"><input id="first-order-offer" type="checkbox" checked={firstOrderOfferRequested} onChange={event => setFirstOrderOfferRequested(event.target.checked)} /><span>This is my first ParcelSewa order. Please apply the service fee offer.</span></label><p>Our team verifies eligibility and confirms the discount in your quote. Product and delivery charges are unchanged.</p><Link href="/offers#offer-details">Read offer details →</Link></div>}
 
-          <section className="order-step" aria-labelledby="step-products">
-            <div className="order-step-title"><span aria-hidden="true">1</span><div><h3 id="step-products">What would you like to buy?</h3><p>Paste the link from Amazon, Flipkart, Myntra or any Indian store.</p></div></div>
-
+          <div className="order-items">
             {items.map((item, index) => {
               const available = DETAIL_TYPES.filter(d => d.type === "other" || !item.details.some(existing => existing.type === d.type));
               const pickerOpen = openPicker === item.key;
@@ -181,77 +186,62 @@ export default function OrderRequestComponent({ festivalOffer = false }: { festi
                 <fieldset key={item.key} className="order-item">
                   <legend className="sr-only">Product {index + 1}</legend>
                   <div className="order-item-head">
-                    <span className="order-item-title">Product {index + 1}</span>
+                    <label htmlFor={`order-product-${item.key}`} className="order-item-title">{items.length > 1 ? `Product ${index + 1}` : "Product link"}</label>
                     {items.length > 1 && <button type="button" className="order-item-remove" onClick={() => removeItem(item.key)} aria-label={`Remove product ${index + 1}`}>Remove</button>}
                   </div>
+                  <input id={`order-product-${item.key}`} className="order-input" type="url" required autoComplete="off" inputMode="url" placeholder="Paste the product link here" value={item.productUrl} onChange={event => updateItem(item.key, { productUrl: event.target.value })} />
 
-                  <div className="form-field">
-                    <label htmlFor={`order-product-${item.key}`}>Product link *</label>
-                    <input id={`order-product-${item.key}`} type="url" required autoComplete="url" placeholder="https://www.amazon.in/…" value={item.productUrl} onChange={event => updateItem(item.key, { productUrl: event.target.value })} />
+                  <div className="order-item-bar">
+                    <div className="qty-stepper" role="group" aria-label={`Quantity of product ${index + 1}`}>
+                      <button type="button" aria-label="Decrease quantity" disabled={!(item.quantity > 1)} onClick={() => updateItem(item.key, { quantity: Math.max(1, (item.quantity || 1) - 1) })}>−</button>
+                      <input id={`order-quantity-${item.key}`} type="number" min="1" step="1" required inputMode="numeric" aria-label="Quantity" value={Number.isNaN(item.quantity) ? "" : item.quantity} onChange={event => updateItem(item.key, { quantity: event.target.valueAsNumber })} />
+                      <button type="button" aria-label="Increase quantity" onClick={() => updateItem(item.key, { quantity: (item.quantity || 0) + 1 })}>+</button>
+                    </div>
+                    {!pickerOpen && <button type="button" className="order-detail-toggle" onClick={() => setOpenPicker(item.key)}><span aria-hidden="true">+</span> {item.details.length ? "More details" : "Size, colour, notes"}</button>}
                   </div>
 
-                  <div className="order-item-qty">
-                    <label htmlFor={`order-quantity-${item.key}`}>Quantity</label>
-                    <div className="qty-stepper">
-                      <button type="button" aria-label={`Decrease quantity of product ${index + 1}`} disabled={!(item.quantity > 1)} onClick={() => updateItem(item.key, { quantity: Math.max(1, (item.quantity || 1) - 1) })}>−</button>
-                      <input id={`order-quantity-${item.key}`} type="number" min="1" step="1" required inputMode="numeric" value={Number.isNaN(item.quantity) ? "" : item.quantity} onChange={event => updateItem(item.key, { quantity: event.target.valueAsNumber })} />
-                      <button type="button" aria-label={`Increase quantity of product ${index + 1}`} onClick={() => updateItem(item.key, { quantity: (item.quantity || 0) + 1 })}>+</button>
-                    </div>
-                  </div>
+                  {item.details.map(detail => {
+                    const meta = DETAIL_TYPES.find(d => d.type === detail.type)!;
+                    return (
+                      <div key={detail.key} className="order-detail">
+                        {detail.type === "other"
+                          ? <input id={`detail-label-${detail.key}`} className="order-detail-name" aria-label="Detail name" placeholder="Name" value={detail.label} onChange={event => updateDetail(item.key, detail.key, { label: event.target.value })} />
+                          : <label htmlFor={`detail-${detail.key}`} className="order-detail-name">{meta.label}</label>}
+                        {detail.type === "notes"
+                          ? <textarea id={`detail-${detail.key}`} className="order-input" rows={2} placeholder={meta.placeholder} value={detail.value} onChange={event => updateDetail(item.key, detail.key, { value: event.target.value })} />
+                          : <input id={`detail-${detail.key}`} className="order-input" aria-label={detail.type === "other" ? detail.label || "Detail" : undefined} placeholder={meta.placeholder} value={detail.value} onChange={event => updateDetail(item.key, detail.key, { value: event.target.value })} />}
+                        <button type="button" className="order-detail-remove" onClick={() => removeDetail(item.key, detail.key)} aria-label={`Remove ${detail.label || "detail"}`}>×</button>
+                      </div>
+                    );
+                  })}
 
-                  {item.details.length > 0 && (
-                    <div className="order-details">
-                      {item.details.map(detail => {
-                        const meta = DETAIL_TYPES.find(d => d.type === detail.type)!;
-                        return (
-                          <div key={detail.key} className={`order-detail${detail.type === "notes" ? " is-notes" : ""}`}>
-                            {detail.type === "other"
-                              ? <input id={`detail-label-${detail.key}`} className="order-detail-name" aria-label="Detail name" placeholder="Name, e.g. Storage" value={detail.label} onChange={event => updateDetail(item.key, detail.key, { label: event.target.value })} />
-                              : <label htmlFor={`detail-${detail.key}`} className="order-detail-name">{meta.label}</label>}
-                            {detail.type === "notes"
-                              ? <textarea id={`detail-${detail.key}`} rows={2} placeholder={meta.placeholder} value={detail.value} onChange={event => updateDetail(item.key, detail.key, { value: event.target.value })} />
-                              : <input id={`detail-${detail.key}`} aria-label={detail.type === "other" ? detail.label || "Detail" : undefined} placeholder={meta.placeholder} value={detail.value} onChange={event => updateDetail(item.key, detail.key, { value: event.target.value })} />}
-                            <button type="button" className="order-detail-remove" onClick={() => removeDetail(item.key, detail.key)} aria-label={`Remove ${detail.label || "detail"} from product ${index + 1}`}>×</button>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-
-                  {pickerOpen ? (
-                    <div className="order-detail-options" role="group" aria-label={`Choose a detail to add to product ${index + 1}`}>
-                      <span>Add:</span>
+                  {pickerOpen && (
+                    <div className="order-detail-options" role="group" aria-label={`Add a detail to product ${index + 1}`}>
                       {available.map(d => <button key={d.type} type="button" onClick={() => addDetail(item.key, d.type)}>{d.label}</button>)}
                       <button type="button" className="order-detail-close" onClick={() => setOpenPicker(null)} aria-label="Close">×</button>
                     </div>
-                  ) : (
-                    <button type="button" className="order-detail-toggle" onClick={() => setOpenPicker(item.key)}>
-                      <span aria-hidden="true">+</span> {item.details.length ? "Add more details" : "Add size, colour or notes"}
-                    </button>
                   )}
                 </fieldset>
               );
             })}
-
             <button type="button" className="order-item-add" onClick={addItem} disabled={items.length >= MAX_ITEMS}><span aria-hidden="true">+</span> Add another product</button>
-          </section>
+          </div>
 
-          <section className="order-step" aria-labelledby="step-delivery">
-            <div className="order-step-title"><span aria-hidden="true">2</span><div><h3 id="step-delivery">Where should we deliver?</h3><p>We’ll send your quote on WhatsApp.</p></div></div>
-            <div className="form-field"><label htmlFor="order-location">Delivery location *</label><input id="order-location" name="deliveryLocation" required autoComplete="address-level2" placeholder="City or municipality, e.g. Kathmandu" value={deliveryLocation} onChange={event => setDeliveryLocation(event.target.value)} /></div>
-            <div className="form-field"><label htmlFor="order-mobile">WhatsApp number *</label><input id="order-mobile" name="mobile" type="tel" required autoComplete="tel" pattern="\+9779[0-9]{9}" title="Enter +977 followed by your 10-digit Nepal mobile number." value={mobile} onChange={event => setMobile(event.target.value)} placeholder="+97798XXXXXXXX" /><p>+977 followed by your 10-digit mobile number.</p></div>
-          </section>
+          <div className="order-contact">
+            <div className="form-field"><label htmlFor="order-location">Delivery city *</label><input id="order-location" className="order-input" name="deliveryLocation" required autoComplete="address-level2" placeholder="e.g. Kathmandu" value={deliveryLocation} onChange={event => setDeliveryLocation(event.target.value)} /></div>
+            <div className="form-field"><label htmlFor="order-mobile">WhatsApp number *</label><input id="order-mobile" className="order-input" name="mobile" type="tel" required autoComplete="tel" inputMode="tel" pattern="\+9779[0-9]{9}" title="Enter +977 followed by your 10-digit Nepal mobile number." value={mobile} onChange={event => setMobile(event.target.value)} placeholder="+97798XXXXXXXX" /></div>
+          </div>
 
-          <section className="order-step" aria-labelledby="step-notes">
-            <div className="order-step-title"><span aria-hidden="true">3</span><div><h3 id="step-notes">Anything else? <span className="font-normal">(optional)</span></h3><p>A deadline, gift wrap, or anything about the whole order.</p></div></div>
-            <div className="form-field"><label htmlFor="order-notes" className="sr-only">Notes for the whole request</label><textarea id="order-notes" name="notes" rows={2} value={notes} onChange={event => setNotes(event.target.value)} placeholder="e.g. Please deliver everything before Tihar." /></div>
-          </section>
+          {showNotes || notes
+            ? <div className="form-field"><label htmlFor="order-notes">Note for the whole order</label><textarea id="order-notes" className="order-input" name="notes" rows={2} value={notes} onChange={event => setNotes(event.target.value)} placeholder="e.g. Need it before Tihar" /></div>
+            : <button type="button" className="order-detail-toggle" onClick={() => { setShowNotes(true); setTimeout(() => document.getElementById("order-notes")?.focus(), 0); }}><span aria-hidden="true">+</span> Note for the whole order</button>}
 
           <div className="order-submit">
-            <p className="order-summary"><strong>{items.length} {items.length === 1 ? "product" : "products"}</strong> · {totalUnits} {totalUnits === 1 ? "piece" : "pieces"}</p>
-            <button type="submit" disabled={loading} className="button-primary">{loading ? "Saving your request…" : "Send request on WhatsApp"}</button>
+            <p className="order-summary"><strong>{items.length} {items.length === 1 ? "product" : "products"}</strong><span>{totalUnits} {totalUnits === 1 ? "piece" : "pieces"}</span></p>
+            <button type="submit" disabled={loading} className="button-primary">{loading ? "Saving…" : "Send on WhatsApp"}</button>
           </div>
-          <p className="small-note">This saves your request and opens WhatsApp with a prepared message — just press send. By submitting you agree to our <Link href="/terms" className="underline underline-offset-4">Terms</Link> and <Link href="/returnsPolicy" className="underline underline-offset-4">Returns Policy</Link>.</p>
+          <p className="small-note">Opens WhatsApp with your request ready — just press send. No payment now. By sending you agree to our <Link href="/terms" className="underline underline-offset-4">Terms</Link> and <Link href="/returnsPolicy" className="underline underline-offset-4">Returns Policy</Link>.</p>
+          <p className="small-note order-mobile-only">Need help? <a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">Chat with us</a> · <Link href="/price-calculator" className="underline underline-offset-4">Price calculator</Link></p>
         </form>
       </div>
     </section>
