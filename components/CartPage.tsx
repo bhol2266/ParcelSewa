@@ -64,14 +64,15 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
   request: CartRequest; apiQuery: string; mobile: string; admin: boolean; onSaved: (r: CartRequest) => void; onCancelled: (id: string) => void;
 }) {
   const [items, setItems] = useState<EditorItem[]>(() => toEditorItems(request.items));
+  const [customerName, setCustomerName] = useState(request.customerName);
   const [deliveryLocation, setDeliveryLocation] = useState(request.deliveryLocation);
   const [notes, setNotes] = useState(request.notes);
   const [saving, setSaving] = useState(false);
   const [updateLink, setUpdateLink] = useState("");
   const idPrefix = `cart-${request.id}`;
 
-  const savedShape = useMemo(() => JSON.stringify([request.items.map(({ productUrl, quantity, details }) => ({ productUrl, quantity, details })), request.deliveryLocation, request.notes]), [request]);
-  const dirty = JSON.stringify([fromEditorItems(items), deliveryLocation.trim(), notes.trim()]) !== savedShape;
+  const savedShape = useMemo(() => JSON.stringify([request.items.map(({ productUrl, quantity, details }) => ({ productUrl, quantity, details })), request.customerName, request.deliveryLocation, request.notes]), [request]);
+  const dirty = JSON.stringify([fromEditorItems(items), customerName.trim(), deliveryLocation.trim(), notes.trim()]) !== savedShape;
 
   async function save() {
     const problem = checkItems(items, idPrefix);
@@ -82,7 +83,7 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
       const products = fromEditorItems(items);
       const response = await fetch(`/api/cart?${apiQuery}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: request.id, items: products, deliveryLocation: deliveryLocation.trim(), notes: notes.trim() }),
+        body: JSON.stringify({ id: request.id, items: products, customerName: customerName.trim(), deliveryLocation: deliveryLocation.trim(), notes: notes.trim() }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) { toast.error(result.error === "expired" ? "This cart link has expired." : result.error || "Couldn’t save. Please try again."); return; }
@@ -93,7 +94,7 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
       if (!admin) {
         const message = requestMessage({
           title: "✏️ *Order Request Updated*", items: products,
-          deliveryLocation: deliveryLocation.trim(), mobile: `+977${mobile}`, notes: notes.trim(), cartUrl: window.location.href,
+          name: customerName.trim(), deliveryLocation: deliveryLocation.trim(), mobile: `+977${mobile}`, notes: notes.trim(), cartUrl: window.location.href,
         });
         setUpdateLink(`${SUPPORT_URL}?text=${encodeURIComponent(message)}`);
       }
@@ -133,6 +134,7 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
         <OrderItemsEditor items={items} setItems={setItems} idPrefix={idPrefix} />
         <fieldset className="cart-delivery">
           <legend>Delivery</legend>
+          <div className="form-field"><label htmlFor={`${idPrefix}-name`}>Name</label><input id={`${idPrefix}-name`} className="order-input" autoComplete="name" maxLength={80} placeholder="e.g. Sita Sharma" value={customerName} onChange={event => setCustomerName(event.target.value)} /></div>
           <div className="form-field"><label htmlFor={`${idPrefix}-address`}>Address *</label><input id={`${idPrefix}-address`} className="order-input" required autoComplete="street-address" placeholder="New Baneswor, Kathmandu" value={deliveryLocation} onChange={event => setDeliveryLocation(event.target.value)} /></div>
           <div className="form-field"><label htmlFor={`${idPrefix}-notes`}>Note for the whole order <span className="font-normal">(optional)</span></label><textarea id={`${idPrefix}-notes`} className="order-input" rows={2} placeholder="e.g. Need it before Tihar" value={notes} onChange={event => setNotes(event.target.value)} /></div>
         </fieldset>

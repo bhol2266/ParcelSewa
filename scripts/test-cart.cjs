@@ -76,3 +76,34 @@ test("the WhatsApp message has no request ID or product count, and carries the c
     "", "📍 *Delivery Address:* Balkumari Kathmandu", "📞 *Customer WhatsApp:* +9779817254118", "", "✏️ *Add, remove or edit products:* https://www.parcelsewa.com/cart?9817254118&t=1&k=2",
   ].join("\n"));
 });
+
+test("sending the form again updates products already in the cart and adds new ones", () => {
+  const { mergeItems, productsDiffer } = load("cart");
+  const cart = [
+    { productUrl: "https://amzn.in/d/a", quantity: 1, details: [], priceInr: 999 },
+    { productUrl: "https://amzn.in/d/b", quantity: 1, details: [{ type: "size", label: "Size", value: "M" }] },
+  ];
+  const merged = mergeItems(cart, [
+    { productUrl: "https://amzn.in/d/b", quantity: 2, details: [{ type: "size", label: "Size", value: "L" }] },
+    { productUrl: "https://amzn.in/d/c", quantity: 1, details: [] },
+  ]);
+  assert.deepEqual(merged, [
+    { productUrl: "https://amzn.in/d/a", quantity: 1, details: [], priceInr: 999 },
+    { productUrl: "https://amzn.in/d/b", quantity: 2, details: [{ type: "size", label: "Size", value: "L" }] },
+    { productUrl: "https://amzn.in/d/c", quantity: 1, details: [] },
+  ]);
+  assert.equal(productsDiffer(cart, merged), true);
+});
+
+test("sending the exact same form twice changes nothing and keeps the team's prices", () => {
+  const { mergeItems, productsDiffer } = load("cart");
+  const cart = [{ productUrl: "https://amzn.in/d/a", quantity: 1, details: [], priceInr: 999 }];
+  const merged = mergeItems(cart, [{ productUrl: "https://amzn.in/d/a", quantity: 1, details: [] }]);
+  assert.deepEqual(merged, cart);
+  assert.equal(productsDiffer(cart, merged), false);
+});
+
+test("the customer's name appears above the address", () => {
+  const message = requestMessage({ title: "🛒 *New Order Request*", name: "Sita Sharma", deliveryLocation: "Balkumari Kathmandu", mobile: "+9779817254118", items: [{ productUrl: "https://amzn.in/d/a", quantity: 1, details: [] }] });
+  assert.match(message, /\n\n👤 \*Name:\* Sita Sharma\n📍 \*Delivery Address:\* Balkumari Kathmandu\n/);
+});

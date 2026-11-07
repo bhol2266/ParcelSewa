@@ -23,6 +23,7 @@ export type CartRequest = {
   id: string;
   requestId: string;
   items: CartItem[];
+  customerName: string;
   deliveryLocation: string;
   notes: string;
   createdAt: number;
@@ -78,12 +79,31 @@ export function itemsOf(data: Record<string, unknown>): CartItem[] {
 
 export const totalPieces = (items: CartItem[]) => items.reduce((sum, item) => sum + item.quantity, 0);
 
+/**
+ * When a customer sends the form again while a request is still open: a product already in the cart (same link)
+ * takes the new quantity and details, keeping the team's price; new links are added at the end. Sending the same
+ * form twice therefore changes nothing.
+ */
+export function mergeItems(existing: CartItem[], incoming: CartItem[]): CartItem[] {
+  const merged = existing.map(item => ({ ...item }));
+  for (const item of incoming) {
+    const index = merged.findIndex(old => old.productUrl === item.productUrl);
+    if (index === -1) merged.push(item);
+    else merged[index] = { ...item, ...(typeof merged[index].priceInr === "number" ? { priceInr: merged[index].priceInr } : {}) };
+  }
+  return merged;
+}
+
+/** True when the list of links or any quantity differs, so a saved quotation no longer applies. */
+export const productsDiffer = (a: CartItem[], b: CartItem[]) =>
+  JSON.stringify(a.map(i => [i.productUrl, i.quantity])) !== JSON.stringify(b.map(i => [i.productUrl, i.quantity]));
+
 /** The WhatsApp text for a new or edited request. */
 export function requestMessage(options: {
-  title: string; items: CartItem[]; deliveryLocation: string; mobile: string;
+  title: string; items: CartItem[]; name?: string; deliveryLocation: string; mobile: string;
   notes?: string; offerNote?: string | null; cartUrl?: string;
 }) {
-  const { title, items, deliveryLocation, mobile, notes, offerNote, cartUrl } = options;
+  const { title, items, name, deliveryLocation, mobile, notes, offerNote, cartUrl } = options;
   return [
     title,
     ...items.flatMap((item, index) => [
@@ -93,6 +113,7 @@ export function requestMessage(options: {
       ...item.details.map(d => `    • ${d.label}: ${d.value}`),
     ]),
     "",
+    name ? `👤 *Name:* ${name}` : null,
     `📍 *Delivery Address:* ${deliveryLocation}`,
     `📞 *Customer WhatsApp:* ${mobile}`,
     offerNote ?? null,

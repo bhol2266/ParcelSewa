@@ -3,7 +3,7 @@ import { randomInt } from "crypto";
 import { addDoc, collection, deleteField, doc, getDoc, getDocs, query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { ADMIN_COOKIE } from "@/lib/admin-access";
-import { CART_DAYS, cleanItems, itemsOf, ORDER_REQUESTS, totalPieces, type CartItem, type CartRequest } from "@/lib/cart";
+import { CART_DAYS, cleanItems, itemsOf, MAX_ITEMS, mergeItems, ORDER_REQUESTS, productsDiffer, totalPieces, type CartItem, type CartRequest } from "@/lib/cart";
 import { cartPath, checkCartAccess } from "@/lib/cart-link";
 import { nepalMobile } from "@/lib/track-auth";
 import { festivalCampaign } from "@/lib/storefront";
@@ -36,6 +36,7 @@ function toCartRequest(id: string, data: Record<string, unknown>, admin: boolean
     requestId: typeof data.requestId === "string" ? data.requestId : `PS-R-${id.slice(0, 5).toUpperCase()}`,
     // Prices are the team's working figures, so customers don't see them.
     items: admin ? items : items.map(({ productUrl, quantity, details }) => ({ productUrl, quantity, details })),
+    customerName: String(data.customerName ?? ""),
     deliveryLocation: String(data.deliveryLocation ?? ""),
     notes: String(data.notes ?? ""),
     createdAt: millis(data.createdAt),
@@ -44,7 +45,7 @@ function toCartRequest(id: string, data: Record<string, unknown>, admin: boolean
   };
 }
 
-/** A new order request from the /order form. Returns the request ID and the customer's signed /cart link. */
+/** An order request from the /order form: a new request, or added to the number's open one. Returns the full product list and the /cart link. */
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const items = cleanItems(body?.items);
@@ -53,18 +54,46 @@ export async function POST(req: NextRequest) {
   const deliveryLocation = text(body?.deliveryLocation, 300);
   if (!mobile || !/^\+9779\d{9}$/.test(String(body?.mobile).trim())) return NextResponse.json({ error: "Check your Nepal WhatsApp number." }, { status: 400 });
   if (!deliveryLocation) return NextResponse.json({ error: "Enter your delivery address." }, { status: 400 });
+  const customerName = text(body?.name, 80);
+  if (!customerName) return NextResponse.json({ error: "Please enter your name." }, { status: 400 });
+
+  const notes = text(body?.notes, 1000);
+  const now = Timestamp.now();
+
+  // Already an open request from this number (last CART_DAYS, not cancelled)? Add to it instead of starting another.
+  const mine = await getDocs(query(collection(db, ORDER_REQUESTS), where("mobile", "==", `+977${mobile}`)));
+  const open = mine.docs
+    .filter(d => !d.data().cancelled && editable(millis(d.data().createdAt), false))
+    .sort((a, b) => millis(b.data().createdAt) - millis(a.data().createdAt))[0];
+  if (open) {
+    const data = open.data();
+    const before = itemsOf(data);
+    const merged = mergeItems(before, items);
+    if (merged.length > MAX_ITEMS) return NextResponse.json({ error: `Your cart can hold up to ${MAX_ITEMS} products. Remove some from your cart first.` }, { status: 400 });
+    await updateDoc(open.ref, {
+      items: merged, itemCount: merged.length, totalQuantity: totalPieces(merged),
+      productUrl: merged[0].productUrl, quantity: merged[0].quantity,
+      customerName, deliveryLocation, ...(notes ? { notes } : {}),
+      updatedAt: now, editCount: (Number(data.editCount) || 0) + 1, lastEditedBy: "customer-form",
+      ...(body?.firstOrderOfferRequested ? { offerCode: festivalCampaign.offerCode, firstOrderOfferRequested: true } : {}),
+      ...(productsDiffer(before, merged) && data.quote ? { quote: deleteField() } : {}),
+    });
+    return NextResponse.json({
+      merged: true, requestId: data.requestId, cartPath: cartPath(mobile),
+      items: merged.map(({ productUrl, quantity, details }) => ({ productUrl, quantity, details })), notes: notes || String(data.notes ?? ""),
+    }, { headers: noStore });
+  }
 
   const requestId = makeRequestId();
-  const now = Timestamp.now();
   await addDoc(collection(db, ORDER_REQUESTS), {
     requestId, items, itemCount: items.length, totalQuantity: totalPieces(items),
     // The first product is also kept at the top level, matching older single-product records.
     productUrl: items[0].productUrl, quantity: items[0].quantity,
-    mobile: `+977${mobile}`, deliveryLocation, notes: text(body?.notes, 1000),
+    mobile: `+977${mobile}`, customerName, deliveryLocation, notes,
     selectedDate: now, createdAt: now,
     ...(body?.firstOrderOfferRequested ? { offerCode: festivalCampaign.offerCode, firstOrderOfferRequested: true } : {}),
   });
-  return NextResponse.json({ requestId, cartPath: cartPath(mobile) }, { headers: noStore });
+  return NextResponse.json({ merged: false, requestId, cartPath: cartPath(mobile), items, notes }, { headers: noStore });
 }
 
 /** The cart: this number's order requests from the last CART_DAYS (every request for the team). */
@@ -110,12 +139,14 @@ export async function PUT(req: NextRequest) {
     const match = before.find(old => old.productUrl === item.productUrl && typeof old.priceInr === "number");
     return match ? { ...item, priceInr: match.priceInr } : item;
   });
-  const productsChanged = JSON.stringify(before.map(i => [i.productUrl, i.quantity])) !== JSON.stringify(priced.map(i => [i.productUrl, i.quantity]));
+  const productsChanged = productsDiffer(before, priced);
 
   await updateDoc(ref, {
     items: priced, itemCount: priced.length, totalQuantity: totalPieces(priced),
     productUrl: priced[0].productUrl, quantity: priced[0].quantity,
     deliveryLocation, notes: text(body?.notes, 1000),
+    // Older requests have no name; one typed in the cart is saved.
+    ...(text(body?.customerName, 80) ? { customerName: text(body?.customerName, 80) } : {}),
     updatedAt: Timestamp.now(), editCount: (Number(data.editCount) || 0) + 1, lastEditedBy: who.admin ? "admin" : "customer",
     // A saved quotation no longer matches once products or quantities change.
     ...(productsChanged && data.quote ? { quote: deleteField() } : {}),
