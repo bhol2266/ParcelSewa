@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -8,9 +8,12 @@ import { IS_COMPANY_CLOSED } from "@/lib/site-status";
 import { ThemeProvider, themeInitScript } from "@/components/ThemeProvider";
 
 
-const inter = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
+// Inter is bundled with the site (app/fonts, SIL Open Font License) instead of fetched from Google Fonts at build
+// time: Google started returning font links that next/font/google in Next 16.1 can't parse on Vercel's builders,
+// which failed every deploy. One variable file covers all the weights the site uses (400-800).
+const inter = localFont({
+  src: "./fonts/InterVariable-latin.woff2",
+  weight: "100 900",
   display: "swap",
   variable: "--font-inter",
 });
