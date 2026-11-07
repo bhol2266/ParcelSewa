@@ -16,8 +16,11 @@ export const DETAIL_TYPES: { type: DetailType; label: string; placeholder: strin
 ];
 
 export type ItemDetail = { type: DetailType; label: string; value: string };
-/** A product as saved on an order request. `priceInr` is only set by the team when quoting. */
-export type CartItem = { productUrl: string; quantity: number; details: ItemDetail[]; priceInr?: number };
+/**
+ * A product as saved on an order request. `priceInr` is only set by the team when quoting; `imageUrl` is the product
+ * picture the team fetched (customers see it too).
+ */
+export type CartItem = { productUrl: string; quantity: number; details: ItemDetail[]; priceInr?: number; imageUrl?: string };
 
 export type CartRequest = {
   id: string;
@@ -80,6 +83,7 @@ export function itemsOf(data: Record<string, unknown>): CartItem[] {
       productUrl: String(item.productUrl ?? ""), quantity: Number(item.quantity) || 1,
       details: Array.isArray(item.details) ? item.details : [],
       ...(typeof item.priceInr === "number" ? { priceInr: item.priceInr } : {}),
+      ...(typeof item.imageUrl === "string" && item.imageUrl ? { imageUrl: item.imageUrl } : {}),
     }));
   }
   if (typeof data.productUrl === "string") {
@@ -96,12 +100,18 @@ export const totalPieces = (items: CartItem[]) => items.reduce((sum, item) => su
  * takes the new quantity and details, keeping the team's price; new links are added at the end. Sending the same
  * form twice therefore changes nothing.
  */
+/** What the team added to a product (price, picture), carried over while its link stays the same. */
+export const keptFromTeam = (item: CartItem) => ({
+  ...(typeof item.priceInr === "number" ? { priceInr: item.priceInr } : {}),
+  ...(item.imageUrl ? { imageUrl: item.imageUrl } : {}),
+});
+
 export function mergeItems(existing: CartItem[], incoming: CartItem[]): CartItem[] {
   const merged = existing.map(item => ({ ...item }));
   for (const item of incoming) {
     const index = merged.findIndex(old => old.productUrl === item.productUrl);
     if (index === -1) merged.push(item);
-    else merged[index] = { ...item, ...(typeof merged[index].priceInr === "number" ? { priceInr: merged[index].priceInr } : {}) };
+    else merged[index] = { ...item, ...keptFromTeam(merged[index]) };
   }
   return merged;
 }

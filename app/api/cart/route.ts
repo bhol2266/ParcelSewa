@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { randomInt } from "crypto";
 import { addDoc, collection, deleteField, doc, getDoc, getDocs, query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
-import { ADMIN_COOKIE } from "@/lib/admin-access";
-import { CART_DAYS, cleanItems, itemsOf, MAX_ITEMS, mergeItems, ORDER_REQUESTS, productsDiffer, totalPieces, type CartItem, type CartRequest } from "@/lib/cart";
+import { ADMIN_COOKIE, ADMIN_PASSWORD } from "@/lib/admin-access";
+import { CART_DAYS, cleanItems, itemsOf, keptFromTeam, MAX_ITEMS, mergeItems, ORDER_REQUESTS, productsDiffer, totalPieces, type CartItem, type CartRequest } from "@/lib/cart";
 import { cartPath, checkCartAccess } from "@/lib/cart-link";
 import { nepalMobile } from "@/lib/track-auth";
 import { festivalCampaign } from "@/lib/storefront";
@@ -35,7 +35,7 @@ function toCartRequest(id: string, data: Record<string, unknown>, admin: boolean
     id,
     requestId: typeof data.requestId === "string" ? data.requestId : `PS-R-${id.slice(0, 5).toUpperCase()}`,
     // Prices are the team's working figures, so customers don't see them.
-    items: admin ? items : items.map(({ productUrl, quantity, details }) => ({ productUrl, quantity, details })),
+    items: admin ? items : items.map(item => { const shown = { ...item }; delete shown.priceInr; return shown; }),
     customerName: String(data.customerName ?? ""),
     deliveryLocation: String(data.deliveryLocation ?? ""),
     notes: String(data.notes ?? ""),
@@ -66,35 +66,41 @@ export async function POST(req: NextRequest) {
   const open = mine.docs
     .filter(d => !d.data().cancelled && editable(millis(d.data().createdAt), false))
     .sort((a, b) => millis(b.data().createdAt) - millis(a.data().createdAt))[0];
+  const admin = req.cookies.get(ADMIN_COOKIE)?.value === ADMIN_PASSWORD;
   if (open) {
     const data = open.data();
     const before = itemsOf(data);
     const merged = mergeItems(before, items);
     if (merged.length > MAX_ITEMS) return NextResponse.json({ error: `Your cart can hold up to ${MAX_ITEMS} products. Remove some from your cart first.` }, { status: 400 });
-    await updateDoc(open.ref, {
+    const changes = {
       items: merged, itemCount: merged.length, totalQuantity: totalPieces(merged),
       productUrl: merged[0].productUrl, quantity: merged[0].quantity,
       customerName, deliveryLocation, ...(notes ? { notes } : {}),
       updatedAt: now, editCount: (Number(data.editCount) || 0) + 1, lastEditedBy: "customer-form",
       ...(body?.firstOrderOfferRequested ? { offerCode: festivalCampaign.offerCode, firstOrderOfferRequested: true } : {}),
-      ...(productsDiffer(before, merged) && data.quote ? { quote: deleteField() } : {}),
-    });
+    };
+    const dropQuote = productsDiffer(before, merged) && !!data.quote;
+    await updateDoc(open.ref, { ...changes, ...(dropQuote ? { quote: deleteField() } : {}) });
+    const saved: Record<string, unknown> = { ...data, ...changes };
+    if (dropQuote) delete saved.quote;
     return NextResponse.json({
       merged: true, requestId: data.requestId, cartPath: cartPath(mobile),
       items: merged.map(({ productUrl, quantity, details }) => ({ productUrl, quantity, details })), notes: notes || String(data.notes ?? ""),
+      request: toCartRequest(open.id, saved, admin),
     }, { headers: noStore });
   }
 
   const requestId = makeRequestId();
-  await addDoc(collection(db, ORDER_REQUESTS), {
+  const record = {
     requestId, items, itemCount: items.length, totalQuantity: totalPieces(items),
     // The first product is also kept at the top level, matching older single-product records.
     productUrl: items[0].productUrl, quantity: items[0].quantity,
     mobile: `+977${mobile}`, customerName, deliveryLocation, notes,
     selectedDate: now, createdAt: now,
     ...(body?.firstOrderOfferRequested ? { offerCode: festivalCampaign.offerCode, firstOrderOfferRequested: true } : {}),
-  });
-  return NextResponse.json({ merged: false, requestId, cartPath: cartPath(mobile), items, notes }, { headers: noStore });
+  };
+  const created = await addDoc(collection(db, ORDER_REQUESTS), record);
+  return NextResponse.json({ merged: false, requestId, cartPath: cartPath(mobile), items, notes, request: toCartRequest(created.id, record, admin) }, { headers: noStore });
 }
 
 /** The cart: this number's order requests from the last CART_DAYS (every request for the team). */
@@ -134,24 +140,27 @@ export async function PUT(req: NextRequest) {
   const deliveryLocation = text(body?.deliveryLocation, 300);
   if (!deliveryLocation) return NextResponse.json({ error: "Enter your delivery address." }, { status: 400 });
 
-  // A product keeps the team's price while its link stays the same.
+  // A product keeps the team's price and picture while its link stays the same.
   const before = itemsOf(data);
   const priced: CartItem[] = items.map(item => {
-    const match = before.find(old => old.productUrl === item.productUrl && typeof old.priceInr === "number");
-    return match ? { ...item, priceInr: match.priceInr } : item;
+    const match = before.find(old => old.productUrl === item.productUrl);
+    return match ? { ...item, ...keptFromTeam(match) } : item;
   });
   const productsChanged = productsDiffer(before, priced);
 
-  await updateDoc(ref, {
+  const changes = {
     items: priced, itemCount: priced.length, totalQuantity: totalPieces(priced),
     productUrl: priced[0].productUrl, quantity: priced[0].quantity,
     deliveryLocation, notes: text(body?.notes, 1000),
     // The cart always sends the name box (empty when cleared); older callers that leave it out keep the saved name.
     ...(typeof body?.customerName === "string" ? { customerName: text(body.customerName, 80) } : {}),
     updatedAt: Timestamp.now(), editCount: (Number(data.editCount) || 0) + 1, lastEditedBy: who.admin ? "admin" : "customer",
-    // A saved quotation no longer matches once products or quantities change.
-    ...(productsChanged && data.quote ? { quote: deleteField() } : {}),
-  });
-  const saved = (await getDoc(ref)).data()!;
+  };
+  // A saved quotation no longer matches once products or quantities change.
+  const dropQuote = productsChanged && !!data.quote;
+  await updateDoc(ref, { ...changes, ...(dropQuote ? { quote: deleteField() } : {}) });
+  // Answer from what was just written instead of reading the document back: one database round trip fewer.
+  const saved: Record<string, unknown> = { ...data, ...changes };
+  if (dropQuote) delete saved.quote;
   return NextResponse.json({ request: toCartRequest(id, saved, who.admin) }, { headers: noStore });
 }

@@ -10,7 +10,7 @@ import { logOrderActivity } from "@/lib/order-logs";
 import { brands } from "@/constants/brands";
 import { commissionOptions, type CommissionOption } from "@/lib/quotation-estimate";
 import { getDefaultServiceRate } from "@/lib/storefront-estimate";
-import { fetchProductPriceViaExtension, hasExtension } from "@/lib/extension-client";
+import { fetchProductPriceViaExtension, fetchStoreImageViaExtension, hasExtension } from "@/lib/extension-client";
 import { fetchProductPriceViaClaude } from "@/lib/claude-price-client";
 import { SUPPORT_URL } from "@/lib/storefront";
 
@@ -20,9 +20,6 @@ const dateLabel = (ms: number, withTime = false) =>
   new Date(ms).toLocaleString("en-GB", { day: "numeric", month: "short", ...(withTime ? { hour: "numeric", minute: "2-digit" } : {}) });
 const npr = (amount: number) => `NPR ${amount.toLocaleString("en-IN")}`;
 const storeName = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "link"; } };
-
-// How long the cart waits after the last keystroke before saving on its own.
-const AUTOSAVE_MS = 1200;
 
 /** What still stops a draft from being saved, in words that follow "Not saved yet: ", or null when it can be saved. */
 function draftProblem(items: EditorItem[], address: string, name?: string): string | null {
@@ -74,13 +71,13 @@ export default function CartPage({ apiQuery, mobile, admin }: Props) {
         <h1>{admin ? "Customer cart" : "Your cart"}</h1>
         {admin
           ? <p className="small-note">+977 {mobile} · <span className="cart-admin-badge">Admin view</span></p>
-          : <p className="small-note">Change products, quantities or details — everything saves automatically. Each order can be changed for 7 days after you send it.</p>}
+          : <p className="small-note">Change products, quantities or details, then tap <strong>Save</strong>. Each order can be changed for 7 days after you send it.</p>}
       </header>
 
       {error && <div className="surface-panel cart-notice"><p>{error}</p><a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="whatsapp-button mt-4">Message us on WhatsApp</a></div>}
       {!error && requests === null && <p className="small-note" role="status">Loading your cart…</p>}
       {!error && requests?.length === 0 && (
-        <NewRequestForm mobile={mobile} admin={admin} onCreated={() => setReloadKey(key => key + 1)} />
+        <NewRequestForm mobile={mobile} admin={admin} onCreated={created => (created ? setRequests([created]) : setReloadKey(key => key + 1))} />
       )}
       <div className="cart-requests">
         {requests?.map(request => <RequestCard key={`${apiQuery}:${request.id}`} request={request} apiQuery={apiQuery} mobile={mobile} admin={admin} onSaved={replace} onCancelled={drop} />)}
@@ -90,16 +87,9 @@ export default function CartPage({ apiQuery, mobile, admin }: Props) {
   );
 }
 
-function SaveStatus({ state, problem, onRetry }: { state: "saved" | "pending" | "saving" | "error"; problem: string | null; onRetry: () => void }) {
-  if (state === "error") return <p className="cart-save-status is-error" role="status">Couldn’t save. <button type="button" onClick={onRetry}>Try again</button></p>;
-  if (state === "saving" || (state === "pending" && !problem)) return <p className="cart-save-status" role="status">Saving…</p>;
-  if (state === "pending" && problem) return <p className="cart-save-status is-waiting" role="status">Not saved yet: {problem}.</p>;
-  return <p className="cart-save-status is-saved" role="status">✓ All changes saved</p>;
-}
-
 // An empty cart takes the order right here: the number comes from the link. Save creates the order; after that it is
-// an ordinary cart that saves edits automatically.
-function NewRequestForm({ mobile, admin, onCreated }: { mobile: string; admin: boolean; onCreated: () => void }) {
+// an ordinary cart.
+function NewRequestForm({ mobile, admin, onCreated }: { mobile: string; admin: boolean; onCreated: (created?: CartRequest) => void }) {
   const [items, setItems] = useState<EditorItem[]>(() => [emptyItem()]);
   const [name, setName] = useState("");
   const [deliveryLocation, setDeliveryLocation] = useState("");
@@ -125,7 +115,8 @@ function NewRequestForm({ mobile, admin, onCreated }: { mobile: string; admin: b
       const result = await response.json().catch(() => ({}));
       if (!response.ok) { toast.error(result.error || "Couldn’t save the order. Please try again."); return; }
       toast.success(admin ? "Order created" : "Order saved");
-      onCreated();
+      // The server sends the saved request back, so the cart shows it without loading again.
+      onCreated(result.request);
     } catch {
       toast.error("Couldn’t save the order. Check your connection and try again.");
     } finally {
@@ -166,22 +157,22 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
   const [deliveryLocation, setDeliveryLocation] = useState(request.deliveryLocation);
   const [notes, setNotes] = useState(request.notes);
   const [saving, setSaving] = useState(false);
-  const [failed, setFailed] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const inFlight = useRef(false);
   const idPrefix = `cart-${request.id}`;
 
   const savedShape = useMemo(() => JSON.stringify([request.items.map(({ productUrl, quantity, details }) => ({ productUrl, quantity, details })), request.customerName, request.deliveryLocation, request.notes]), [request]);
   const draft = JSON.stringify([fromEditorItems(items), customerName.trim(), deliveryLocation.trim(), notes.trim()]);
   const dirty = draft !== savedShape;
-  const problem = draftProblem(items, deliveryLocation);
   useUnsavedWarning(dirty);
 
-  async function save() {
-    // One save at a time; when it finishes, the saved copy changes and the effect below saves anything newer.
-    if (inFlight.current || draftProblem(items, deliveryLocation)) return;
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (inFlight.current || !dirty) return;
+    const problem = draftProblem(items, deliveryLocation);
+    if (problem) { toast.error(`Please ${problem}.`); return; }
     inFlight.current = true;
     setSaving(true);
-    setFailed(false);
     try {
       const response = await fetch(`/api/cart?${apiQuery}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
@@ -189,28 +180,53 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
-        setFailed(true);
-        if (result.error === "expired") toast.error("This order can no longer be changed.");
-        else if (result.error) toast.error(result.error);
+        toast.error(result.error === "expired" ? "This order can no longer be changed." : result.error || "Couldn’t save. Please try again.");
         return;
       }
-      // Only the saved copy is replaced, so the boxes the customer is typing in are left alone.
+      // Only the saved copy is replaced, so the boxes being edited are left alone; Save shows again on the next change.
       onSaved(result.request);
+      setJustSaved(true);
     } catch {
-      setFailed(true);
+      toast.error("Couldn’t save. Check your connection and try again.");
     } finally {
       inFlight.current = false;
       setSaving(false);
     }
   }
 
-  useEffect(() => {
-    if (!dirty || problem || failed) return;
-    const timer = setTimeout(() => { void save(); }, AUTOSAVE_MS);
-    return () => clearTimeout(timer);
-    // `save` reads the latest values; a new draft or a finished save is what should restart the wait.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, savedShape, problem, failed]);
+  // Team only: product pictures, read like the orders page does (the extension first, then the server).
+  const [fetchingImages, setFetchingImages] = useState("");
+  async function fetchImages() {
+    const missing = request.items.filter(item => !item.imageUrl);
+    const targets = missing.length ? missing : request.items;
+    const found: { productUrl: string; imageUrl: string }[] = [];
+    try {
+      for (const [n, item] of targets.entries()) {
+        setFetchingImages(`${n + 1}/${targets.length}`);
+        const notes = item.details.map(d => `${d.label}: ${d.value}`).join(", ");
+        let imageUrl = (await fetchStoreImageViaExtension(item.productUrl, notes)).image;
+        if (!imageUrl) {
+          const response = await fetch("/api/fetch-product-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productUrl: item.productUrl, notes }) }).catch(() => null);
+          const result = response ? await response.json().catch(() => ({})) : {};
+          imageUrl = response?.ok && typeof result.imageUrl === "string" ? result.imageUrl : null;
+        }
+        if (imageUrl) found.push({ productUrl: item.productUrl, imageUrl });
+      }
+      if (!found.length) { toast.error("Couldn’t find any product pictures."); return; }
+      const response = await fetch("/api/cart/images", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, images: found }) });
+      if (!response.ok) { toast.error("Found pictures, but saving them failed."); return; }
+      const byUrl = new Map(found.map(f => [f.productUrl, f.imageUrl]));
+      onSaved({ ...request, items: request.items.map(item => (byUrl.has(item.productUrl) ? { ...item, imageUrl: byUrl.get(item.productUrl) } : item)) });
+      // Show them in the cards now, without touching anything being edited.
+      setItems(current => current.map(item => {
+        const link = fromEditorItems([item])[0].productUrl;
+        return byUrl.has(link) ? { ...item, imageUrl: byUrl.get(link), imageOf: link } : item;
+      }));
+      toast.success(`${found.length} of ${targets.length} pictures found`);
+    } finally {
+      setFetchingImages("");
+    }
+  }
 
   async function cancelRequest() {
     if (!window.confirm("Cancel this order request? It will be removed from your cart.")) return;
@@ -227,10 +243,13 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
           <span>Sent {dateLabel(request.createdAt, true)}{request.updatedAt ? ` · edited ${dateLabel(request.updatedAt, true)}` : ""}{admin ? ` · ${request.requestId}` : ""}</span>
           {!admin && <span className="cart-expiry">Editable until {dateLabel(request.createdAt + CART_DAYS * 86_400_000)}</span>}
         </p>
-        <button type="button" className="cart-cancel" onClick={cancelRequest}>Cancel</button>
+        <div className="cart-request-actions">
+          {admin && <button type="button" className="cart-images-btn" disabled={!!fetchingImages} onClick={fetchImages}>{fetchingImages ? `Images ${fetchingImages}…` : "Fetch images"}</button>}
+          <button type="button" className="cart-cancel" onClick={cancelRequest}>Cancel</button>
+        </div>
       </div>
 
-      <form className="form-panel order-form cart-form" onSubmit={event => event.preventDefault()}>
+      <form className="form-panel order-form cart-form" onSubmit={save}>
         <OrderItemsEditor items={items} setItems={setItems} idPrefix={idPrefix} />
         <fieldset className="cart-delivery">
           <legend>Delivery</legend>
@@ -238,7 +257,12 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
           <div className="form-field"><label htmlFor={`${idPrefix}-address`}>Address *</label><input id={`${idPrefix}-address`} className="order-input" required autoComplete="street-address" placeholder="New Baneswor, Kathmandu" value={deliveryLocation} onChange={event => setDeliveryLocation(event.target.value)} /></div>
           <div className="form-field"><label htmlFor={`${idPrefix}-notes`}>Note for the whole order <span className="font-normal">(optional)</span></label><textarea id={`${idPrefix}-notes`} className="order-input" rows={2} placeholder="e.g. Need it before Tihar" value={notes} onChange={event => setNotes(event.target.value)} /></div>
         </fieldset>
-        <SaveStatus state={failed ? "error" : saving ? "saving" : dirty ? "pending" : "saved"} problem={problem} onRetry={() => setFailed(false)} />
+        {dirty ? (
+          <div className="order-submit cart-save-bar">
+            <p className="order-summary"><strong>{items.length} {items.length === 1 ? "product" : "products"}</strong><span>{countPieces(items)} {countPieces(items) === 1 ? "piece" : "pieces"}</span></p>
+            <button type="submit" disabled={saving} className="button-primary">{saving ? "Saving…" : "Save"}</button>
+          </div>
+        ) : justSaved && <p className="cart-save-status is-saved" role="status">✓ Saved</p>}
       </form>
 
       {/* Remounts with fresh price boxes when the products or quantities change. */}

@@ -139,3 +139,11 @@ test("only the link is kept from text shared by store apps", () => {
   assert.equal(extractUrl("  no link here  "), "no link here");
   assert.deepEqual(cleanItems([{ productUrl: "Look at this https://dl.flipkart.com/s/X1", quantity: 1 }]), [{ productUrl: "https://dl.flipkart.com/s/X1", quantity: 1, details: [] }]);
 });
+
+test("the team's price and picture stay with a product while its link is unchanged", () => {
+  const { mergeItems, itemsOf } = load("cart");
+  const cart = [{ productUrl: "https://amzn.in/d/a", quantity: 1, details: [], priceInr: 999, imageUrl: "https://m.media-amazon.com/a.jpg" }];
+  assert.deepEqual(mergeItems(cart, [{ productUrl: "https://amzn.in/d/a", quantity: 3, details: [] }]),
+    [{ productUrl: "https://amzn.in/d/a", quantity: 3, details: [], priceInr: 999, imageUrl: "https://m.media-amazon.com/a.jpg" }]);
+  assert.equal(itemsOf({ items: cart })[0].imageUrl, "https://m.media-amazon.com/a.jpg");
+});

@@ -505,3 +505,23 @@ input.order-detail-name:focus { outline: 2px solid #e9944e; outline-offset: 1px;
 .cart-order-done { padding: 12px 14px; border-radius: 12px; background: #eafaf0; border: 1px solid #b7ebc9; color: #0d5a2c; font-size: 13px; font-weight: 600; }
 .dark .cart-order-done { background: #0f2a1b; border-color: #1f5a37; color: #a8f0c4; }
 @media (max-width: 420px) { .cart-create-grid { grid-template-columns: 1fr; } }
+
+/* Compact product cards: two rows each, so long carts don't need endless scrolling. */
+.order-items { gap: 8px; }
+.order-item { gap: 8px; padding: 10px; border-radius: 12px; }
+.order-item-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.order-item-top .order-input { flex: 1; min-height: 42px; padding: 9px 11px; }
+.order-item-num { flex-shrink: 0; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--store-paper); border: 1px solid var(--store-line); color: var(--store-text); font-size: 12px; font-weight: 650; }
+.order-item-thumb { flex-shrink: 0; width: 42px; height: 42px; object-fit: contain; border-radius: 8px; background: #fff; border: 1px solid var(--store-line); }
+.form-panel .order-item-x { flex-shrink: 0; width: 32px; height: 32px; display: grid; place-items: center; border: 0; border-radius: 50%; background: none; color: var(--store-text); font-size: 20px; line-height: 1; cursor: pointer; }
+.form-panel .order-item-x:hover { color: #c0392b; background: var(--store-paper); }
+.order-item-bar { gap: 8px; flex-wrap: nowrap; }
+.order-item-bar .order-item-store { margin-right: auto; }
+.order-item-bar .order-qty { gap: 6px; }
+.form-panel .order-item-bar .qty-stepper button { width: 32px; height: 32px; }
+.order-item-bar .qty-stepper input { width: 34px; height: 32px; }
+.form-panel .order-item-bar .order-detail-toggle { min-height: 32px; font-size: 12px; }
+.form-panel .order-item-add { min-height: 42px; }
+.cart-request-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.cart-images-btn { min-height: 34px; padding: 4px 11px; border: 1px solid var(--store-line); border-radius: 8px; background: var(--store-paper); color: var(--store-ink); font-size: 12px; font-weight: 600; cursor: pointer; }
+.cart-images-btn:disabled { opacity: .6; cursor: wait; }

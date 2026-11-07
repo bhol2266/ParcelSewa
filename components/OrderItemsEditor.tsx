@@ -9,14 +9,18 @@ const storeOf = (url: string) => (isValidUrl(url) ? new URL(url.trim()).hostname
 
 // Products while they are being edited. `key` only keeps React rows stable while rows are added and removed.
 export type EditorDetail = { key: number; type: DetailType; label: string; value: string };
-export type EditorItem = { key: number; productUrl: string; quantity: number; details: EditorDetail[] };
+// `imageUrl` is the product picture the team fetched; it shows only while the link it belongs to (`imageOf`) is unchanged.
+export type EditorItem = { key: number; productUrl: string; quantity: number; details: EditorDetail[]; imageUrl?: string; imageOf?: string };
 
 // The first product of a new form uses key 0 so the server and browser render the same ids; later rows use the counter.
 let nextKey = 1;
 export const emptyItem = (key = nextKey++): EditorItem => ({ key, productUrl: "", quantity: 1, details: [] });
 
 export const toEditorItems = (items: CartItem[]): EditorItem[] =>
-  items.map(item => ({ key: nextKey++, productUrl: item.productUrl, quantity: item.quantity, details: item.details.map(d => ({ ...d, key: nextKey++ })) }));
+  items.map(item => ({
+    key: nextKey++, productUrl: item.productUrl, quantity: item.quantity, details: item.details.map(d => ({ ...d, key: nextKey++ })),
+    ...(item.imageUrl ? { imageUrl: item.imageUrl, imageOf: item.productUrl } : {}),
+  }));
 
 /** Products ready to send: empty details dropped, an unnamed "Something else" called "Detail". */
 export const fromEditorItems = (items: EditorItem[]): CartItem[] =>
@@ -79,27 +83,32 @@ export default function OrderItemsEditor({ items, setItems, idPrefix }: { items:
         return (
           <fieldset key={item.key} className="order-item">
             <legend className="sr-only">Product {index + 1}</legend>
-            <div className="order-item-head">
-              <label htmlFor={id("product")} className="order-item-title">{items.length > 1 ? `Product ${index + 1}` : "Product link"}{storeOf(item.productUrl) && <span className="order-item-store">{storeOf(item.productUrl)}</span>}</label>
-              {items.length > 1 && <button type="button" className="order-item-remove" onClick={() => removeItem(item.key)} aria-label={`Remove product ${index + 1}`}>Remove</button>}
+            {/* Two compact rows: [picture or number] [link] [×], then quantity · store · details. */}
+            <div className="order-item-top">
+              {item.imageUrl && item.imageOf === extractUrl(item.productUrl)
+                ? <img className="order-item-thumb" src={item.imageUrl} alt={`Product ${index + 1}`} loading="lazy" referrerPolicy="no-referrer" />
+                : <span className="order-item-num" aria-hidden="true">{index + 1}</span>}
+              <label htmlFor={id("product")} className="sr-only">Product {index + 1} link</label>
+              {/* type="text": shared text with words around the link must not be blocked; only the link is kept. */}
+              <input id={id("product")} className="order-input" type="text" required autoComplete="off" autoCapitalize="off" spellCheck={false} inputMode="url" placeholder="Paste the product link here" value={item.productUrl} onChange={event => {
+                const typed = event.target.value;
+                const link = extractUrl(typed);
+                updateItem(item.key, { productUrl: /https?:\/\//i.test(typed) && link !== typed.trim() ? link : typed });
+              }} />
+              {items.length > 1 && <button type="button" className="order-item-x" onClick={() => removeItem(item.key)} aria-label={`Remove product ${index + 1}`} title="Remove">×</button>}
             </div>
-            {/* type="text": shared text with words around the link must not be blocked; only the link is kept. */}
-            <input id={id("product")} className="order-input" type="text" required autoComplete="off" autoCapitalize="off" spellCheck={false} inputMode="url" placeholder="Paste the product link here" value={item.productUrl} onChange={event => {
-              const typed = event.target.value;
-              const link = extractUrl(typed);
-              updateItem(item.key, { productUrl: /https?:\/\//i.test(typed) && link !== typed.trim() ? link : typed });
-            }} />
 
             <div className="order-item-bar">
               <div className="order-qty">
-                <label htmlFor={id("quantity")}>Quantity</label>
+                <label htmlFor={id("quantity")}>Qty</label>
                 <div className="qty-stepper">
                   <button type="button" aria-label="Decrease quantity" disabled={!(item.quantity > 1)} onClick={() => updateItem(item.key, { quantity: Math.max(1, (item.quantity || 1) - 1) })}>−</button>
                   <input id={id("quantity")} type="number" min="1" step="1" required inputMode="numeric" value={Number.isNaN(item.quantity) ? "" : item.quantity} onChange={event => updateItem(item.key, { quantity: event.target.valueAsNumber })} />
                   <button type="button" aria-label="Increase quantity" onClick={() => updateItem(item.key, { quantity: (item.quantity || 0) + 1 })}>+</button>
                 </div>
               </div>
-              {!pickerOpen && <button type="button" className="order-detail-toggle" onClick={() => setOpenPicker(item.key)}><span aria-hidden="true">+</span> {item.details.length ? "More details" : "Add details"}</button>}
+              {storeOf(item.productUrl) && <span className="order-item-store">{storeOf(item.productUrl)}</span>}
+              {!pickerOpen && <button type="button" className="order-detail-toggle" onClick={() => setOpenPicker(item.key)}><span aria-hidden="true">+</span> {item.details.length ? "More" : "Details"}</button>}
             </div>
 
             {item.details.map(detail => {
