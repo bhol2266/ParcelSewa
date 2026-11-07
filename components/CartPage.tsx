@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import toast, { Toaster } from "react-hot-toast";
-import OrderItemsEditor, { checkItems, countPieces, fromEditorItems, toEditorItems, type EditorItem } from "@/components/OrderItemsEditor";
+import OrderItemsEditor, { checkItems, countPieces, emptyItem, fromEditorItems, toEditorItems, type EditorItem } from "@/components/OrderItemsEditor";
 import { CART_DAYS, cartQuotation, requestMessage, type CartRequest } from "@/lib/cart";
 import { commissionOptions, type CommissionOption } from "@/lib/quotation-estimate";
 import { getDefaultServiceRate } from "@/lib/storefront-estimate";
@@ -20,6 +19,9 @@ const storeName = (url: string) => { try { return new URL(url).hostname.replace(
 export default function CartPage({ apiQuery, mobile, admin }: Props) {
   const [requests, setRequests] = useState<CartRequest[] | null>(null);
   const [error, setError] = useState("");
+  // Bumped after an order is created here, to load the cart again.
+  const [reloadKey, setReloadKey] = useState(0);
+  const [newOrderLink, setNewOrderLink] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -32,7 +34,7 @@ export default function CartPage({ apiQuery, mobile, admin }: Props) {
       })
       .catch(() => { if (active) setError("We couldn’t load your cart. Check your connection and try again."); });
     return () => { active = false; };
-  }, [apiQuery]);
+  }, [apiQuery, reloadKey]);
 
   const replace = (updated: CartRequest) => setRequests(current => current?.map(r => (r.id === updated.id ? updated : r)) ?? null);
   const drop = (id: string) => setRequests(current => current?.filter(r => r.id !== id) ?? null);
@@ -49,14 +51,83 @@ export default function CartPage({ apiQuery, mobile, admin }: Props) {
 
       {error && <div className="surface-panel cart-notice"><p>{error}</p><a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="whatsapp-button mt-4">Message us on WhatsApp</a></div>}
       {!error && requests === null && <p className="small-note" role="status">Loading your cart…</p>}
+      {newOrderLink && (
+        <div className="cart-sent" role="status">
+          <p>Order saved. Send it to our team on WhatsApp:</p>
+          <a href={newOrderLink} target="_blank" rel="noopener noreferrer" className="whatsapp-button" onClick={() => setTimeout(() => setNewOrderLink(""), 500)}>Send on WhatsApp</a>
+        </div>
+      )}
       {!error && requests?.length === 0 && (
-        <div className="surface-panel cart-notice"><h2>No current orders</h2><p className="small-note mt-2">Requests from the last 7 days show here.</p><Link href="/order" className="button-primary mt-5">Start a new order</Link></div>
+        <NewRequestForm mobile={mobile} admin={admin} onCreated={link => { setNewOrderLink(link); setReloadKey(key => key + 1); }} />
       )}
       <div className="cart-requests">
         {requests?.map(request => <RequestCard key={`${apiQuery}:${request.id}`} request={request} apiQuery={apiQuery} mobile={mobile} admin={admin} onSaved={replace} onCancelled={drop} />)}
       </div>
       {!admin && requests && requests.length > 0 && <p className="small-note cart-footnote">Changes are sent to our team when you save. Need help? <a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">Chat with us</a></p>}
     </section>
+  );
+}
+
+// An empty cart takes the order right here: the number comes from the link, so only products, name and address are
+// asked for. The team uses it to enter an order on a customer's behalf.
+function NewRequestForm({ mobile, admin, onCreated }: { mobile: string; admin: boolean; onCreated: (whatsappLink: string) => void }) {
+  const [items, setItems] = useState<EditorItem[]>(() => [emptyItem()]);
+  const [name, setName] = useState("");
+  const [deliveryLocation, setDeliveryLocation] = useState("");
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function create(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (saving) return;
+    const problem = checkItems(items, "new");
+    if (problem) { toast.error(problem); return; }
+    if (!name.trim()) { toast.error("Please enter the name."); return; }
+    if (!deliveryLocation.trim()) { toast.error("Enter the delivery address."); return; }
+    setSaving(true);
+    try {
+      const products = fromEditorItems(items);
+      const response = await fetch("/api/cart", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items: products, name: name.trim(), mobile: `+977${mobile}`, deliveryLocation: deliveryLocation.trim(), notes: notes.trim() }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) { toast.error(result.error || "Couldn’t save the order. Please try again."); return; }
+      toast.success(admin ? "Order created" : "Order saved");
+      // Customers still let the team know on WhatsApp; the team doesn't need to message itself.
+      const link = admin ? "" : `${SUPPORT_URL}?text=${encodeURIComponent(requestMessage({
+        title: result.merged ? "✏️ *Order Request Updated*" : "🛒 *New Order Request*", items: result.items, name: name.trim(),
+        deliveryLocation: deliveryLocation.trim(), mobile: `+977${mobile}`, notes: result.notes, cartUrl: `${window.location.origin}${result.cartPath}`,
+      }))}`;
+      onCreated(link);
+    } catch {
+      toast.error("Couldn’t save the order. Check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <article className="cart-request">
+      <p className="cart-request-meta">
+        <strong>{admin ? "No current orders — add one" : "No current orders"}</strong>
+        <span>{admin ? `Enter the products for +977 ${mobile}.` : "Add the products you want and we’ll send you a quote."}</span>
+      </p>
+      <form className="form-panel order-form cart-form" onSubmit={create}>
+        <OrderItemsEditor items={items} setItems={setItems} idPrefix="new" />
+        <fieldset className="cart-delivery">
+          <legend>Delivery</legend>
+          <div className="form-field"><label htmlFor="new-name">Name *</label><input id="new-name" className="order-input" required autoComplete={admin ? "off" : "name"} maxLength={80} placeholder="e.g. Sita Sharma" value={name} onChange={event => setName(event.target.value)} /></div>
+          <div className="form-field"><label htmlFor="new-address">Address *</label><input id="new-address" className="order-input" required autoComplete={admin ? "off" : "street-address"} placeholder="New Baneswor, Kathmandu" value={deliveryLocation} onChange={event => setDeliveryLocation(event.target.value)} /></div>
+          <div className="form-field"><label htmlFor="new-mobile">WhatsApp number</label><input id="new-mobile" className="order-input" value={`+977${mobile}`} readOnly disabled /></div>
+          <div className="form-field"><label htmlFor="new-notes">Note for the whole order <span className="font-normal">(optional)</span></label><textarea id="new-notes" className="order-input" rows={2} placeholder="e.g. Need it before Tihar" value={notes} onChange={event => setNotes(event.target.value)} /></div>
+        </fieldset>
+        <div className="order-submit cart-save-bar">
+          <p className="order-summary"><strong>{items.length} {items.length === 1 ? "product" : "products"}</strong><span>{countPieces(items)} {countPieces(items) === 1 ? "piece" : "pieces"}</span></p>
+          <button type="submit" disabled={saving} className="button-primary">{saving ? "Saving…" : admin ? "Create order" : "Save order"}</button>
+        </div>
+      </form>
+    </article>
   );
 }
 
