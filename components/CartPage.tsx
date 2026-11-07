@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import toast, { Toaster } from "react-hot-toast";
-import OrderItemsEditor, { emptyItem, fromEditorItems, toEditorItems, type EditorItem } from "@/components/OrderItemsEditor";
+import OrderItemsEditor, { countPieces, emptyItem, fromEditorItems, toEditorItems, type EditorItem } from "@/components/OrderItemsEditor";
 import { CART_DAYS, cartQuotation, isValidUrl, type CartRequest } from "@/lib/cart";
 import { commissionOptions, type CommissionOption } from "@/lib/quotation-estimate";
 import { getDefaultServiceRate } from "@/lib/storefront-estimate";
@@ -92,59 +92,50 @@ function SaveStatus({ state, problem, onRetry }: { state: "saved" | "pending" | 
   return <p className="cart-save-status is-saved" role="status">✓ All changes saved</p>;
 }
 
-// An empty cart takes the order right here: the number comes from the link. The order is created on its own once a
-// product link, name and address are filled in; after that it is an ordinary cart that saves edits automatically.
+// An empty cart takes the order right here: the number comes from the link. Save creates the order; after that it is
+// an ordinary cart that saves edits automatically.
 function NewRequestForm({ mobile, admin, onCreated }: { mobile: string; admin: boolean; onCreated: () => void }) {
   const [items, setItems] = useState<EditorItem[]>(() => [emptyItem()]);
   const [name, setName] = useState("");
   const [deliveryLocation, setDeliveryLocation] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
-  const [failed, setFailed] = useState(false);
   const creating = useRef(false);
 
   const touched = items.some(item => item.productUrl.trim()) || !!name.trim() || !!deliveryLocation.trim();
-  const problem = draftProblem(items, deliveryLocation, name);
-  const draft = JSON.stringify([fromEditorItems(items), name.trim(), deliveryLocation.trim(), notes.trim()]);
-  useUnsavedWarning(touched && !failed);
+  useUnsavedWarning(touched);
 
-  async function create() {
-    if (creating.current || draftProblem(items, deliveryLocation, name)) return;
+  async function create(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (creating.current) return;
+    const problem = draftProblem(items, deliveryLocation, name);
+    if (problem) { toast.error(`Please ${problem}.`); return; }
     creating.current = true;
     setSaving(true);
-    setFailed(false);
     try {
       const response = await fetch("/api/cart", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ items: fromEditorItems(items), name: name.trim(), mobile: `+977${mobile}`, deliveryLocation: deliveryLocation.trim(), notes: notes.trim() }),
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) { setFailed(true); toast.error(result.error || "Couldn’t save the order."); return; }
+      if (!response.ok) { toast.error(result.error || "Couldn’t save the order. Please try again."); return; }
       toast.success(admin ? "Order created" : "Order saved");
       onCreated();
     } catch {
-      setFailed(true);
+      toast.error("Couldn’t save the order. Check your connection and try again.");
     } finally {
       creating.current = false;
       setSaving(false);
     }
   }
 
-  useEffect(() => {
-    if (problem || failed) return;
-    const timer = setTimeout(() => { void create(); }, AUTOSAVE_MS);
-    return () => clearTimeout(timer);
-    // `create` reads the latest values; the draft text is what should restart the wait.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [draft, problem, failed]);
-
   return (
     <article className="cart-request">
       <p className="cart-request-meta">
         <strong>{admin ? "No current orders — add one" : "No current orders"}</strong>
-        <span>{admin ? `Enter the products for +977 ${mobile}. It saves on its own.` : "Add the products you want — it saves on its own and we’ll send you a quote."}</span>
+        <span>{admin ? `Enter the products for +977 ${mobile}, then tap Save.` : "Add the products you want, then tap Save. We’ll send you a quote."}</span>
       </p>
-      <form className="form-panel order-form cart-form" onSubmit={event => event.preventDefault()}>
+      <form className="form-panel order-form cart-form" onSubmit={create}>
         <OrderItemsEditor items={items} setItems={setItems} idPrefix="new" />
         <fieldset className="cart-delivery">
           <legend>Delivery</legend>
@@ -153,7 +144,10 @@ function NewRequestForm({ mobile, admin, onCreated }: { mobile: string; admin: b
           <div className="form-field"><label htmlFor="new-mobile">WhatsApp number</label><input id="new-mobile" className="order-input" value={`+977${mobile}`} readOnly disabled /></div>
           <div className="form-field"><label htmlFor="new-notes">Note for the whole order <span className="font-normal">(optional)</span></label><textarea id="new-notes" className="order-input" rows={2} placeholder="e.g. Need it before Tihar" value={notes} onChange={event => setNotes(event.target.value)} /></div>
         </fieldset>
-        {touched && <SaveStatus state={failed ? "error" : saving ? "saving" : "pending"} problem={problem} onRetry={() => { setFailed(false); }} />}
+        <div className="order-submit cart-save-bar">
+          <p className="order-summary"><strong>{items.length} {items.length === 1 ? "product" : "products"}</strong><span>{countPieces(items)} {countPieces(items) === 1 ? "piece" : "pieces"}</span></p>
+          <button type="submit" disabled={saving} className="button-primary">{saving ? "Saving…" : "Save"}</button>
+        </div>
       </form>
     </article>
   );
