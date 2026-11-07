@@ -365,7 +365,8 @@ textarea.order-input { resize: vertical; min-height: 64px; }
 .order-items { display: grid; gap: 12px; }
 .order-item { display: grid; gap: 10px; min-width: 0; margin: 0; border: 1px solid var(--store-line); border-radius: 14px; background: var(--store-soft); padding: 14px; }
 .order-item-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-.order-item-title { color: var(--store-ink); font-size: 13px; font-weight: 650; }
+.order-item-title { display: inline-flex; align-items: center; gap: 8px; min-width: 0; color: var(--store-ink); font-size: 13px; font-weight: 650; }
+.order-item-store { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 2px 8px; border-radius: 999px; background: var(--store-paper); border: 1px solid var(--store-line); color: var(--store-text); font-size: 11px; font-weight: 550; }
 .form-panel .order-item-remove { width: auto; min-height: 32px; border: 0; background: none; padding: 4px 2px; color: #c0392b; font-size: 12px; font-weight: 600; cursor: pointer; }
 .dark .form-panel .order-item-remove { color: #ff8a7a; }
 
@@ -428,18 +429,28 @@ input.order-detail-name:focus { outline: 2px solid #e9944e; outline-offset: 1px;
 }
 
 /* /cart: the customer's order requests, editable for 7 days; the team also gets a quotation panel per request. */
-.cart-page { max-width: 760px; }
-.cart-header { margin-bottom: 22px; }
+.cart-page { max-width: 620px; }
+.cart-header { margin-bottom: 20px; }
+.cart-expiry { display: block; width: fit-content; margin-top: 10px; padding: 4px 10px; border-radius: 999px; background: var(--store-soft); color: var(--store-ink); font-size: 11px; font-weight: 600; }
 .cart-header h1 { font-size: clamp(26px, 3vw, 34px); line-height: 1.2; margin-bottom: 6px; }
 .cart-admin-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; background: #fff1e4; color: #a54a0c; font-weight: 600; }
 .dark .cart-admin-badge { background: #3a2412; color: #ffb36e; }
 .cart-notice h1, .cart-notice h2 { font-size: 22px; }
 .cart-requests { display: grid; gap: 22px; }
-.cart-request { display: grid; gap: 16px; background: var(--store-paper); border: 1px solid var(--store-line); border-radius: 16px; padding: 22px; }
-.cart-request-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.storefront .cart-request-head h2 { font-size: 17px; letter-spacing: -.01em; }
-.cart-request-head p { font-size: 11px; color: var(--store-text); margin-top: 2px; }
-.cart-cancel { flex-shrink: 0; min-height: 34px; border: 1px solid var(--store-line); border-radius: 8px; background: none; padding: 4px 11px; color: #c0392b; font-size: 11px; font-weight: 600; cursor: pointer; }
+/* No outer box: the product cards are the boxes, so nothing is nested twice. */
+.cart-request { display: grid; gap: 14px; }
+.cart-request + .cart-request { padding-top: 26px; border-top: 1px solid var(--store-line); }
+.cart-request-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.cart-request-meta { display: grid; gap: 1px; }
+.cart-request-meta strong { color: var(--store-ink); font-size: 14px; font-weight: 650; }
+.cart-request-meta span { font-size: 11px; color: var(--store-text); }
+.cart-cancel { flex-shrink: 0; min-height: 36px; border: 0; background: none; padding: 4px 2px; color: #c0392b; font-size: 12px; font-weight: 600; cursor: pointer; }
+.cart-cancel:hover { text-decoration: underline; text-underline-offset: 3px; }
+.cart-delivery { display: grid; gap: 12px; min-width: 0; margin: 0; border: 1px solid var(--store-line); border-radius: 14px; background: var(--store-soft); padding: 14px; }
+.cart-delivery legend { float: left; width: 100%; margin-bottom: 2px; color: var(--store-ink); font-size: 13px; font-weight: 650; }
+.cart-delivery .form-field label { font-size: 12px; }
+/* Save stays in view while there are unsaved edits, on every screen size. */
+.cart-save-bar.order-submit { position: sticky; bottom: 12px; z-index: 5; padding: 12px 14px; border: 1px solid var(--store-line); border-radius: 14px; background: var(--store-paper); box-shadow: 0 8px 24px #0b2f4920; }
 .dark .cart-cancel { color: #ff8a7a; }
 .cart-form.order-form { border: 0; background: none; padding: 0; border-radius: 0; }
 .cart-sent { display: grid; gap: 10px; padding: 14px; border-radius: 12px; background: #eafaf0; border: 1px solid #b7ebc9; font-size: 13px; color: #0d5a2c; }
@@ -472,7 +483,7 @@ input.order-detail-name:focus { outline: 2px solid #e9944e; outline-offset: 1px;
 @media (max-width: 767px) {
   .cart-page.inner-page { padding-block: 22px 30px; }
   /* Flat sections on phones so the products get the full width. */
-  .cart-request { border: 0; border-radius: 0; padding: 0 0 26px; border-bottom: 8px solid var(--store-soft); margin-inline: -20px; padding-inline: 20px; }
-  .cart-request:last-child { border-bottom: 0; }
+  .cart-request + .cart-request { border-top: 8px solid var(--store-soft); margin-inline: -20px; padding-inline: 20px; }
+  .cart-save-bar.order-submit { bottom: 0; border-radius: 0; border-width: 1px 0 0; padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); box-shadow: 0 -6px 18px #0b2f4912; }
   .cart-quote-price input { font-size: 16px; width: 96px; }
 }

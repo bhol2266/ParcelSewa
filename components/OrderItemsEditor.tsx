@@ -4,6 +4,9 @@ import { useState, type Dispatch, type SetStateAction } from "react";
 import toast from "react-hot-toast";
 import { DETAIL_TYPES, isValidUrl, MAX_ITEMS, type CartItem, type DetailType } from "@/lib/cart";
 
+// "amazon.in" from a valid product link, for the label beside the product title.
+const storeOf = (url: string) => (isValidUrl(url) ? new URL(url.trim()).hostname.replace(/^www\./, "") : "");
+
 // Products while they are being edited. `key` only keeps React rows stable while rows are added and removed.
 export type EditorDetail = { key: number; type: DetailType; label: string; value: string };
 export type EditorItem = { key: number; productUrl: string; quantity: number; details: EditorDetail[] };
@@ -77,7 +80,7 @@ export default function OrderItemsEditor({ items, setItems, idPrefix }: { items:
           <fieldset key={item.key} className="order-item">
             <legend className="sr-only">Product {index + 1}</legend>
             <div className="order-item-head">
-              <label htmlFor={id("product")} className="order-item-title">{items.length > 1 ? `Product ${index + 1}` : "Product link"}</label>
+              <label htmlFor={id("product")} className="order-item-title">{items.length > 1 ? `Product ${index + 1}` : "Product link"}{storeOf(item.productUrl) && <span className="order-item-store">{storeOf(item.productUrl)}</span>}</label>
               {items.length > 1 && <button type="button" className="order-item-remove" onClick={() => removeItem(item.key)} aria-label={`Remove product ${index + 1}`}>Remove</button>}
             </div>
             <input id={id("product")} className="order-input" type="url" required autoComplete="off" inputMode="url" placeholder="Paste the product link here" value={item.productUrl} onChange={event => updateItem(item.key, { productUrl: event.target.value })} />

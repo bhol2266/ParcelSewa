@@ -42,9 +42,9 @@ export default function CartPage({ apiQuery, mobile, admin, expiresAt }: Props) 
       <Toaster position="top-center" />
       <header className="cart-header">
         <h1>{admin ? "Customer cart" : "Your cart"}</h1>
-        <p className="small-note">
-          {admin ? <>+977 {mobile} · <span className="cart-admin-badge">Admin view</span></> : <>Add, remove or change products, then save.{expiresAt && <> Link works until {dateLabel(expiresAt)}.</>}</>}
-        </p>
+        {admin
+          ? <p className="small-note">+977 {mobile} · <span className="cart-admin-badge">Admin view</span></p>
+          : <p className="small-note">Change products, quantities or details, then tap <strong>Save changes</strong>.{expiresAt && <span className="cart-expiry">Editable until {dateLabel(expiresAt)}</span>}</p>}
       </header>
 
       {error && <div className="surface-panel cart-notice"><p>{error}</p><a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="whatsapp-button mt-4">Message us on WhatsApp</a></div>}
@@ -53,15 +53,15 @@ export default function CartPage({ apiQuery, mobile, admin, expiresAt }: Props) 
         <div className="surface-panel cart-notice"><h2>No current orders</h2><p className="small-note mt-2">Requests from the last 7 days show here.</p><Link href="/order" className="button-primary mt-5">Start a new order</Link></div>
       )}
       <div className="cart-requests">
-        {requests?.map(request => <RequestCard key={`${apiQuery}:${request.id}`} request={request} apiQuery={apiQuery} admin={admin} onSaved={replace} onCancelled={drop} />)}
+        {requests?.map(request => <RequestCard key={`${apiQuery}:${request.id}`} request={request} apiQuery={apiQuery} mobile={mobile} admin={admin} onSaved={replace} onCancelled={drop} />)}
       </div>
       {!admin && requests && requests.length > 0 && <p className="small-note cart-footnote">Changes are sent to our team when you save. Need help? <a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">Chat with us</a></p>}
     </section>
   );
 }
 
-function RequestCard({ request, apiQuery, admin, onSaved, onCancelled }: {
-  request: CartRequest; apiQuery: string; admin: boolean; onSaved: (r: CartRequest) => void; onCancelled: (id: string) => void;
+function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }: {
+  request: CartRequest; apiQuery: string; mobile: string; admin: boolean; onSaved: (r: CartRequest) => void; onCancelled: (id: string) => void;
 }) {
   const [items, setItems] = useState<EditorItem[]>(() => toEditorItems(request.items));
   const [deliveryLocation, setDeliveryLocation] = useState(request.deliveryLocation);
@@ -92,8 +92,8 @@ function RequestCard({ request, apiQuery, admin, onSaved, onCancelled }: {
       // Customers let the team know on WhatsApp with the updated list.
       if (!admin) {
         const message = requestMessage({
-          title: "✏️ *Order Updated*", requestId: request.requestId, items: products,
-          deliveryLocation: deliveryLocation.trim(), notes: notes.trim(), cartUrl: window.location.href,
+          title: "✏️ *Order Request Updated*", items: products,
+          deliveryLocation: deliveryLocation.trim(), mobile: `+977${mobile}`, notes: notes.trim(), cartUrl: window.location.href,
         });
         setUpdateLink(`${SUPPORT_URL}?text=${encodeURIComponent(message)}`);
       }
@@ -105,7 +105,7 @@ function RequestCard({ request, apiQuery, admin, onSaved, onCancelled }: {
   }
 
   async function cancelRequest() {
-    if (!window.confirm(`Cancel request ${request.requestId}? This removes it from your cart.`)) return;
+    if (!window.confirm("Cancel this order request? It will be removed from your cart.")) return;
     const response = await fetch(`/api/cart?${apiQuery}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, cancel: true }) });
     if (response.ok) { toast.success("Request cancelled"); onCancelled(request.id); }
     else toast.error("Couldn’t cancel. Please try again.");
@@ -114,8 +114,11 @@ function RequestCard({ request, apiQuery, admin, onSaved, onCancelled }: {
   return (
     <article className="cart-request">
       <div className="cart-request-head">
-        <div><h2>{request.requestId}</h2><p>Sent {dateLabel(request.createdAt, true)}{request.updatedAt ? ` · edited ${dateLabel(request.updatedAt, true)}` : ""}</p></div>
-        <button type="button" className="cart-cancel" onClick={cancelRequest}>Cancel request</button>
+        <p className="cart-request-meta">
+          <strong>Order request</strong>
+          <span>Sent {dateLabel(request.createdAt, true)}{request.updatedAt ? ` · edited ${dateLabel(request.updatedAt, true)}` : ""}{admin ? ` · ${request.requestId}` : ""}</span>
+        </p>
+        <button type="button" className="cart-cancel" onClick={cancelRequest}>Cancel</button>
       </div>
 
       {updateLink && !dirty && (
@@ -127,10 +130,13 @@ function RequestCard({ request, apiQuery, admin, onSaved, onCancelled }: {
 
       <form className="form-panel order-form cart-form" onSubmit={event => { event.preventDefault(); save(); }}>
         <OrderItemsEditor items={items} setItems={setItems} idPrefix={idPrefix} />
-        <div className="form-field"><label htmlFor={`${idPrefix}-address`}>Delivery address *</label><input id={`${idPrefix}-address`} className="order-input" required autoComplete="street-address" placeholder="New Baneswor, Kathmandu" value={deliveryLocation} onChange={event => setDeliveryLocation(event.target.value)} /></div>
-        <div className="form-field"><label htmlFor={`${idPrefix}-notes`}>Note for the whole order</label><textarea id={`${idPrefix}-notes`} className="order-input" rows={2} placeholder="e.g. Need it before Tihar" value={notes} onChange={event => setNotes(event.target.value)} /></div>
+        <fieldset className="cart-delivery">
+          <legend>Delivery</legend>
+          <div className="form-field"><label htmlFor={`${idPrefix}-address`}>Address *</label><input id={`${idPrefix}-address`} className="order-input" required autoComplete="street-address" placeholder="New Baneswor, Kathmandu" value={deliveryLocation} onChange={event => setDeliveryLocation(event.target.value)} /></div>
+          <div className="form-field"><label htmlFor={`${idPrefix}-notes`}>Note for the whole order <span className="font-normal">(optional)</span></label><textarea id={`${idPrefix}-notes`} className="order-input" rows={2} placeholder="e.g. Need it before Tihar" value={notes} onChange={event => setNotes(event.target.value)} /></div>
+        </fieldset>
         {dirty && (
-          <div className="order-submit">
+          <div className="order-submit cart-save-bar">
             <p className="order-summary"><strong>{items.length} {items.length === 1 ? "product" : "products"}</strong><span>{countPieces(items)} {countPieces(items) === 1 ? "piece" : "pieces"}</span></p>
             <button type="submit" disabled={saving} className="button-primary">{saving ? "Saving…" : "Save changes"}</button>
           </div>

@@ -78,35 +78,26 @@ export function itemsOf(data: Record<string, unknown>): CartItem[] {
 
 export const totalPieces = (items: CartItem[]) => items.reduce((sum, item) => sum + item.quantity, 0);
 
-/**
- * The WhatsApp text for a new or edited request, kept short: the chat already shows the customer's number.
- *
- *   🛒 *New Order* · PS-R-NZR7H
- *
- *   *1.* https://amzn.in/d/026pcloo
- *   Qty: 1 · Size: M
- *
- *   📍 Balkumari, Kathmandu
- *
- *   ✏️ Edit order: https://www.parcelsewa.com/cart?…
- */
+/** The WhatsApp text for a new or edited request. */
 export function requestMessage(options: {
-  title: string; requestId: string; items: CartItem[]; deliveryLocation: string;
+  title: string; items: CartItem[]; deliveryLocation: string; mobile: string;
   notes?: string; offerNote?: string | null; cartUrl?: string;
 }) {
-  const { title, requestId, items, deliveryLocation, notes, offerNote, cartUrl } = options;
+  const { title, items, deliveryLocation, mobile, notes, offerNote, cartUrl } = options;
   return [
-    `${title} · ${requestId}`,
+    title,
     ...items.flatMap((item, index) => [
       "",
-      `*${index + 1}.* ${item.productUrl}`,
-      [`Qty: ${item.quantity}`, ...item.details.map(d => `${d.label}: ${d.value}`)].join(" · "),
+      `*${index + 1}.* 🔗 ${item.productUrl}`,
+      `    📦 Qty: ${item.quantity}`,
+      ...item.details.map(d => `    • ${d.label}: ${d.value}`),
     ]),
     "",
-    `📍 ${deliveryLocation}`,
-    notes ? `📝 ${notes}` : null,
-    offerNote ? `\n${offerNote}` : null,
-    cartUrl ? `\n✏️ Edit order: ${cartUrl}` : null,
+    `📍 *Delivery Address:* ${deliveryLocation}`,
+    `📞 *Customer WhatsApp:* ${mobile}`,
+    offerNote ?? null,
+    notes ? `📝 *Notes:* ${notes}` : null,
+    cartUrl ? `\n✏️ *Add, remove or edit products:* ${cartUrl}` : null,
   ].filter(line => line !== null).join("\n");
 }
 
