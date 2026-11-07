@@ -70,20 +70,20 @@ export async function POST(req: NextRequest) {
 /** The cart: this number's order requests from the last CART_DAYS (every request for the team). */
 export async function GET(req: NextRequest) {
   const who = access(req);
-  if (!who.ok) return NextResponse.json({ error: who.reason }, { status: who.reason === "expired" ? 410 : 403 });
+  if (!who.ok) return NextResponse.json({ error: who.reason }, { status: 400 });
   const snap = await getDocs(query(collection(db, ORDER_REQUESTS), where("mobile", "==", `+977${who.mobile}`)));
   const requests = snap.docs
     .filter(d => !d.data().cancelled && editable(millis(d.data().createdAt), who.admin))
     .map(d => toCartRequest(d.id, d.data(), who.admin))
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, who.admin ? 20 : 10);
-  return NextResponse.json({ mobile: who.mobile, admin: who.admin, expiresAt: who.expiresAt, requests }, { headers: noStore });
+  return NextResponse.json({ mobile: who.mobile, admin: who.admin, requests }, { headers: noStore });
 }
 
 /** Saves the customer's edits to one request, or cancels it. */
 export async function PUT(req: NextRequest) {
   const who = access(req);
-  if (!who.ok) return NextResponse.json({ error: who.reason }, { status: who.reason === "expired" ? 410 : 403 });
+  if (!who.ok) return NextResponse.json({ error: who.reason }, { status: 400 });
   const body = await req.json().catch(() => null);
   const id = text(body?.id, 100);
   if (!id) return NextResponse.json({ error: "Missing request." }, { status: 400 });

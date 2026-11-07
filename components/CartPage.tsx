@@ -4,20 +4,20 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import toast, { Toaster } from "react-hot-toast";
 import OrderItemsEditor, { checkItems, countPieces, fromEditorItems, toEditorItems, type EditorItem } from "@/components/OrderItemsEditor";
-import { cartQuotation, requestMessage, type CartRequest } from "@/lib/cart";
+import { CART_DAYS, cartQuotation, requestMessage, type CartRequest } from "@/lib/cart";
 import { commissionOptions, type CommissionOption } from "@/lib/quotation-estimate";
 import { getDefaultServiceRate } from "@/lib/storefront-estimate";
 import { fetchProductPriceViaExtension } from "@/lib/extension-client";
 import { SUPPORT_URL } from "@/lib/storefront";
 
-type Props = { apiQuery: string; mobile: string; admin: boolean; expiresAt: number | null };
+type Props = { apiQuery: string; mobile: string; admin: boolean };
 
 const dateLabel = (ms: number, withTime = false) =>
   new Date(ms).toLocaleString("en-GB", { day: "numeric", month: "short", ...(withTime ? { hour: "numeric", minute: "2-digit" } : {}) });
 const npr = (amount: number) => `NPR ${amount.toLocaleString("en-IN")}`;
 const storeName = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "link"; } };
 
-export default function CartPage({ apiQuery, mobile, admin, expiresAt }: Props) {
+export default function CartPage({ apiQuery, mobile, admin }: Props) {
   const [requests, setRequests] = useState<CartRequest[] | null>(null);
   const [error, setError] = useState("");
 
@@ -44,7 +44,7 @@ export default function CartPage({ apiQuery, mobile, admin, expiresAt }: Props) 
         <h1>{admin ? "Customer cart" : "Your cart"}</h1>
         {admin
           ? <p className="small-note">+977 {mobile} · <span className="cart-admin-badge">Admin view</span></p>
-          : <p className="small-note">Change products, quantities or details, then tap <strong>Save changes</strong>.{expiresAt && <span className="cart-expiry">Editable until {dateLabel(expiresAt)}</span>}</p>}
+          : <p className="small-note">Change products, quantities or details, then tap <strong>Save changes</strong>. Each order can be changed for 7 days after you send it.</p>}
       </header>
 
       {error && <div className="surface-panel cart-notice"><p>{error}</p><a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="whatsapp-button mt-4">Message us on WhatsApp</a></div>}
@@ -117,6 +117,7 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
         <p className="cart-request-meta">
           <strong>Order request</strong>
           <span>Sent {dateLabel(request.createdAt, true)}{request.updatedAt ? ` · edited ${dateLabel(request.updatedAt, true)}` : ""}{admin ? ` · ${request.requestId}` : ""}</span>
+          {!admin && <span className="cart-expiry">Editable until {dateLabel(request.createdAt + CART_DAYS * 86_400_000)}</span>}
         </p>
         <button type="button" className="cart-cancel" onClick={cancelRequest}>Cancel</button>
       </div>

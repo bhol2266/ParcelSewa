@@ -21,38 +21,23 @@ const { cartPath, checkCartAccess } = load("cart-link");
 const { cleanItems, cartQuotation, itemsOf, requestMessage } = load("cart");
 const { ADMIN_PASSWORD } = load("admin-access");
 
-const paramsOf = cartLink => new URLSearchParams(cartLink.split("?")[1]);
-
-test("a signed cart link opens that number's cart", () => {
-  const access = checkCartAccess(paramsOf(cartPath("9817254118")), undefined);
-  assert.equal(access.ok, true);
-  assert.equal(access.mobile, "9817254118");
-  assert.equal(access.admin, false);
+test("the cart link is just the mobile number", () => {
+  assert.equal(cartPath("9817254118"), "/cart?9817254118");
 });
 
-test("the link starts with the mobile number", () => {
-  assert.match(cartPath("9817254118"), /^\/cart\?9817254118&t=[0-9a-z]+&k=[\w-]{22}$/);
+test("a cart link opens that number's cart; older links with a key still work", () => {
+  assert.deepEqual(checkCartAccess(new URLSearchParams("9817254118"), undefined), { ok: true, mobile: "9817254118", admin: false });
+  assert.deepEqual(checkCartAccess(new URLSearchParams("9817254118&t=mw5mplom&k=kqFttw3iJA7IU1nv2hZL4i"), undefined), { ok: true, mobile: "9817254118", admin: false });
+  assert.deepEqual(checkCartAccess(new URLSearchParams("m=9817254118"), undefined), { ok: true, mobile: "9817254118", admin: false });
 });
 
-test("changing the number or key in a link is refused", () => {
-  const params = paramsOf(cartPath("9817254118"));
-  const otherNumber = new URLSearchParams(params.toString().replace("9817254118", "9817254119"));
-  assert.deepEqual(checkCartAccess(otherNumber, undefined), { ok: false, reason: "invalid" });
-  params.set("k", "x".repeat(22));
-  assert.deepEqual(checkCartAccess(params, undefined), { ok: false, reason: "invalid" });
-  assert.deepEqual(checkCartAccess(new URLSearchParams("9817254118"), undefined), { ok: false, reason: "invalid" });
+test("a link without a valid Nepal number is refused", () => {
+  assert.deepEqual(checkCartAccess(new URLSearchParams(""), undefined), { ok: false, reason: "missing" });
+  assert.deepEqual(checkCartAccess(new URLSearchParams("12345"), undefined), { ok: false, reason: "missing" });
 });
 
-test("links stop working after 7 days", () => {
-  const day = 86_400_000;
-  assert.equal(checkCartAccess(paramsOf(cartPath("9817254118", Date.now() - 6.9 * day)), undefined).ok, true);
-  assert.deepEqual(checkCartAccess(paramsOf(cartPath("9817254118", Date.now() - 7.1 * day)), undefined), { ok: false, reason: "expired" });
-});
-
-test("the admin cookie opens any cart without a key", () => {
-  const access = checkCartAccess(new URLSearchParams("9817254118"), ADMIN_PASSWORD);
-  assert.deepEqual(access, { ok: true, mobile: "9817254118", admin: true, expiresAt: null });
-  assert.equal(checkCartAccess(new URLSearchParams(""), ADMIN_PASSWORD).ok, false);
+test("the admin cookie marks the team's view", () => {
+  assert.deepEqual(checkCartAccess(new URLSearchParams("9817254118"), ADMIN_PASSWORD), { ok: true, mobile: "9817254118", admin: true });
 });
 
 test("products are checked and cleaned", () => {
