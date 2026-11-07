@@ -296,3 +296,27 @@ test("Myntra checkout links are looked up on the product page", () => {
   assert.equal(productPageUrl(amazon), amazon);
   assert.equal(productPageUrl("not a link"), "not a link");
 });
+
+test("the cart's Claude price lookup starts a backend job and checks back until it's done", async () => {
+  const { fetchProductPriceViaClaude } = load("claude-price-client");
+  const calls = [];
+  let polls = 0;
+  const realFetch = global.fetch, realTimeout = global.setTimeout;
+  global.setTimeout = (fn) => realTimeout(fn, 0);
+  global.fetch = async (url, init) => {
+    calls.push(`${init?.method || "GET"} ${url}`);
+    if (url === "/api/cart/price") return new Response(JSON.stringify({ jobId: "job-12345678" }), { status: 202 });
+    polls++;
+    return polls < 3 ? new Response(JSON.stringify({ status: "pending" }), { status: 202 })
+      : new Response(JSON.stringify({ price: 1299, title: "Pants", note: "From the page" }), { status: 200 });
+  };
+  try {
+    assert.deepEqual(await fetchProductPriceViaClaude("https://www.myntra.com/x/25856156/buy"), { price: 1299, note: "From the page" });
+    assert.deepEqual(calls, ["POST /api/cart/price", "GET /api/cart/price?job=job-12345678", "GET /api/cart/price?job=job-12345678", "GET /api/cart/price?job=job-12345678"]);
+    global.fetch = async () => new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY is not set on the backend." }), { status: 503 });
+    assert.deepEqual(await fetchProductPriceViaClaude("https://a.in/x"), { price: null, note: "ANTHROPIC_API_KEY is not set on the backend." });
+  } finally {
+    global.fetch = realFetch;
+    global.setTimeout = realTimeout;
+  }
+});
