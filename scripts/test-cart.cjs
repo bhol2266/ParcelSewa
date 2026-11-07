@@ -243,3 +243,17 @@ test("a new product without a price clears the quotation instead of guessing", (
   const { refreshQuote } = load("cart");
   assert.equal(refreshQuote({ rate: 30, totalNPR: 1 }, [{ productUrl: "https://a.in/1", quantity: 1, details: [], priceInr: 999 }, { productUrl: "https://a.in/new", quantity: 1, details: [] }], 0), null);
 });
+
+test("each product is marked against the confirmed order", () => {
+  const { orderMarkOf, productsInOrder } = load("cart");
+  const ordered = productsInOrder({
+    productUrls: ["https://img/a.jpg", "https://amzn.in/d/b"],
+    productPageUrls: ["https://amzn.in/d/a", "https://amzn.in/d/b"],
+    productItems: [{ url: "https://img/a.jpg", quantity: "2" }, { url: "https://amzn.in/d/b", quantity: "1" }],
+  });
+  assert.deepEqual(ordered, [{ productUrl: "https://amzn.in/d/a", quantity: 2 }, { productUrl: "https://amzn.in/d/b", quantity: 1 }]);
+  assert.equal(orderMarkOf("https://amzn.in/d/a", 2, ordered), "ordered");
+  assert.equal(orderMarkOf("https://amzn.in/d/b", 3, ordered), "changed");
+  assert.equal(orderMarkOf("https://amzn.in/d/c", 1, ordered), "new");
+  assert.deepEqual(productsInOrder({ productUrls: ["https://amzn.in/d/x"] }), [{ productUrl: "https://amzn.in/d/x", quantity: 1 }]);
+});

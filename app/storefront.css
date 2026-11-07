@@ -598,3 +598,19 @@ input.order-detail-name:focus { outline: 2px solid #e9944e; outline-offset: 1px;
 .cart-conflict { display: grid; gap: 8px; padding: 10px 12px; border-radius: 10px; border: 1px solid #f0b27a; background: #fff6ee; color: #7a3a0a; font-size: 12px; line-height: 1.5; }
 .cart-conflict button { justify-self: start; border: 0; background: none; padding: 0; color: #c85b13; font-size: 12px; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .dark .cart-conflict { background: #2a1a0d; border-color: #7a4a1f; color: #ffcf9e; }
+
+/* Once an order exists: each product shows whether it's in the order (corner badge + edge colour). */
+.order-item { position: relative; }
+.order-item.is-ordered, .order-item.is-changed, .order-item.is-new { margin-top: 6px; }
+.order-item.is-ordered { border-color: #9fdcb7; }
+.order-item.is-changed { border-color: #f0b27a; }
+.order-item.is-new { border-color: #93c5fd; }
+.order-mark { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 10px; font-weight: 700; line-height: 1.6; white-space: nowrap; }
+.order-mark.is-ordered { background: #dcfce7; color: #15803d; }
+.order-mark.is-changed { background: #ffedd5; color: #b45309; }
+.order-mark.is-new { background: #dbeafe; color: #1d4ed8; }
+.dark .order-mark.is-ordered { background: #0f2a1b; color: #6ee7a0; }
+.dark .order-mark.is-changed { background: #3a2412; color: #ffb36e; }
+.dark .order-mark.is-new { background: #10213f; color: #93c5fd; }
+.order-item-mark { position: absolute; top: -9px; left: 10px; z-index: 1; box-shadow: 0 0 0 2px var(--store-paper); }
+.order-marks-legend { font-size: 11px; color: var(--store-text); line-height: 1.8; }

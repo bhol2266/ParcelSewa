@@ -3,10 +3,12 @@
 import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
-import { DETAIL_TYPES, extractUrl, isValidUrl, MAX_ITEMS, type CartItem, type DetailType } from "@/lib/cart";
+import { DETAIL_TYPES, extractUrl, isValidUrl, MAX_ITEMS, type CartItem, type DetailType, type OrderMark } from "@/lib/cart";
 
 // "amazon.in" / "flipkart.com" from a valid product link, for the label beside the product title.
 const storeOf = (url: string) => (isValidUrl(url) ? new URL(url.trim()).hostname.replace(/^(www|m|dl)\./, "") : "");
+
+const MARK_TEXT: Record<OrderMark, string> = { ordered: "✓ Ordered", changed: "Qty changed", new: "New" };
 
 // Products while they are being edited. `key` only keeps React rows stable while rows are added and removed.
 export type EditorDetail = { key: number; type: DetailType; label: string; value: string };
@@ -45,10 +47,12 @@ export function checkItems(items: EditorItem[], idPrefix: string): string | null
 }
 
 /** The product cards shared by the /order form and the /cart page. */
-export default function OrderItemsEditor({ items, setItems, idPrefix, priceFor }: {
+export default function OrderItemsEditor({ items, setItems, idPrefix, priceFor, orderMark }: {
   items: EditorItem[]; setItems: Dispatch<SetStateAction<EditorItem[]>>; idPrefix: string;
   /** The quoted INR price for a product link, once the team has saved a quotation. */
   priceFor?: (productUrl: string) => number | undefined;
+  /** Once an order exists: whether a product is in it ("ordered"), in it with another quantity, or added later. */
+  orderMark?: (productUrl: string, quantity: number) => OrderMark;
 }) {
   const [openPicker, setOpenPicker] = useState<number | null>(null);
   const [zoomed, setZoomed] = useState<{ src: string; alt: string } | null>(null);
@@ -89,9 +93,12 @@ export default function OrderItemsEditor({ items, setItems, idPrefix, priceFor }
         const available = DETAIL_TYPES.filter(d => d.type === "other" || !item.details.some(existing => existing.type === d.type));
         const pickerOpen = openPicker === item.key;
         const id = (name: string) => `${idPrefix}-${name}-${item.key}`;
+        const link = extractUrl(item.productUrl);
+        const mark = orderMark && isValidUrl(link) ? orderMark(link, item.quantity) : null;
         return (
-          <fieldset key={item.key} className="order-item">
-            <legend className="sr-only">Product {index + 1}</legend>
+          <fieldset key={item.key} className={`order-item${mark ? ` is-${mark}` : ""}`}>
+            <legend className="sr-only">Product {index + 1}{mark ? ` (${MARK_TEXT[mark]})` : ""}</legend>
+            {mark && <span className={`order-mark is-${mark} order-item-mark`} aria-hidden="true">{MARK_TEXT[mark]}</span>}
             {/* Two compact rows: [picture or number] [link] [×], then quantity · store · details. */}
             <div className="order-item-top">
               {item.imageUrl && item.imageOf === extractUrl(item.productUrl)

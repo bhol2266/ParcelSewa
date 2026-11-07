@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import OrderItemsEditor, { countPieces, emptyItem, fromEditorItems, toEditorItems, type EditorItem } from "@/components/OrderItemsEditor";
-import { CART_DAYS, cartQuotation, commissionText, isValidUrl, nepalDate, orderNotes, orderProducts, orderStoreName, ORDER_REQUESTS, syncOrderProducts, visibleRequests, type CartRequest } from "@/lib/cart";
+import { CART_DAYS, cartQuotation, commissionText, isValidUrl, nepalDate, orderMarkOf, orderNotes, orderProducts, orderStoreName, ORDER_REQUESTS, productsInOrder, syncOrderProducts, visibleRequests, type CartRequest, type OrderedProduct } from "@/lib/cart";
 import { addDoc, collection, deleteField, doc, getDoc, onSnapshot, query, serverTimestamp, Timestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { logOrderActivity } from "@/lib/order-logs";
@@ -265,12 +265,18 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
 
   // Team only: whether the order this cart points to still exists. If it was deleted on the orders page, the cart
   // forgets it (for the customer too) and offers Create order again.
-  const orderExists = useOrderExists(admin ? request.orderId : undefined);
+  const order = useOrder(admin ? request.orderId : undefined);
+  const orderExists = order.exists;
   const linked: CartRequest = orderExists === false ? { ...request, orderId: undefined, orderSyncedAt: undefined, ordered: false } : request;
   useEffect(() => {
     if (orderExists !== false || !request.orderId) return;
-    updateDoc(doc(db, ORDER_REQUESTS, request.id), { orderId: deleteField(), orderSyncedAt: deleteField() }).catch(() => {});
+    updateDoc(doc(db, ORDER_REQUESTS, request.id), { orderId: deleteField(), orderSyncedAt: deleteField(), orderedItems: deleteField() }).catch(() => {});
   }, [orderExists, request.id, request.orderId]);
+
+  // Products in the confirmed order: for the team, read live from the order itself; for the customer, as last sent.
+  const orderedProducts: OrderedProduct[] | null = orderExists === false ? null
+    : admin ? (request.orderId ? order.products ?? request.orderedItems ?? null : null)
+    : request.ordered ? request.orderedItems ?? null : null;
 
   async function cancelRequest() {
     if (!window.confirm("Cancel this order request? It will be removed from your cart.")) return;
@@ -315,7 +321,13 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
       )}
 
       <form className="form-panel order-form cart-form" onSubmit={save}>
-        <OrderItemsEditor items={items} setItems={setItems} idPrefix={idPrefix} priceFor={request.quote ? link => request.items.find(item => item.productUrl === link)?.priceInr : undefined} />
+        {orderedProducts && (
+          <p className="order-marks-legend">
+            <span className="order-mark is-ordered">✓ Ordered</span> {admin ? "in the order" : "confirmed"} · <span className="order-mark is-new">New</span> added later{admin ? " — use Update the order" : ", awaiting confirmation"}
+          </p>
+        )}
+        <OrderItemsEditor items={items} setItems={setItems} idPrefix={idPrefix} priceFor={request.quote ? link => request.items.find(item => item.productUrl === link)?.priceInr : undefined}
+          orderMark={orderedProducts ? (link, quantity) => orderMarkOf(link, quantity, orderedProducts) : undefined} />
         <fieldset className="cart-delivery">
           <legend>Delivery</legend>
           <div className="form-field"><label htmlFor={`${idPrefix}-name`}>Name</label><input id={`${idPrefix}-name`} className="order-input" autoComplete="name" maxLength={80} placeholder="e.g. Sita Sharma" value={customerName} onChange={event => setCustomerName(event.target.value)} /></div>
@@ -601,7 +613,9 @@ function CreateOrderPanel({ request, orderDeleted, mobile, unsaved, rate, quoted
         orderId = created.id;
         await logOrderActivity({ action: "created", orderId, after: newOrder, page: "cart" });
       }
-      await updateDoc(doc(db, ORDER_REQUESTS, request.id), { orderId, orderSyncedAt: syncedAt, ...(existing ? {} : { orderCreatedAt: syncedAt }) });
+      // Remember which products (and quantities) went into the order, so the cart can mark them.
+      const orderedItems = request.items.map(item => ({ productUrl: item.productUrl, quantity: item.quantity }));
+      await updateDoc(doc(db, ORDER_REQUESTS, request.id), { orderId, orderSyncedAt: syncedAt, orderedItems, ...(existing ? {} : { orderCreatedAt: syncedAt }) });
       // The live update brings the exact saved time; until then, now.
       toast.success(existing ? "Order updated" : "Order created");
       onCreated(orderId, Date.now());
@@ -664,12 +678,14 @@ function QuoteBill({ request, changing }: { request: CartRequest; changing: bool
 }
 
 /** Team only: true / false once known whether an order exists on the orders page (live), null while checking. */
-function useOrderExists(orderId: string | undefined): boolean | null {
-  const [state, setState] = useState<{ id: string; exists: boolean } | null>(null);
+function useOrder(orderId: string | undefined): { exists: boolean | null; products: OrderedProduct[] | null } {
+  const [state, setState] = useState<{ id: string; exists: boolean; products: OrderedProduct[] | null } | null>(null);
   useEffect(() => {
     if (!orderId) return;
     // If the check itself fails, assume the order is there rather than offering a duplicate.
-    return onSnapshot(doc(db, "Confirm Orders", orderId), snap => setState({ id: orderId, exists: snap.exists() }), () => setState({ id: orderId, exists: true }));
+    return onSnapshot(doc(db, "Confirm Orders", orderId),
+      snap => setState({ id: orderId, exists: snap.exists(), products: snap.exists() ? productsInOrder(snap.data()) : null }),
+      () => setState({ id: orderId, exists: true, products: null }));
   }, [orderId]);
-  return orderId && state?.id === orderId ? state.exists : null;
+  return orderId && state?.id === orderId ? { exists: state.exists, products: state.products } : { exists: null, products: null };
 }

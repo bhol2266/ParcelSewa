@@ -44,6 +44,8 @@ export type CartRequest = {
   orderSyncedAt?: number;
   /** True for everyone once the team has created the order: the customer has paid / confirmed, so no cancelling. */
   ordered?: boolean;
+  /** The products (link and quantity) that were in the order when it was last created or updated from this cart. */
+  orderedItems?: OrderedProduct[];
 };
 
 /**
@@ -267,6 +269,7 @@ export function toCartRequest(id: string, data: Record<string, unknown>, admin: 
     ...(data.updatedAt ? { updatedAt: millis(data.updatedAt) } : {}),
     ...(quote ? { quote: { ...quote, quotedAt: millis(quote.quotedAt) } } : {}),
     ...(typeof data.orderId === "string" && data.orderId ? { ordered: true } : {}),
+    ...(typeof data.orderId === "string" && data.orderId && Array.isArray(data.orderedItems) ? { orderedItems: data.orderedItems as OrderedProduct[] } : {}),
     ...(admin && typeof data.orderId === "string" ? { orderId: data.orderId, orderSyncedAt: millis(data.orderSyncedAt ?? data.orderCreatedAt) } : {}),
   };
 }
@@ -305,4 +308,23 @@ export function refreshQuote<Q extends SavedQuote>(quote: Q, items: CartItem[], 
   } catch {
     return null;
   }
+}
+
+// ── Which products are in the confirmed order ───────────────────────────────────────────────────────────────────
+
+export type OrderedProduct = { productUrl: string; quantity: number };
+/** "ordered": in the order as it is; "changed": in the order with another quantity; "new": added after the order. */
+export type OrderMark = "ordered" | "changed" | "new";
+
+/** A product's mark against the products in the order. */
+export function orderMarkOf(productUrl: string, quantity: number, ordered: OrderedProduct[]): OrderMark {
+  const match = ordered.find(product => product.productUrl === productUrl);
+  if (!match) return "new";
+  return match.quantity === quantity ? "ordered" : "changed";
+}
+
+/** The products in an order on the orders page (store link and quantity), in the format /createOrder saves. */
+export function productsInOrder(order: { productUrls?: string[]; productPageUrls?: string[]; productItems?: { quantity?: unknown }[] }): OrderedProduct[] {
+  const pages = order.productPageUrls?.length ? order.productPageUrls : order.productUrls ?? [];
+  return pages.map((productUrl, i) => ({ productUrl, quantity: Number(order.productItems?.[i]?.quantity ?? 1) || 1 }));
 }
