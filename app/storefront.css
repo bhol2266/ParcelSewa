@@ -240,9 +240,7 @@ a:focus-visible, button:focus-visible, summary:focus-visible { outline: 3px soli
 .service-tiers strong { color: var(--store-ink); font-weight: 600; }
 .quotation-heading { display: flex; align-items: end; justify-content: space-between; gap: 30px; margin-bottom: 32px; }
 .quotation-heading h1 { font-size: clamp(26px, 3vw, 32px); line-height: 1.15; }
-.quotation-page { max-width: 700px; }
-.quotation-orders-button { display: flex; width: 100%; min-height: 60px; margin-top: 24px; font-size: 17px; justify-content: center; align-items: center; }
-.quotation-compact { padding: 30px; }
+.quotation-page { max-width: 700px; }.quotation-compact { padding: 30px; }
 .quotation-compact > .form-panel { padding: 0; }
 .quotation-result { padding: 24px; background: var(--store-soft); border-radius: 10px; margin-top: 26px; }
 .quotation-total { border-top: 1px solid var(--store-line); padding-top: 20px; margin-top: 16px; }
