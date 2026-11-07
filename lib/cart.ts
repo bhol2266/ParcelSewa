@@ -29,6 +29,8 @@ export type CartRequest = {
   createdAt: number;
   updatedAt?: number;
   quote?: { rate: CommissionOption; totalNPR: number; quotedAt: number };
+  /** Set once the team has turned the request into an order on the orders page. */
+  orderId?: string;
 };
 
 export function isValidUrl(value: string) {
@@ -136,4 +138,32 @@ export function cartQuotation(lines: { priceInr: number; quantity: number }[], r
     ? ["🛒 *Products*", ...lines.map((line, i) => `${i + 1}. ${inr(line.priceInr)}${line.quantity > 1 ? ` × ${line.quantity} = ${inr(line.priceInr * line.quantity)}` : ""}`), ""]
     : [];
   return { ...quotation, totalInr, message: [...breakdown, quotation.message].join("\n") };
+}
+
+// ── Turning a request into an order on the orders page ("Confirm Orders"), in the format /createOrder saves. ──────
+
+// Short-link and app domains that belong to a known store.
+const STORE_ALIASES: Record<string, string> = { amzn: "amazon", fkrt: "flipkart", myntr: "myntra" };
+
+/** The store name for a product link, from the stores list (amzn.in → "Amazon"); otherwise the site's own name. */
+export function storeFromUrl(url: string, stores: { name: string; url: string }[]): string {
+  let host = "";
+  try { host = new URL(url.trim()).hostname.toLowerCase().replace(/^(www|m|dl)\./, ""); } catch { return ""; }
+  const label = host.split(".")[0];
+  const key = STORE_ALIASES[label] ?? label;
+  const store = stores.find(s => { try { return new URL(s.url).hostname.toLowerCase().replace(/^www\./, "").split(".")[0] === key; } catch { return false; } });
+  return store ? store.name : key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+/** One store name for the order: the shared store, or the stores joined ("Amazon, Myntra"). */
+export const orderStoreName = (items: CartItem[], stores: { name: string; url: string }[]) =>
+  [...new Set(items.map(item => storeFromUrl(item.productUrl, stores)).filter(Boolean))].join(", ");
+
+/** The commission text the orders page uses: "30%" or "Flat NPR 1000". */
+export const commissionText = (rate: CommissionOption) => (typeof rate === "number" ? `${rate}%` : "Flat NPR 1000");
+
+/** Sizes, colours and notes per product, plus the order note, as the order's notes text. */
+export function orderNotes(items: CartItem[], note: string): string {
+  const lines = items.flatMap((item, i) => (item.details.length ? [`Product ${i + 1}: ${item.details.map(d => `${d.label}: ${d.value}`).join(", ")}`] : []));
+  return [...lines, ...(note.trim() ? [note.trim()] : [])].join("\n");
 }

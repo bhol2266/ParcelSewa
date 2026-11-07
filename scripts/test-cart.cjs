@@ -107,3 +107,24 @@ test("the customer's name appears above the address", () => {
   const message = requestMessage({ title: "🛒 *New Order Request*", name: "Sita Sharma", deliveryLocation: "Balkumari Kathmandu", mobile: "+9779817254118", items: [{ productUrl: "https://amzn.in/d/a", quantity: 1, details: [] }] });
   assert.match(message, /\n\n👤 \*Name:\* Sita Sharma\n📍 \*Delivery Address:\* Balkumari Kathmandu\n/);
 });
+
+test("product links map to the stores list, short links included", () => {
+  const { storeFromUrl, orderStoreName } = load("cart");
+  const stores = [{ name: "Amazon", url: "https://www.amazon.in" }, { name: "Flipkart", url: "https://www.flipkart.com" }, { name: "Myntra", url: "https://www.myntra.com" }];
+  assert.equal(storeFromUrl("https://amzn.in/d/026pcloo", stores), "Amazon");
+  assert.equal(storeFromUrl("https://www.amazon.in/dp/B0X", stores), "Amazon");
+  assert.equal(storeFromUrl("https://dl.flipkart.com/s/abc", stores), "Flipkart");
+  assert.equal(storeFromUrl("https://myntr.it/xyz", stores), "Myntra");
+  assert.equal(storeFromUrl("https://www.nykaa.com/p/1", stores), "Nykaa");
+  assert.equal(orderStoreName([{ productUrl: "https://amzn.in/d/a", quantity: 1, details: [] }, { productUrl: "https://www.amazon.in/dp/b", quantity: 1, details: [] }, { productUrl: "https://myntr.it/c", quantity: 1, details: [] }], stores), "Amazon, Myntra");
+});
+
+test("commission and notes use the orders page's format", () => {
+  const { commissionText, orderNotes } = load("cart");
+  assert.equal(commissionText(30), "30%");
+  assert.equal(commissionText("below_1500_1000"), "Flat NPR 1000");
+  assert.equal(orderNotes([
+    { productUrl: "https://a.in/1", quantity: 1, details: [] },
+    { productUrl: "https://a.in/2", quantity: 2, details: [{ type: "size", label: "Size", value: "M" }, { type: "color", label: "Colour", value: "Blue" }] },
+  ], " Need before Tihar "), "Product 2: Size: M, Colour: Blue\nNeed before Tihar");
+});

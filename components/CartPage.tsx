@@ -3,10 +3,14 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import OrderItemsEditor, { countPieces, emptyItem, fromEditorItems, toEditorItems, type EditorItem } from "@/components/OrderItemsEditor";
-import { CART_DAYS, cartQuotation, isValidUrl, type CartRequest } from "@/lib/cart";
+import { CART_DAYS, cartQuotation, commissionText, isValidUrl, orderNotes, orderStoreName, ORDER_REQUESTS, type CartRequest } from "@/lib/cart";
+import { addDoc, collection, doc, Timestamp, updateDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase/firebaseClient";
+import { logOrderActivity } from "@/lib/order-logs";
+import { brands } from "@/constants/brands";
 import { commissionOptions, type CommissionOption } from "@/lib/quotation-estimate";
 import { getDefaultServiceRate } from "@/lib/storefront-estimate";
-import { fetchProductPriceViaExtension } from "@/lib/extension-client";
+import { fetchProductPriceViaExtension, hasExtension } from "@/lib/extension-client";
 import { SUPPORT_URL } from "@/lib/storefront";
 
 type Props = { apiQuery: string; mobile: string; admin: boolean };
@@ -78,7 +82,7 @@ export default function CartPage({ apiQuery, mobile, admin }: Props) {
         <NewRequestForm mobile={mobile} admin={admin} onCreated={() => setReloadKey(key => key + 1)} />
       )}
       <div className="cart-requests">
-        {requests?.map(request => <RequestCard key={`${apiQuery}:${request.id}`} request={request} apiQuery={apiQuery} admin={admin} onSaved={replace} onCancelled={drop} />)}
+        {requests?.map(request => <RequestCard key={`${apiQuery}:${request.id}`} request={request} apiQuery={apiQuery} mobile={mobile} admin={admin} onSaved={replace} onCancelled={drop} />)}
       </div>
       {!admin && requests && requests.length > 0 && <p className="small-note cart-footnote">Our team sees your changes as soon as they’re saved. Need help? <a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">Chat with us</a></p>}
     </section>
@@ -153,8 +157,8 @@ function NewRequestForm({ mobile, admin, onCreated }: { mobile: string; admin: b
   );
 }
 
-function RequestCard({ request, apiQuery, admin, onSaved, onCancelled }: {
-  request: CartRequest; apiQuery: string; admin: boolean; onSaved: (r: CartRequest) => void; onCancelled: (id: string) => void;
+function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }: {
+  request: CartRequest; apiQuery: string; mobile: string; admin: boolean; onSaved: (r: CartRequest) => void; onCancelled: (id: string) => void;
 }) {
   const [items, setItems] = useState<EditorItem[]>(() => toEditorItems(request.items));
   const [customerName, setCustomerName] = useState(request.customerName);
@@ -237,14 +241,14 @@ function RequestCard({ request, apiQuery, admin, onSaved, onCancelled }: {
       </form>
 
       {/* Remounts with fresh price boxes when the products or quantities change. */}
-      {admin && <QuotePanel key={JSON.stringify(request.items.map(item => [item.productUrl, item.quantity]))} request={request} unsaved={dirty} onSaved={onSaved} />}
+      {admin && <QuotePanel key={JSON.stringify(request.items.map(item => [item.productUrl, item.quantity]))} request={request} mobile={mobile} unsaved={dirty} onSaved={onSaved} />}
     </article>
   );
 }
 
 // ── Team only: read each product's price through the ParcelSewa extension (like "Verify" on the orders page),
 //    or type it in, then copy a quotation in the quotation calculator's format. ───────────────────────────────
-function QuotePanel({ request, unsaved, onSaved }: { request: CartRequest; unsaved: boolean; onSaved: (r: CartRequest) => void }) {
+function QuotePanel({ request, mobile, unsaved, onSaved }: { request: CartRequest; mobile: string; unsaved: boolean; onSaved: (r: CartRequest) => void }) {
   const [prices, setPrices] = useState<string[]>(() => request.items.map(item => (item.priceInr ? String(item.priceInr) : "")));
   const [status, setStatus] = useState<string[]>(() => request.items.map(() => ""));
   const [reading, setReading] = useState(false);
@@ -263,21 +267,45 @@ function QuotePanel({ request, unsaved, onSaved }: { request: CartRequest; unsav
 
   const setAt = <T,>(list: T[], index: number, value: T) => list.map((entry, i) => (i === index ? value : entry));
 
+  // On a computer with the ParcelSewa extension, prices are read through it (like "Verify" on the orders page).
+  // Without it (phones), or when the extension can't read a page, the server asks Claude instead.
+  async function priceFromClaude(url: string): Promise<{ price: number | null; note: string }> {
+    try {
+      const response = await fetch("/api/cart/price", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) return { price: null, note: result.error || "Claude lookup failed" };
+      return { price: typeof result.price === "number" ? result.price : null, note: result.note || "Claude couldn’t find a price" };
+    } catch {
+      return { price: null, note: "No connection" };
+    }
+  }
+
   async function readPrices(only?: number) {
     setReading(true);
     setCopyState("");
+    const indexes = request.items.map((_, i) => i).filter(i => (only !== undefined ? i === only : !prices[i]));
+    const done = (i: number, price: number | null, note: string) => {
+      if (price) { setPrices(current => setAt(current, i, String(price))); setStatus(current => setAt(current, i, "")); }
+      else setStatus(current => setAt(current, i, `Couldn’t read the price (${note}). Type it in.`));
+    };
     try {
-      for (let i = 0; i < request.items.length; i++) {
-        if (only !== undefined ? i !== only : !!prices[i]) continue;
-        setStatus(current => setAt(current, i, "Reading price…"));
-        const { price, note } = await fetchProductPriceViaExtension(request.items[i].productUrl);
-        if (price) {
-          setPrices(current => setAt(current, i, String(price)));
-          setStatus(current => setAt(current, i, ""));
-        } else {
-          setStatus(current => setAt(current, i, `Couldn’t read the price (${note}). Type it in.`));
+      const withExtension = await hasExtension();
+      // The extension opens store pages one at a time; Claude lookups run side by side.
+      const leftForClaude: number[] = [];
+      if (withExtension) {
+        for (const i of indexes) {
+          setStatus(current => setAt(current, i, "Reading price…"));
+          const { price } = await fetchProductPriceViaExtension(request.items[i].productUrl);
+          if (price) done(i, price, ""); else leftForClaude.push(i);
         }
+      } else {
+        leftForClaude.push(...indexes);
       }
+      await Promise.all(leftForClaude.map(async i => {
+        setStatus(current => setAt(current, i, withExtension ? "Extension couldn’t read it — asking Claude…" : "Asking Claude for the price…"));
+        const { price, note } = await priceFromClaude(request.items[i].productUrl);
+        done(i, price, note);
+      }));
     } finally {
       setReading(false);
     }
@@ -323,7 +351,7 @@ function QuotePanel({ request, unsaved, onSaved }: { request: CartRequest; unsav
               <input id={`price-${request.id}-${i}`} type="number" inputMode="decimal" min="0.01" step="0.01" placeholder="Price" value={prices[i] ?? ""} onChange={event => { setPrices(current => setAt(current, i, event.target.value)); setStatus(current => setAt(current, i, "")); setCopyState(""); }} />
               <button type="button" aria-label={`Fetch price of product ${i + 1}`} title="Fetch this price" disabled={reading || unsaved} onClick={() => readPrices(i)}>↻</button>
             </div>
-            {status[i] && <p className={status[i].startsWith("Reading") ? "cart-quote-status" : "cart-quote-status is-error"}>{status[i]}</p>}
+            {status[i] && <p className={status[i].startsWith("Couldn’t") ? "cart-quote-status is-error" : "cart-quote-status"}>{status[i]}</p>}
           </li>
         ))}
       </ol>
@@ -347,6 +375,81 @@ function QuotePanel({ request, unsaved, onSaved }: { request: CartRequest; unsav
       ) : (
         <p className="small-note">Fetch or type every product’s price to see the quotation.</p>
       )}
+
+      <CreateOrderPanel request={request} mobile={mobile} unsaved={unsaved} rate={appliedRate} quotedTotal={quotation?.totalNPR ?? null} onCreated={orderId => onSaved({ ...request, orderId })} />
     </section>
+  );
+}
+
+// ── Team only: turn the request into an order on the orders page, saved the way /createOrder saves it. ────────────
+function CreateOrderPanel({ request, mobile, unsaved, rate, quotedTotal, onCreated }: {
+  request: CartRequest; mobile: string; unsaved: boolean; rate: CommissionOption; quotedTotal: number | null; onCreated: (orderId: string) => void;
+}) {
+  const [storeName, setStoreName] = useState(() => orderStoreName(request.items, brands));
+  const [total, setTotal] = useState("");
+  const [typedTotal, setTypedTotal] = useState(false);
+  const [advance, setAdvance] = useState("0");
+  const [creating, setCreating] = useState(false);
+  // The total follows the quotation until the team types its own.
+  const shownTotal = typedTotal ? total : quotedTotal ? String(quotedTotal) : total;
+
+  if (request.orderId) {
+    return <p className="cart-order-done">✓ Order created on the orders page. <a href="/admin" className="underline underline-offset-4">Open orders</a></p>;
+  }
+
+  async function createOrder() {
+    const totalAmount = Number(shownTotal), advancePayment = Number(advance || 0);
+    if (!request.customerName.trim()) { toast.error("Add the customer’s name in the Delivery box first."); return; }
+    if (!storeName.trim()) { toast.error("Enter the store name."); return; }
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) { toast.error("Enter the total amount in NPR."); return; }
+    if (!Number.isFinite(advancePayment) || advancePayment < 0) { toast.error("Advance payment can’t be negative."); return; }
+    if (!window.confirm(`Create an order for ${request.customerName} — NPR ${totalAmount.toLocaleString("en-IN")}?`)) return;
+    setCreating(true);
+    try {
+      const newOrder = {
+        name: request.customerName.trim(),
+        mobile: `+977${mobile}`,
+        notes: orderNotes(request.items, request.notes),
+        address: request.deliveryLocation,
+        storeName: storeName.trim(),
+        orderedDate: Timestamp.now(),
+        commission: commissionText(rate),
+        courierCharge: "Included",
+        totalAmount,
+        advancePayment,
+        // New orders always start as not delivered; the admin page marks delivery.
+        deliveryStatus: false,
+        productUrls: request.items.map(item => item.productUrl),
+        productItems: request.items.map(item => ({ url: item.productUrl, quantity: String(item.quantity) })),
+        createdAt: Timestamp.now(),
+        fromRequestId: request.requestId,
+      };
+      const created = await addDoc(collection(db, "Confirm Orders"), newOrder);
+      await logOrderActivity({ action: "created", orderId: created.id, after: newOrder, page: "cart" });
+      await updateDoc(doc(db, ORDER_REQUESTS, request.id), { orderId: created.id, orderCreatedAt: Timestamp.now() });
+      toast.success("Order created");
+      onCreated(created.id);
+    } catch (error) {
+      console.error("Create order failed:", error);
+      toast.error("Couldn’t create the order. Please try again.");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  return (
+    <div className="cart-create-order">
+      <h3>Create order</h3>
+      <div className="cart-create-grid">
+        <div className="form-field"><label htmlFor={`store-${request.id}`}>Store</label><input id={`store-${request.id}`} list="cart-store-options" className="order-input" value={storeName} onChange={event => setStoreName(event.target.value)} /></div>
+        <div className="form-field"><label htmlFor={`commission-${request.id}`}>Commission</label><input id={`commission-${request.id}`} className="order-input" value={commissionText(rate)} readOnly disabled /></div>
+        <div className="form-field"><label htmlFor={`total-${request.id}`}>Total (NPR)</label><input id={`total-${request.id}`} className="order-input" type="number" inputMode="numeric" min="1" value={shownTotal} placeholder="From the quotation" onChange={event => { setTypedTotal(true); setTotal(event.target.value); }} /></div>
+        <div className="form-field"><label htmlFor={`advance-${request.id}`}>Advance paid (NPR)</label><input id={`advance-${request.id}`} className="order-input" type="number" inputMode="numeric" min="0" value={advance} onChange={event => setAdvance(event.target.value)} /></div>
+      </div>
+      <datalist id="cart-store-options">{brands.map(b => <option key={b.name} value={b.name} />)}</datalist>
+      <p className="small-note">Uses {request.customerName || "the customer’s name"}, +977 {mobile}, the address and the products above. Sizes, colours and notes go into the order’s notes.</p>
+      <button type="button" className="button-primary" disabled={creating || unsaved} onClick={createOrder}>{creating ? "Creating…" : "Create order"}</button>
+      {unsaved && <p className="cart-quote-warn">Wait for the changes above to save first.</p>}
+    </div>
   );
 }
