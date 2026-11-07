@@ -279,3 +279,10 @@ test("the order is compared with the cart by contents", () => {
   assert.deepEqual(orderDifferences(order, wanted), []);
   assert.deepEqual(orderDifferences(order, { ...wanted, totalAmount: 12000, items: [...wanted.items, { productUrl: "https://dl.flipkart.com/s/c", quantity: 1, details: [] }] }), ["Products", "Total"]);
 });
+
+test("a saved detail in Firestore's field order compares equal to the editor's", () => {
+  const { canonicalItems } = load("cart");
+  const fromFirestore = [{ productUrl: "https://amzn.in/d/b", quantity: 1, details: [{ label: "Size", type: "size", value: "M" }] }];
+  const fromEditor = [{ productUrl: "https://amzn.in/d/b", quantity: 1, details: [{ type: "size", label: "Size", value: "M" }] }];
+  assert.equal(JSON.stringify(canonicalItems(fromFirestore)), JSON.stringify(canonicalItems(fromEditor)));
+});

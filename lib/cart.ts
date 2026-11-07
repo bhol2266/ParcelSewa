@@ -357,3 +357,13 @@ export function orderDifferences(order: Record<string, unknown>, wanted: OrderWa
   if (number(order.advancePayment) !== number(wanted.advancePayment)) differs.push("Advance");
   return differs;
 }
+
+/**
+ * Products in one fixed field order, for comparing. Firestore returns map fields in alphabetical order
+ * ({label, type, value}) while the editor builds {type, label, value}; compared as text they would always differ.
+ */
+export const canonicalItems = (items: CartItem[]) =>
+  items.map(item => ({
+    productUrl: item.productUrl, quantity: item.quantity,
+    details: item.details.map(d => ({ type: d.type, label: d.label, value: d.value })),
+  }));

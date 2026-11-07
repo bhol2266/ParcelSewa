@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import OrderItemsEditor, { countPieces, emptyItem, fromEditorItems, toEditorItems, type EditorItem } from "@/components/OrderItemsEditor";
-import { CART_DAYS, cartQuotation, commissionText, isValidUrl, nepalDate, orderDifferences, orderMarkOf, orderNotes, orderProducts, orderStoreName, ORDER_REQUESTS, productsInOrder, syncOrderProducts, visibleRequests, type CartRequest, type OrderedProduct } from "@/lib/cart";
+import { canonicalItems, CART_DAYS, cartQuotation, commissionText, isValidUrl, nepalDate, orderDifferences, orderMarkOf, orderNotes, orderProducts, orderStoreName, ORDER_REQUESTS, productsInOrder, syncOrderProducts, visibleRequests, type CartRequest, type OrderedProduct } from "@/lib/cart";
 import { addDoc, collection, deleteField, doc, getDoc, onSnapshot, query, serverTimestamp, Timestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { logOrderActivity } from "@/lib/order-logs";
@@ -174,8 +174,9 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
   const inFlight = useRef(false);
   const idPrefix = `cart-${request.id}`;
 
-  const savedShape = useMemo(() => JSON.stringify([request.items.map(({ productUrl, quantity, details }) => ({ productUrl, quantity, details })), request.customerName, request.deliveryLocation, request.notes]), [request]);
-  const draft = JSON.stringify([fromEditorItems(items), customerName.trim(), deliveryLocation.trim(), notes.trim()]);
+  // Both sides in the same field order (see canonicalItems), so an untouched cart never counts as changed.
+  const savedShape = useMemo(() => JSON.stringify([canonicalItems(request.items), request.customerName, request.deliveryLocation, request.notes]), [request]);
+  const draft = JSON.stringify([canonicalItems(fromEditorItems(items)), customerName.trim(), deliveryLocation.trim(), notes.trim()]);
   const dirty = draft !== savedShape;
   useUnsavedWarning(dirty);
 
@@ -275,11 +276,12 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
 
   // The order card is the truth for which products are confirmed. Keep the cart's copy (what the customer's marks
   // use) in step with it — e.g. after the order was edited on the orders page, or for orders made before marks existed.
-  const orderProductsKey = order.products ? JSON.stringify(order.products) : null;
+  const productKey = (products: OrderedProduct[] | null | undefined) => (products ? JSON.stringify(products.map(p => [p.productUrl, p.quantity])) : null);
+  const orderProductsKey = productKey(order.products);
   useEffect(() => {
     if (!admin || !request.orderId || !orderProductsKey || orderExists !== true) return;
-    if (orderProductsKey === JSON.stringify(request.orderedItems ?? null)) return;
-    updateDoc(doc(db, ORDER_REQUESTS, request.id), { orderedItems: JSON.parse(orderProductsKey) }).catch(() => {});
+    if (orderProductsKey === productKey(request.orderedItems)) return;
+    updateDoc(doc(db, ORDER_REQUESTS, request.id), { orderedItems: (JSON.parse(orderProductsKey) as [string, number][]).map(([productUrl, quantity]) => ({ productUrl, quantity })) }).catch(() => {});
   }, [admin, orderExists, orderProductsKey, request.id, request.orderId, request.orderedItems]);
 
   // Team: what differs between the order card and this cart (store and commission are only set in the order section).
