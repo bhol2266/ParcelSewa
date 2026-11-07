@@ -13,6 +13,7 @@ export default function AdminQuotationCalculatorPage() {
     <div className="storefront page-container inner-page quotation-page">
       <div className="quotation-heading"><h1>Quotation calculator</h1><Link href="/admin" className="text-link">← Orders</Link></div>
       <Quatation_Calc />
+      <Link href="/admin" className="button-secondary quotation-orders-button">Go to orders</Link>
     </div>
   );
 }
