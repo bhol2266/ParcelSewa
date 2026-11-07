@@ -449,7 +449,11 @@ input.order-detail-name:focus { outline: 2px solid #e9944e; outline-offset: 1px;
 .cart-delivery legend { float: left; width: 100%; margin-bottom: 2px; color: var(--store-ink); font-size: 13px; font-weight: 650; }
 .cart-delivery .form-field label { font-size: 12px; }
 /* Save stays in view while there are unsaved edits, on every screen size. */
-.cart-save-bar.order-submit { position: sticky; bottom: 12px; z-index: 5; padding: 12px 14px; border: 1px solid var(--store-line); border-radius: 14px; background: var(--store-paper); box-shadow: 0 8px 24px #0b2f4920; }
+/* Save stays fixed to the bottom of the screen while there are unsaved changes, however far down the page is
+   scrolled (the admin quotation and order sections come after the products). Content lines up with the cart column. */
+.cart-save-bar.order-submit { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; margin: 0; padding: 12px max(16px, calc((100vw - 620px) / 2)) calc(12px + env(safe-area-inset-bottom)); border: 0; border-top: 1px solid var(--store-line); border-radius: 0; background: var(--store-paper); box-shadow: 0 -8px 24px #0b2f4918; }
+/* Room under the last section so the fixed bar never covers it. */
+.cart-save-spacer { height: 88px; }
 .dark .cart-cancel { color: #ff8a7a; }
 .cart-form.order-form { border: 0; background: none; padding: 0; border-radius: 0; }
 .cart-sent { display: grid; gap: 10px; padding: 14px; border-radius: 12px; background: #eafaf0; border: 1px solid #b7ebc9; font-size: 13px; color: #0d5a2c; }
@@ -483,7 +487,7 @@ input.order-detail-name:focus { outline: 2px solid #e9944e; outline-offset: 1px;
   .cart-page.inner-page { padding-block: 22px 30px; }
   /* Flat sections on phones so the products get the full width. */
   .cart-request + .cart-request { border-top: 8px solid var(--store-soft); margin-inline: -20px; padding-inline: 20px; }
-  .cart-save-bar.order-submit { bottom: 0; border-radius: 0; border-width: 1px 0 0; padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); box-shadow: 0 -6px 18px #0b2f4912; }
+  .cart-save-bar.order-submit { padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); }
   .cart-quote-price input { font-size: 16px; width: 96px; }
 }
 

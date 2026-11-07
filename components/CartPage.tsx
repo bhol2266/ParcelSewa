@@ -47,6 +47,8 @@ export default function CartPage({ apiQuery, mobile, admin }: Props) {
   const [error, setError] = useState("");
   // Bumped after an order is created here, to load the cart again.
   const [reloadKey, setReloadKey] = useState(0);
+  // Team: an order just saved from the empty-cart form gets its prices fetched and quotation saved straight away.
+  const [freshId, setFreshId] = useState<string | null>(null);
 
   // Live: the cart follows the database, so the customer and the team see each other's saves straight away.
   // If live updates aren't available (blocked network, database rules), it loads through the API every 15 seconds.
@@ -85,10 +87,10 @@ export default function CartPage({ apiQuery, mobile, admin }: Props) {
       {error && <div className="surface-panel cart-notice"><p>{error}</p><a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="whatsapp-button mt-4">Message us on WhatsApp</a></div>}
       {!error && requests === null && <p className="small-note" role="status">Loading your cart…</p>}
       {!error && requests?.length === 0 && (
-        <NewRequestForm mobile={mobile} admin={admin} onCreated={created => (created ? setRequests([created]) : setReloadKey(key => key + 1))} />
+        <NewRequestForm mobile={mobile} admin={admin} onCreated={created => { if (created) { setFreshId(created.id); setRequests([created]); } else setReloadKey(key => key + 1); }} />
       )}
       <div className="cart-requests">
-        {requests?.map(request => <RequestCard key={`${apiQuery}:${request.id}`} request={request} apiQuery={apiQuery} mobile={mobile} admin={admin} onSaved={replace} onCancelled={drop} />)}
+        {requests?.map(request => <RequestCard key={`${apiQuery}:${request.id}`} request={request} apiQuery={apiQuery} mobile={mobile} admin={admin} quoteOnOpen={admin && request.id === freshId} onSaved={replace} onCancelled={drop} />)}
       </div>
       {!admin && requests && requests.length > 0 && <p className="small-note cart-footnote">Our team sees your changes as soon as they’re saved. Need help? <a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">Chat with us</a></p>}
     </section>
@@ -153,12 +155,13 @@ function NewRequestForm({ mobile, admin, onCreated }: { mobile: string; admin: b
           <button type="submit" disabled={saving} className="button-primary">{saving ? "Saving…" : "Save"}</button>
         </div>
       </form>
+      <div className="cart-save-spacer" aria-hidden="true" />
     </article>
   );
 }
 
-function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }: {
-  request: CartRequest; apiQuery: string; mobile: string; admin: boolean; onSaved: (r: CartRequest) => void; onCancelled: (id: string) => void;
+function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, onSaved, onCancelled }: {
+  request: CartRequest; apiQuery: string; mobile: string; admin: boolean; quoteOnOpen?: boolean; onSaved: (r: CartRequest) => void; onCancelled: (id: string) => void;
 }) {
   const [items, setItems] = useState<EditorItem[]>(() => toEditorItems(request.items));
   const [customerName, setCustomerName] = useState(request.customerName);
@@ -166,6 +169,8 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
   const [notes, setNotes] = useState(request.notes);
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  // Team: set after a save that left the quotation out of date; the quotation panel fetches missing prices and saves it.
+  const [autoPrice, setAutoPrice] = useState<{ token: number; saveQuote: boolean } | null>(() => (quoteOnOpen ? { token: 1, saveQuote: true } : null));
   const inFlight = useRef(false);
   const idPrefix = `cart-${request.id}`;
 
@@ -210,6 +215,12 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
       onSaved(result.request);
       setJustSaved(true);
       setConflict(false);
+      // Team: Save also brings the quotation up to date, in this page — fetching any missing prices first. (The
+      // server already recalculated it when every price was known; this covers new products and first quotes.)
+      const saved = result.request as CartRequest;
+      if (admin && (!saved.quote || saved.items.some(item => !(typeof item.priceInr === "number" && item.priceInr > 0)))) {
+        setAutoPrice({ token: Date.now(), saveQuote: true });
+      }
     } catch {
       toast.error("Couldn’t save. Check your connection and try again.");
     } finally {
@@ -322,14 +333,18 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
       {!admin && request.quote && <QuoteBill request={request} changing={dirty} />}
 
       {/* Remounts with fresh price boxes when the products or quantities change. */}
-      {admin && <QuotePanel key={JSON.stringify(request.items.map(item => [item.productUrl, item.quantity]))} request={linked} mobile={mobile} unsaved={dirty} onSaved={onSaved} orderDeleted={orderExists === false && !!request.orderId} />}
+      {admin && <QuotePanel key={JSON.stringify(request.items.map(item => [item.productUrl, item.quantity]))} request={linked} mobile={mobile} unsaved={dirty} onSaved={onSaved} orderDeleted={orderExists === false && !!request.orderId} autoPrice={autoPrice} onAutoPriceDone={() => setAutoPrice(null)} />}
+      {dirty && <div className="cart-save-spacer" aria-hidden="true" />}
     </article>
   );
 }
 
 // ── Team only: read each product's price through the ParcelSewa extension (like "Verify" on the orders page),
 //    or type it in, then copy a quotation in the quotation calculator's format. ───────────────────────────────
-function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted }: { request: CartRequest; mobile: string; unsaved: boolean; onSaved: (r: CartRequest) => void; orderDeleted: boolean }) {
+function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted, autoPrice, onAutoPriceDone }: {
+  request: CartRequest; mobile: string; unsaved: boolean; onSaved: (r: CartRequest) => void; orderDeleted: boolean;
+  autoPrice: { token: number; saveQuote: boolean } | null; onAutoPriceDone: () => void;
+}) {
   const [prices, setPrices] = useState<string[]>(() => request.items.map(item => (item.priceInr ? String(item.priceInr) : "")));
   const [status, setStatus] = useState<string[]>(() => request.items.map(() => ""));
   const [reading, setReading] = useState(false);
@@ -354,12 +369,13 @@ function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted }: { reque
 
   // On a computer with the ParcelSewa extension, prices are read through it (like "Verify" on the orders page).
   // Without it (phones), or when the extension can't read a page, the server asks Claude instead.
-  async function readPrices(only?: number) {
+  async function readPrices(only?: number): Promise<Map<number, number>> {
     setReading(true);
     setCopyState("");
+    const found = new Map<number, number>();
     const indexes = request.items.map((_, i) => i).filter(i => (only !== undefined ? i === only : !prices[i]));
     const done = (i: number, price: number | null, note: string) => {
-      if (price) { setPrices(current => setAt(current, i, String(price))); setStatus(current => setAt(current, i, "")); }
+      if (price) { found.set(i, price); setPrices(current => setAt(current, i, String(price))); setStatus(current => setAt(current, i, "")); }
       else setStatus(current => setAt(current, i, `Couldn’t read the price (${note}). Type it in.`));
     };
     try {
@@ -383,7 +399,38 @@ function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted }: { reque
     } finally {
       setReading(false);
     }
+    return found;
   }
+
+  // After the team's Save: fetch the prices still missing, then save the quotation (the order is updated separately).
+  useEffect(() => {
+    if (!autoPrice) return;
+    const timer = setTimeout(async () => {
+      onAutoPriceDone();
+      const found = await readPrices();
+      const finalPrices = request.items.map((item, i) => found.get(i) ?? (Number(prices[i]) || 0));
+      if (!autoPrice.saveQuote) { if (found.size) toast.success("Prices fetched — check them, then tap Save quotation"); return; }
+      if (!finalPrices.every(price => price > 0)) { toast.error("Some prices couldn’t be found — type them in, then tap Update quotation."); return; }
+      const autoLines = request.items.map((item, i) => ({ priceInr: finalPrices[i], quantity: item.quantity }));
+      const totalInrAuto = autoLines.reduce((sum, line) => sum + line.priceInr * line.quantity, 0);
+      const autoRate: CommissionOption = rate ?? getDefaultServiceRate(totalInrAuto);
+      try {
+        const autoQuotation = cartQuotation(autoLines, autoRate);
+        const response = await fetch("/api/cart/quote", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: request.id, prices: finalPrices, rate: autoRate, rateAuto: rate === null, totalNPR: autoQuotation.totalNPR, advance: Number(advance || 0) }),
+        });
+        if (!response.ok) { toast.error("Prices found, but saving the quotation failed — tap Update quotation."); return; }
+        onSaved({ ...request, items: request.items.map((item, i) => ({ ...item, priceInr: finalPrices[i] })), quote: { rate: autoRate, rateAuto: rate === null, totalNPR: autoQuotation.totalNPR, advance: Math.round(Number(advance || 0)), quotedAt: Date.now() } });
+        toast.success("New prices found — quotation updated");
+      } catch {
+        toast.error("Couldn’t update the quotation — tap Update quotation.");
+      }
+    }, 0);
+    return () => clearTimeout(timer);
+    // Runs once per save that asked for it (the token); the functions read this render's values.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPrice?.token]);
 
   const advanceAmount = Number(advance || 0);
   // Whether the prices, fee or advance differ from the quotation the customer currently sees.
