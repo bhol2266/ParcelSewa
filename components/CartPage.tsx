@@ -287,6 +287,13 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
     : admin ? (request.orderId ? order.products ?? request.orderedItems ?? null : null)
     : request.ordered ? request.orderedItems ?? null : null;
 
+  // Team: one tap fetches missing pictures, then the quotation panel fetches missing prices and saves the quotation
+  // (the same step Save runs). Pictures first: the extension reads one store page at a time.
+  async function fetchImagesAndPrices() {
+    if (request.items.some(item => !item.imageUrl)) await fetchImages();
+    setAutoPrice({ token: Date.now(), saveQuote: true });
+  }
+
   async function cancelRequest() {
     if (!window.confirm("Cancel this order request? It will be removed from your cart.")) return;
     const response = await fetch(`/api/cart?${apiQuery}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, cancel: true }) });
@@ -303,7 +310,7 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
           {!admin && <span className="cart-expiry">Editable until {dateLabel(request.createdAt + CART_DAYS * 86_400_000)}</span>}
         </p>
         <div className="cart-request-actions">
-          {admin && <button type="button" className="cart-images-btn" disabled={!!fetchingImages} onClick={fetchImages}>{fetchingImages ? `Images ${fetchingImages}…` : "Fetch images"}</button>}
+          {admin && <button type="button" className="cart-images-btn" disabled={!!fetchingImages || dirty} title={dirty ? "Save your changes first" : undefined} onClick={fetchImagesAndPrices}>{fetchingImages ? `Images ${fetchingImages}…` : "Fetch images & prices"}</button>}
           {request.ordered && !admin
             ? <span className="cart-confirmed">✓ Order confirmed</span>
             : <button type="button" className="cart-cancel" onClick={cancelRequest}>Cancel</button>}
