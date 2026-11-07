@@ -614,3 +614,4 @@ input.order-detail-name:focus { outline: 2px solid #e9944e; outline-offset: 1px;
 .dark .order-mark.is-new { background: #10213f; color: #93c5fd; }
 .order-item-mark { position: absolute; top: -9px; left: 10px; z-index: 1; box-shadow: 0 0 0 2px var(--store-paper); }
 .order-marks-legend { font-size: 11px; color: var(--store-text); line-height: 1.8; }
+.cart-create-order .button-primary:disabled { opacity: .55; cursor: default; }

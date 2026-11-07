@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import OrderItemsEditor, { countPieces, emptyItem, fromEditorItems, toEditorItems, type EditorItem } from "@/components/OrderItemsEditor";
-import { CART_DAYS, cartQuotation, commissionText, isValidUrl, nepalDate, orderMarkOf, orderNotes, orderProducts, orderStoreName, ORDER_REQUESTS, productsInOrder, syncOrderProducts, visibleRequests, type CartRequest, type OrderedProduct } from "@/lib/cart";
+import { CART_DAYS, cartQuotation, commissionText, isValidUrl, nepalDate, orderDifferences, orderMarkOf, orderNotes, orderProducts, orderStoreName, ORDER_REQUESTS, productsInOrder, syncOrderProducts, visibleRequests, type CartRequest, type OrderedProduct } from "@/lib/cart";
 import { addDoc, collection, deleteField, doc, getDoc, onSnapshot, query, serverTimestamp, Timestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { logOrderActivity } from "@/lib/order-logs";
@@ -282,6 +282,15 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
     updateDoc(doc(db, ORDER_REQUESTS, request.id), { orderedItems: JSON.parse(orderProductsKey) }).catch(() => {});
   }, [admin, orderExists, orderProductsKey, request.id, request.orderId, request.orderedItems]);
 
+  // Team: what differs between the order card and this cart (store and commission are only set in the order section).
+  const cartDiffs = admin && request.orderId && orderExists !== false && order.data ? orderDifferences(order.data, {
+    name: request.customerName, address: request.deliveryLocation, notes: orderNotes(request.items, request.notes),
+    storeName: String(order.data.storeName ?? ""), commission: String(order.data.commission ?? ""),
+    totalAmount: request.quote ? request.quote.totalNPR : Number(order.data.totalAmount),
+    advancePayment: request.quote ? request.quote.advance ?? 0 : Number(order.data.advancePayment),
+    items: request.items,
+  }) : null;
+
   // Products in the confirmed order: for the team, read live from the order itself; for the customer, as last sent.
   const orderedProducts: OrderedProduct[] | null = orderExists === false ? null
     : admin ? (request.orderId ? order.products ?? request.orderedItems ?? null : null)
@@ -324,11 +333,11 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
         </div>
       )}
 
-      {admin && cartChangedSinceOrder(linked) && (
+      {admin && (cartDiffs ? cartDiffs.length > 0 : cartChangedSinceOrder(linked)) && (
         <div className="cart-order-alert" role="alert">
           <span className="cart-order-alert-icon" aria-hidden="true">!</span>
           <p>
-            <strong>Order out of date.</strong> The cart changed on {dateLabel(linked.updatedAt!, true)}, after the order was {linked.orderSyncedAt ? "last updated" : "created"}.{" "}
+            <strong>Order out of date.</strong> {cartDiffs?.length ? <>Different on the order: {cartDiffs.join(", ")}.</> : <>The cart changed on {dateLabel(linked.updatedAt!, true)}, after the order was {linked.orderSyncedAt ? "last updated" : "created"}.</>}{" "}
             {linked.quote
               ? <>The quotation was updated automatically — tap <strong>Update the order</strong> below.</>
               : <>Price the new products, then tap <strong>Update the order</strong> below.</>}
@@ -337,9 +346,10 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
       )}
 
       <form className="form-panel order-form cart-form" onSubmit={save}>
-        {orderedProducts && (
+        {/* Team only: what the marks mean. Customers just see the marks. */}
+        {admin && orderedProducts && (
           <p className="order-marks-legend">
-            <span className="order-mark is-ordered">✓ Ordered</span> {admin ? "in the order" : "confirmed"} · <span className="order-mark is-new">New</span> added later{admin ? " — use Update the order" : ", awaiting confirmation"}
+            <span className="order-mark is-ordered">✓ Ordered</span> in the order · <span className="order-mark is-new">Pending</span> added later — use Update the order
           </p>
         )}
         {/* The team always sees known prices; customers only once a quotation is saved. */}
@@ -362,7 +372,7 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
       {!admin && request.quote && <QuoteBill request={request} changing={dirty} />}
 
       {/* Remounts with fresh price boxes when the products or quantities change. */}
-      {admin && <QuotePanel key={JSON.stringify(request.items.map(item => [item.productUrl, item.quantity]))} request={linked} mobile={mobile} unsaved={dirty} onSaved={onSaved} orderDeleted={orderExists === false && !!request.orderId} autoPrice={autoPrice} onAutoPriceDone={() => setAutoPrice(null)} />}
+      {admin && <QuotePanel key={JSON.stringify(request.items.map(item => [item.productUrl, item.quantity]))} request={linked} mobile={mobile} unsaved={dirty} onSaved={onSaved} orderDeleted={orderExists === false && !!request.orderId} orderData={orderExists === false ? null : order.data} autoPrice={autoPrice} onAutoPriceDone={() => setAutoPrice(null)} />}
       {dirty && <div className="cart-save-spacer" aria-hidden="true" />}
     </article>
   );
@@ -370,9 +380,9 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
 
 // ── Team only: read each product's price through the ParcelSewa extension (like "Verify" on the orders page),
 //    or type it in, then copy a quotation in the quotation calculator's format. ───────────────────────────────
-function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted, autoPrice, onAutoPriceDone }: {
+function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted, orderData, autoPrice, onAutoPriceDone }: {
   request: CartRequest; mobile: string; unsaved: boolean; onSaved: (r: CartRequest) => void; orderDeleted: boolean;
-  autoPrice: { token: number; saveQuote: boolean } | null; onAutoPriceDone: () => void;
+  orderData: Record<string, unknown> | null; autoPrice: { token: number; saveQuote: boolean } | null; onAutoPriceDone: () => void;
 }) {
   const [prices, setPrices] = useState<string[]>(() => request.items.map(item => (item.priceInr ? String(item.priceInr) : "")));
   const [status, setStatus] = useState<string[]>(() => request.items.map(() => ""));
@@ -560,17 +570,18 @@ function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted, autoPrice
         <p className="small-note">Fetch or type every product’s price to see the quotation.</p>
       )}
 
-      <CreateOrderPanel request={request} orderDeleted={orderDeleted} mobile={mobile} unsaved={unsaved} rate={appliedRate} quotedTotal={quotation?.totalNPR ?? null} quotedAdvance={Number.isFinite(advanceAmount) ? Math.round(advanceAmount) : 0} onCreated={(orderId, syncedAt) => onSaved({ ...request, orderId, orderSyncedAt: syncedAt })} />
+      <CreateOrderPanel request={request} orderDeleted={orderDeleted} orderData={orderData} mobile={mobile} unsaved={unsaved} rate={appliedRate} quotedTotal={quotation?.totalNPR ?? null} quotedAdvance={Number.isFinite(advanceAmount) ? Math.round(advanceAmount) : 0} onCreated={(orderId, syncedAt) => onSaved({ ...request, orderId, orderSyncedAt: syncedAt })} />
     </section>
   );
 }
 
 // ── Team only: create the order on the orders page from this cart, or bring an existing order up to date. ────────
-function CreateOrderPanel({ request, orderDeleted, mobile, unsaved, rate, quotedTotal, quotedAdvance, onCreated }: {
-  request: CartRequest; orderDeleted: boolean; mobile: string; unsaved: boolean; rate: CommissionOption; quotedTotal: number | null; quotedAdvance: number;
+function CreateOrderPanel({ request, orderDeleted, orderData, mobile, unsaved, rate, quotedTotal, quotedAdvance, onCreated }: {
+  request: CartRequest; orderDeleted: boolean; orderData: Record<string, unknown> | null; mobile: string; unsaved: boolean; rate: CommissionOption; quotedTotal: number | null; quotedAdvance: number;
   onCreated: (orderId: string, syncedAt: number) => void;
 }) {
-  const [storeName, setStoreName] = useState(() => orderStoreName(request.items, brands));
+  // An existing order keeps its own store name unless the team changes it here.
+  const [storeName, setStoreName] = useState(() => (orderData && typeof orderData.storeName === "string" && orderData.storeName) || orderStoreName(request.items, brands));
   const [total, setTotal] = useState("");
   const [typedTotal, setTypedTotal] = useState(false);
   const [advance, setAdvance] = useState("");
@@ -580,7 +591,12 @@ function CreateOrderPanel({ request, orderDeleted, mobile, unsaved, rate, quoted
   const shownTotal = typedTotal ? total : quotedTotal ? String(quotedTotal) : total;
   const shownAdvance = typedAdvance ? advance : String(quotedAdvance);
   const existing = !!request.orderId;
-  const upToDate = existing && !cartChangedSinceOrder(request);
+  // Compared by contents with the order card: what this button would write vs what the order has now.
+  const diffs = existing && orderData ? orderDifferences(orderData, {
+    name: request.customerName, address: request.deliveryLocation, notes: orderNotes(request.items, request.notes),
+    storeName, commission: commissionText(rate), totalAmount: Number(shownTotal), advancePayment: Number(shownAdvance || 0), items: request.items,
+  }) : null;
+  const upToDate = existing && (diffs ? diffs.length === 0 : !cartChangedSinceOrder(request));
 
   async function saveOrder() {
     const totalAmount = Number(shownTotal), advancePayment = Number(shownAdvance || 0);
@@ -649,6 +665,7 @@ function CreateOrderPanel({ request, orderDeleted, mobile, unsaved, rate, quoted
       <div className="cart-create-head">
         <h3>{existing ? "Order" : "Create order"}</h3>
         {upToDate && <span className="cart-order-flag">✓ Up to date</span>}
+        {existing && diffs && diffs.length > 0 && <span className="cart-order-flag is-outdated">Different: {diffs.join(", ")}</span>}
       </div>
       {orderDeleted && <p className="cart-quote-warn">The earlier order was deleted from the orders page. Create it again if it’s still needed.</p>}
       {existing && <p className="small-note">On the orders page since {dateLabel(request.orderSyncedAt ?? 0, true)}. <a href="/admin" className="underline underline-offset-4">Open orders</a></p>}
@@ -660,7 +677,7 @@ function CreateOrderPanel({ request, orderDeleted, mobile, unsaved, rate, quoted
       </div>
       <datalist id="cart-store-options">{brands.map(b => <option key={b.name} value={b.name} />)}</datalist>
       <p className="small-note">Uses {request.customerName || "the customer’s name"}, +977 {mobile}, the address and the products above{existing ? "; products still in the cart keep their pictures and received ticks" : ""}. Sizes, colours and notes go into the order’s notes.</p>
-      <button type="button" className="button-primary" disabled={working || unsaved} onClick={saveOrder}>{working ? (existing ? "Updating…" : "Creating…") : existing ? "Update the order" : "Create order"}</button>
+      <button type="button" className="button-primary" disabled={working || unsaved || upToDate} onClick={saveOrder}>{working ? (existing ? "Updating…" : "Creating…") : upToDate ? "✓ Order is up to date" : existing ? "Update the order" : "Create order"}</button>
       {unsaved && <p className="cart-quote-warn">Save the cart changes above first.</p>}
     </div>
   );
@@ -695,14 +712,15 @@ function QuoteBill({ request, changing }: { request: CartRequest; changing: bool
 }
 
 /** Team only: true / false once known whether an order exists on the orders page (live), null while checking. */
-function useOrder(orderId: string | undefined): { exists: boolean | null; products: OrderedProduct[] | null } {
-  const [state, setState] = useState<{ id: string; exists: boolean; products: OrderedProduct[] | null } | null>(null);
+type OrderCard = { exists: boolean | null; products: OrderedProduct[] | null; data: Record<string, unknown> | null };
+function useOrder(orderId: string | undefined): OrderCard {
+  const [state, setState] = useState<{ id: string; exists: boolean; products: OrderedProduct[] | null; data: Record<string, unknown> | null } | null>(null);
   useEffect(() => {
     if (!orderId) return;
     // If the check itself fails, assume the order is there rather than offering a duplicate.
     return onSnapshot(doc(db, "Confirm Orders", orderId),
-      snap => setState({ id: orderId, exists: snap.exists(), products: snap.exists() ? productsInOrder(snap.data()) : null }),
-      () => setState({ id: orderId, exists: true, products: null }));
+      snap => setState({ id: orderId, exists: snap.exists(), products: snap.exists() ? productsInOrder(snap.data()) : null, data: snap.exists() ? snap.data() : null }),
+      () => setState({ id: orderId, exists: true, products: null, data: null }));
   }, [orderId]);
-  return orderId && state?.id === orderId ? { exists: state.exists, products: state.products } : { exists: null, products: null };
+  return orderId && state?.id === orderId ? { exists: state.exists, products: state.products, data: state.data } : { exists: null, products: null, data: null };
 }

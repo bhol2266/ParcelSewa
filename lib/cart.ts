@@ -328,3 +328,29 @@ export function productsInOrder(order: { productUrls?: string[]; productPageUrls
   const pages = order.productPageUrls?.length ? order.productPageUrls : order.productUrls ?? [];
   return pages.map((productUrl, i) => ({ productUrl, quantity: Number(order.productItems?.[i]?.quantity ?? 1) || 1 }));
 }
+
+/** What "Update the order" would write, for comparing with the order card. */
+export type OrderWanted = {
+  name: string; address: string; notes: string; storeName: string; commission: string;
+  totalAmount: number; advancePayment: number; items: CartItem[];
+};
+
+/**
+ * The parts of the order card that differ from what the cart would write ("Products", "Total", …); empty when the
+ * order is up to date. Compares contents, not times, so it can't be fooled by clocks or by edits that changed nothing.
+ */
+export function orderDifferences(order: Record<string, unknown>, wanted: OrderWanted): string[] {
+  const text = (value: unknown) => String(value ?? "").trim();
+  const number = (value: unknown) => Math.round(Number(value) || 0);
+  const inOrder = productsInOrder(order as Parameters<typeof productsInOrder>[0]);
+  const differs: string[] = [];
+  if (JSON.stringify(inOrder) !== JSON.stringify(wanted.items.map(item => ({ productUrl: item.productUrl, quantity: item.quantity })))) differs.push("Products");
+  if (text(order.name) !== text(wanted.name)) differs.push("Name");
+  if (text(order.address) !== text(wanted.address)) differs.push("Address");
+  if (text(order.notes) !== text(wanted.notes)) differs.push("Notes");
+  if (text(order.storeName) !== text(wanted.storeName)) differs.push("Store");
+  if (text(order.commission) !== text(wanted.commission)) differs.push("Commission");
+  if (number(order.totalAmount) !== number(wanted.totalAmount)) differs.push("Total");
+  if (number(order.advancePayment) !== number(wanted.advancePayment)) differs.push("Advance");
+  return differs;
+}

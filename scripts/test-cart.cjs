@@ -257,3 +257,19 @@ test("each product is marked against the confirmed order", () => {
   assert.equal(orderMarkOf("https://amzn.in/d/c", 1, ordered), "new");
   assert.deepEqual(productsInOrder({ productUrls: ["https://amzn.in/d/x"] }), [{ productUrl: "https://amzn.in/d/x", quantity: 1 }]);
 });
+
+test("the order is compared with the cart by contents", () => {
+  const { orderDifferences } = load("cart");
+  const order = {
+    name: "Indira Raut", address: "Barahchetra, Prakashpur", notes: "", storeName: "Flipkart", commission: "30%",
+    totalAmount: 11541, advancePayment: 0,
+    productUrls: ["https://img/a.jpg", "https://dl.flipkart.com/s/b"], productPageUrls: ["https://dl.flipkart.com/s/a", "https://dl.flipkart.com/s/b"],
+    productItems: [{ url: "https://img/a.jpg", quantity: "1", checked: true }, { url: "https://dl.flipkart.com/s/b", quantity: "1" }],
+  };
+  const wanted = {
+    name: "Indira Raut ", address: "Barahchetra, Prakashpur", notes: "", storeName: "Flipkart", commission: "30%", totalAmount: 11541, advancePayment: 0,
+    items: [{ productUrl: "https://dl.flipkart.com/s/a", quantity: 1, details: [] }, { productUrl: "https://dl.flipkart.com/s/b", quantity: 1, details: [] }],
+  };
+  assert.deepEqual(orderDifferences(order, wanted), []);
+  assert.deepEqual(orderDifferences(order, { ...wanted, totalAmount: 12000, items: [...wanted.items, { productUrl: "https://dl.flipkart.com/s/c", quantity: 1, details: [] }] }), ["Products", "Total"]);
+});

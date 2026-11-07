@@ -8,7 +8,8 @@ import { DETAIL_TYPES, extractUrl, isValidUrl, MAX_ITEMS, type CartItem, type De
 // "amazon.in" / "flipkart.com" from a valid product link, for the label beside the product title.
 const storeOf = (url: string) => (isValidUrl(url) ? new URL(url.trim()).hostname.replace(/^(www|m|dl)\./, "") : "");
 
-const MARK_TEXT: Record<OrderMark, string> = { ordered: "✓ Ordered", changed: "Qty changed", new: "New" };
+// "new" (added after the order) shows as Pending: not confirmed yet.
+const MARK_TEXT: Record<OrderMark, string> = { ordered: "✓ Ordered", changed: "Qty changed", new: "Pending" };
 
 // Products while they are being edited. `key` only keeps React rows stable while rows are added and removed.
 export type EditorDetail = { key: number; type: DetailType; label: string; value: string };
