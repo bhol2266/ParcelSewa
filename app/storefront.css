@@ -486,3 +486,12 @@ input.order-detail-name:focus { outline: 2px solid #e9944e; outline-offset: 1px;
   .cart-save-bar.order-submit { bottom: 0; border-radius: 0; border-width: 1px 0 0; padding: 12px 20px calc(12px + env(safe-area-inset-bottom)); box-shadow: 0 -6px 18px #0b2f4912; }
   .cart-quote-price input { font-size: 16px; width: 96px; }
 }
+
+/* Cart autosave status, under each order. */
+.cart-save-status { font-size: 12px; color: var(--store-text); min-height: 20px; }
+.cart-save-status.is-saved { color: #15803d; }
+.dark .cart-save-status.is-saved { color: #6ee7a0; }
+.cart-save-status.is-waiting { color: #a54a0c; }
+.dark .cart-save-status.is-waiting { color: #ffb36e; }
+.cart-save-status.is-error { color: #c0392b; }
+.cart-save-status button { width: auto; border: 0; background: none; padding: 0; color: inherit; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }

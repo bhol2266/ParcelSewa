@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
-import OrderItemsEditor, { checkItems, countPieces, emptyItem, fromEditorItems, toEditorItems, type EditorItem } from "@/components/OrderItemsEditor";
-import { CART_DAYS, cartQuotation, requestMessage, type CartRequest } from "@/lib/cart";
+import OrderItemsEditor, { emptyItem, fromEditorItems, toEditorItems, type EditorItem } from "@/components/OrderItemsEditor";
+import { CART_DAYS, cartQuotation, isValidUrl, type CartRequest } from "@/lib/cart";
 import { commissionOptions, type CommissionOption } from "@/lib/quotation-estimate";
 import { getDefaultServiceRate } from "@/lib/storefront-estimate";
 import { fetchProductPriceViaExtension } from "@/lib/extension-client";
@@ -16,12 +16,35 @@ const dateLabel = (ms: number, withTime = false) =>
 const npr = (amount: number) => `NPR ${amount.toLocaleString("en-IN")}`;
 const storeName = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "link"; } };
 
+// How long the cart waits after the last keystroke before saving on its own.
+const AUTOSAVE_MS = 1200;
+
+/** What still stops a draft from being saved, in words that follow "Not saved yet: ", or null when it can be saved. */
+function draftProblem(items: EditorItem[], address: string, name?: string): string | null {
+  const badLink = items.findIndex(item => !isValidUrl(item.productUrl));
+  if (badLink !== -1) return items.length > 1 ? `add a full link for product ${badLink + 1}` : "add the full product link";
+  const badQuantity = items.findIndex(item => !Number.isInteger(item.quantity) || item.quantity < 1);
+  if (badQuantity !== -1) return `set a quantity for product ${badQuantity + 1}`;
+  if (name !== undefined && !name.trim()) return "add the name";
+  if (!address.trim()) return "add the delivery address";
+  return null;
+}
+
+/** Warns before closing the tab while a change hasn't reached the server yet. */
+function useUnsavedWarning(active: boolean) {
+  useEffect(() => {
+    if (!active) return;
+    const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [active]);
+}
+
 export default function CartPage({ apiQuery, mobile, admin }: Props) {
   const [requests, setRequests] = useState<CartRequest[] | null>(null);
   const [error, setError] = useState("");
   // Bumped after an order is created here, to load the cart again.
   const [reloadKey, setReloadKey] = useState(0);
-  const [newOrderLink, setNewOrderLink] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -46,74 +69,82 @@ export default function CartPage({ apiQuery, mobile, admin }: Props) {
         <h1>{admin ? "Customer cart" : "Your cart"}</h1>
         {admin
           ? <p className="small-note">+977 {mobile} · <span className="cart-admin-badge">Admin view</span></p>
-          : <p className="small-note">Change products, quantities or details, then tap <strong>Save changes</strong>. Each order can be changed for 7 days after you send it.</p>}
+          : <p className="small-note">Change products, quantities or details — everything saves automatically. Each order can be changed for 7 days after you send it.</p>}
       </header>
 
       {error && <div className="surface-panel cart-notice"><p>{error}</p><a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="whatsapp-button mt-4">Message us on WhatsApp</a></div>}
       {!error && requests === null && <p className="small-note" role="status">Loading your cart…</p>}
-      {newOrderLink && (
-        <div className="cart-sent" role="status">
-          <p>Order saved. Send it to our team on WhatsApp:</p>
-          <a href={newOrderLink} target="_blank" rel="noopener noreferrer" className="whatsapp-button" onClick={() => setTimeout(() => setNewOrderLink(""), 500)}>Send on WhatsApp</a>
-        </div>
-      )}
       {!error && requests?.length === 0 && (
-        <NewRequestForm mobile={mobile} admin={admin} onCreated={link => { setNewOrderLink(link); setReloadKey(key => key + 1); }} />
+        <NewRequestForm mobile={mobile} admin={admin} onCreated={() => setReloadKey(key => key + 1)} />
       )}
       <div className="cart-requests">
-        {requests?.map(request => <RequestCard key={`${apiQuery}:${request.id}`} request={request} apiQuery={apiQuery} mobile={mobile} admin={admin} onSaved={replace} onCancelled={drop} />)}
+        {requests?.map(request => <RequestCard key={`${apiQuery}:${request.id}`} request={request} apiQuery={apiQuery} admin={admin} onSaved={replace} onCancelled={drop} />)}
       </div>
-      {!admin && requests && requests.length > 0 && <p className="small-note cart-footnote">Changes are sent to our team when you save. Need help? <a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">Chat with us</a></p>}
+      {!admin && requests && requests.length > 0 && <p className="small-note cart-footnote">Our team sees your changes as soon as they’re saved. Need help? <a href={SUPPORT_URL} target="_blank" rel="noopener noreferrer" className="underline underline-offset-4">Chat with us</a></p>}
     </section>
   );
 }
 
-// An empty cart takes the order right here: the number comes from the link, so only products, name and address are
-// asked for. The team uses it to enter an order on a customer's behalf.
-function NewRequestForm({ mobile, admin, onCreated }: { mobile: string; admin: boolean; onCreated: (whatsappLink: string) => void }) {
+function SaveStatus({ state, problem, onRetry }: { state: "saved" | "pending" | "saving" | "error"; problem: string | null; onRetry: () => void }) {
+  if (state === "error") return <p className="cart-save-status is-error" role="status">Couldn’t save. <button type="button" onClick={onRetry}>Try again</button></p>;
+  if (state === "saving" || (state === "pending" && !problem)) return <p className="cart-save-status" role="status">Saving…</p>;
+  if (state === "pending" && problem) return <p className="cart-save-status is-waiting" role="status">Not saved yet: {problem}.</p>;
+  return <p className="cart-save-status is-saved" role="status">✓ All changes saved</p>;
+}
+
+// An empty cart takes the order right here: the number comes from the link. The order is created on its own once a
+// product link, name and address are filled in; after that it is an ordinary cart that saves edits automatically.
+function NewRequestForm({ mobile, admin, onCreated }: { mobile: string; admin: boolean; onCreated: () => void }) {
   const [items, setItems] = useState<EditorItem[]>(() => [emptyItem()]);
   const [name, setName] = useState("");
   const [deliveryLocation, setDeliveryLocation] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const creating = useRef(false);
 
-  async function create(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (saving) return;
-    const problem = checkItems(items, "new");
-    if (problem) { toast.error(problem); return; }
-    if (!name.trim()) { toast.error("Please enter the name."); return; }
-    if (!deliveryLocation.trim()) { toast.error("Enter the delivery address."); return; }
+  const touched = items.some(item => item.productUrl.trim()) || !!name.trim() || !!deliveryLocation.trim();
+  const problem = draftProblem(items, deliveryLocation, name);
+  const draft = JSON.stringify([fromEditorItems(items), name.trim(), deliveryLocation.trim(), notes.trim()]);
+  useUnsavedWarning(touched && !failed);
+
+  async function create() {
+    if (creating.current || draftProblem(items, deliveryLocation, name)) return;
+    creating.current = true;
     setSaving(true);
+    setFailed(false);
     try {
-      const products = fromEditorItems(items);
       const response = await fetch("/api/cart", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: products, name: name.trim(), mobile: `+977${mobile}`, deliveryLocation: deliveryLocation.trim(), notes: notes.trim() }),
+        body: JSON.stringify({ items: fromEditorItems(items), name: name.trim(), mobile: `+977${mobile}`, deliveryLocation: deliveryLocation.trim(), notes: notes.trim() }),
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) { toast.error(result.error || "Couldn’t save the order. Please try again."); return; }
+      if (!response.ok) { setFailed(true); toast.error(result.error || "Couldn’t save the order."); return; }
       toast.success(admin ? "Order created" : "Order saved");
-      // Customers still let the team know on WhatsApp; the team doesn't need to message itself.
-      const link = admin ? "" : `${SUPPORT_URL}?text=${encodeURIComponent(requestMessage({
-        title: result.merged ? "✏️ *Order Request Updated*" : "🛒 *New Order Request*", items: result.items, name: name.trim(),
-        deliveryLocation: deliveryLocation.trim(), mobile: `+977${mobile}`, notes: result.notes, cartUrl: `${window.location.origin}${result.cartPath}`,
-      }))}`;
-      onCreated(link);
+      onCreated();
     } catch {
-      toast.error("Couldn’t save the order. Check your connection and try again.");
+      setFailed(true);
     } finally {
+      creating.current = false;
       setSaving(false);
     }
   }
+
+  useEffect(() => {
+    if (problem || failed) return;
+    const timer = setTimeout(() => { void create(); }, AUTOSAVE_MS);
+    return () => clearTimeout(timer);
+    // `create` reads the latest values; the draft text is what should restart the wait.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, problem, failed]);
 
   return (
     <article className="cart-request">
       <p className="cart-request-meta">
         <strong>{admin ? "No current orders — add one" : "No current orders"}</strong>
-        <span>{admin ? `Enter the products for +977 ${mobile}.` : "Add the products you want and we’ll send you a quote."}</span>
+        <span>{admin ? `Enter the products for +977 ${mobile}. It saves on its own.` : "Add the products you want — it saves on its own and we’ll send you a quote."}</span>
       </p>
-      <form className="form-panel order-form cart-form" onSubmit={create}>
+      <form className="form-panel order-form cart-form" onSubmit={event => event.preventDefault()}>
         <OrderItemsEditor items={items} setItems={setItems} idPrefix="new" />
         <fieldset className="cart-delivery">
           <legend>Delivery</legend>
@@ -122,59 +153,65 @@ function NewRequestForm({ mobile, admin, onCreated }: { mobile: string; admin: b
           <div className="form-field"><label htmlFor="new-mobile">WhatsApp number</label><input id="new-mobile" className="order-input" value={`+977${mobile}`} readOnly disabled /></div>
           <div className="form-field"><label htmlFor="new-notes">Note for the whole order <span className="font-normal">(optional)</span></label><textarea id="new-notes" className="order-input" rows={2} placeholder="e.g. Need it before Tihar" value={notes} onChange={event => setNotes(event.target.value)} /></div>
         </fieldset>
-        <div className="order-submit cart-save-bar">
-          <p className="order-summary"><strong>{items.length} {items.length === 1 ? "product" : "products"}</strong><span>{countPieces(items)} {countPieces(items) === 1 ? "piece" : "pieces"}</span></p>
-          <button type="submit" disabled={saving} className="button-primary">{saving ? "Saving…" : admin ? "Create order" : "Save order"}</button>
-        </div>
+        {touched && <SaveStatus state={failed ? "error" : saving ? "saving" : "pending"} problem={problem} onRetry={() => { setFailed(false); }} />}
       </form>
     </article>
   );
 }
 
-function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }: {
-  request: CartRequest; apiQuery: string; mobile: string; admin: boolean; onSaved: (r: CartRequest) => void; onCancelled: (id: string) => void;
+function RequestCard({ request, apiQuery, admin, onSaved, onCancelled }: {
+  request: CartRequest; apiQuery: string; admin: boolean; onSaved: (r: CartRequest) => void; onCancelled: (id: string) => void;
 }) {
   const [items, setItems] = useState<EditorItem[]>(() => toEditorItems(request.items));
   const [customerName, setCustomerName] = useState(request.customerName);
   const [deliveryLocation, setDeliveryLocation] = useState(request.deliveryLocation);
   const [notes, setNotes] = useState(request.notes);
   const [saving, setSaving] = useState(false);
-  const [updateLink, setUpdateLink] = useState("");
+  const [failed, setFailed] = useState(false);
+  const inFlight = useRef(false);
   const idPrefix = `cart-${request.id}`;
 
   const savedShape = useMemo(() => JSON.stringify([request.items.map(({ productUrl, quantity, details }) => ({ productUrl, quantity, details })), request.customerName, request.deliveryLocation, request.notes]), [request]);
-  const dirty = JSON.stringify([fromEditorItems(items), customerName.trim(), deliveryLocation.trim(), notes.trim()]) !== savedShape;
+  const draft = JSON.stringify([fromEditorItems(items), customerName.trim(), deliveryLocation.trim(), notes.trim()]);
+  const dirty = draft !== savedShape;
+  const problem = draftProblem(items, deliveryLocation);
+  useUnsavedWarning(dirty);
 
   async function save() {
-    const problem = checkItems(items, idPrefix);
-    if (problem) { toast.error(problem); return; }
-    if (!deliveryLocation.trim()) { toast.error("Enter your delivery address."); return; }
+    // One save at a time; when it finishes, the saved copy changes and the effect below saves anything newer.
+    if (inFlight.current || draftProblem(items, deliveryLocation)) return;
+    inFlight.current = true;
     setSaving(true);
+    setFailed(false);
     try {
-      const products = fromEditorItems(items);
       const response = await fetch(`/api/cart?${apiQuery}`, {
         method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: request.id, items: products, customerName: customerName.trim(), deliveryLocation: deliveryLocation.trim(), notes: notes.trim() }),
+        body: JSON.stringify({ id: request.id, items: fromEditorItems(items), customerName: customerName.trim(), deliveryLocation: deliveryLocation.trim(), notes: notes.trim() }),
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok) { toast.error(result.error === "expired" ? "This cart link has expired." : result.error || "Couldn’t save. Please try again."); return; }
-      onSaved(result.request);
-      setItems(toEditorItems(result.request.items));
-      toast.success("Changes saved");
-      // Customers let the team know on WhatsApp with the updated list.
-      if (!admin) {
-        const message = requestMessage({
-          title: "✏️ *Order Request Updated*", items: products,
-          name: customerName.trim(), deliveryLocation: deliveryLocation.trim(), mobile: `+977${mobile}`, notes: notes.trim(), cartUrl: window.location.href,
-        });
-        setUpdateLink(`${SUPPORT_URL}?text=${encodeURIComponent(message)}`);
+      if (!response.ok) {
+        setFailed(true);
+        if (result.error === "expired") toast.error("This order can no longer be changed.");
+        else if (result.error) toast.error(result.error);
+        return;
       }
+      // Only the saved copy is replaced, so the boxes the customer is typing in are left alone.
+      onSaved(result.request);
     } catch {
-      toast.error("Couldn’t save. Check your connection and try again.");
+      setFailed(true);
     } finally {
+      inFlight.current = false;
       setSaving(false);
     }
   }
+
+  useEffect(() => {
+    if (!dirty || problem || failed) return;
+    const timer = setTimeout(() => { void save(); }, AUTOSAVE_MS);
+    return () => clearTimeout(timer);
+    // `save` reads the latest values; a new draft or a finished save is what should restart the wait.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, savedShape, problem, failed]);
 
   async function cancelRequest() {
     if (!window.confirm("Cancel this order request? It will be removed from your cart.")) return;
@@ -194,14 +231,7 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
         <button type="button" className="cart-cancel" onClick={cancelRequest}>Cancel</button>
       </div>
 
-      {updateLink && !dirty && (
-        <div className="cart-sent" role="status">
-          <p>Saved. Let our team know about the change:</p>
-          <a href={updateLink} target="_blank" rel="noopener noreferrer" className="whatsapp-button" onClick={() => setTimeout(() => setUpdateLink(""), 500)}>Send update on WhatsApp</a>
-        </div>
-      )}
-
-      <form className="form-panel order-form cart-form" onSubmit={event => { event.preventDefault(); save(); }}>
+      <form className="form-panel order-form cart-form" onSubmit={event => event.preventDefault()}>
         <OrderItemsEditor items={items} setItems={setItems} idPrefix={idPrefix} />
         <fieldset className="cart-delivery">
           <legend>Delivery</legend>
@@ -209,12 +239,7 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
           <div className="form-field"><label htmlFor={`${idPrefix}-address`}>Address *</label><input id={`${idPrefix}-address`} className="order-input" required autoComplete="street-address" placeholder="New Baneswor, Kathmandu" value={deliveryLocation} onChange={event => setDeliveryLocation(event.target.value)} /></div>
           <div className="form-field"><label htmlFor={`${idPrefix}-notes`}>Note for the whole order <span className="font-normal">(optional)</span></label><textarea id={`${idPrefix}-notes`} className="order-input" rows={2} placeholder="e.g. Need it before Tihar" value={notes} onChange={event => setNotes(event.target.value)} /></div>
         </fieldset>
-        {dirty && (
-          <div className="order-submit cart-save-bar">
-            <p className="order-summary"><strong>{items.length} {items.length === 1 ? "product" : "products"}</strong><span>{countPieces(items)} {countPieces(items) === 1 ? "piece" : "pieces"}</span></p>
-            <button type="submit" disabled={saving} className="button-primary">{saving ? "Saving…" : "Save changes"}</button>
-          </div>
-        )}
+        <SaveStatus state={failed ? "error" : saving ? "saving" : dirty ? "pending" : "saved"} problem={problem} onRetry={() => setFailed(false)} />
       </form>
 
       {/* Remounts with fresh price boxes when the products or quantities change. */}

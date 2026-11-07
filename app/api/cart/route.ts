@@ -145,8 +145,8 @@ export async function PUT(req: NextRequest) {
     items: priced, itemCount: priced.length, totalQuantity: totalPieces(priced),
     productUrl: priced[0].productUrl, quantity: priced[0].quantity,
     deliveryLocation, notes: text(body?.notes, 1000),
-    // Older requests have no name; one typed in the cart is saved.
-    ...(text(body?.customerName, 80) ? { customerName: text(body?.customerName, 80) } : {}),
+    // The cart always sends the name box (empty when cleared); older callers that leave it out keep the saved name.
+    ...(typeof body?.customerName === "string" ? { customerName: text(body.customerName, 80) } : {}),
     updatedAt: Timestamp.now(), editCount: (Number(data.editCount) || 0) + 1, lastEditedBy: who.admin ? "admin" : "customer",
     // A saved quotation no longer matches once products or quantities change.
     ...(productsChanged && data.quote ? { quote: deleteField() } : {}),
