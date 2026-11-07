@@ -223,3 +223,23 @@ test("dates show in Nepal time (UTC+5:45)", () => {
   const { nepalDate } = load("cart");
   assert.equal(nepalDate(Date.UTC(2026, 10, 7, 0, 0), true).replace(/\s/g, " "), "7 Nov, 5:45 am");
 });
+
+test("saving a cart recalculates the quotation from the known prices", () => {
+  const { refreshQuote } = load("cart");
+  const quote = { rate: 30, rateAuto: true, totalNPR: 1, advance: 500, quotedAt: 1 };
+  const items = [{ productUrl: "https://a.in/1", quantity: 2, details: [], priceInr: 1299 }, { productUrl: "https://a.in/2", quantity: 1, details: [], priceInr: 799 }];
+  assert.deepEqual(refreshQuote(quote, items, 99), { rate: 30, rateAuto: true, totalNPR: 7066, advance: 500, quotedAt: 99 });
+});
+
+test("an automatic service fee is picked again; a chosen one is kept", () => {
+  const { refreshQuote } = load("cart");
+  const cheap = [{ productUrl: "https://a.in/1", quantity: 1, details: [], priceInr: 1000 }];
+  assert.equal(refreshQuote({ rate: 30, rateAuto: true, totalNPR: 1 }, cheap, 0).rate, "below_1500_1000");
+  assert.equal(refreshQuote({ rate: 30, rateAuto: true, totalNPR: 1 }, cheap, 0).totalNPR, 2600);
+  assert.equal(refreshQuote({ rate: 25, totalNPR: 1 }, cheap, 0).rate, 25);
+});
+
+test("a new product without a price clears the quotation instead of guessing", () => {
+  const { refreshQuote } = load("cart");
+  assert.equal(refreshQuote({ rate: 30, totalNPR: 1 }, [{ productUrl: "https://a.in/1", quantity: 1, details: [], priceInr: 999 }, { productUrl: "https://a.in/new", quantity: 1, details: [] }], 0), null);
+});

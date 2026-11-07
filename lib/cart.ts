@@ -1,6 +1,7 @@
 // Shared by the order form, the /cart page and the cart API: what a product in an order request looks like,
 // the WhatsApp message that describes a request, and the multi-product quotation.
 import { calculateAdminQuotation, type CommissionOption } from "./quotation-estimate";
+import { getDefaultServiceRate } from "./storefront-estimate";
 
 export const CART_DAYS = 7;
 export const MAX_ITEMS = 20;
@@ -32,7 +33,11 @@ export type CartRequest = {
   createdAt: number;
   updatedAt?: number;
   /** The team's saved quotation; `advance` is what the customer has already paid (typed by the team). */
-  quote?: { rate: CommissionOption; totalNPR: number; quotedAt: number; advance?: number };
+  /**
+   * `rateAuto`: the team left the service fee on the automatic choice, so it is picked again from the new total
+   * when the products change; otherwise the team's chosen fee is kept.
+   */
+  quote?: { rate: CommissionOption; totalNPR: number; quotedAt: number; advance?: number; rateAuto?: boolean };
   /** Set once the team has turned the request into an order on the orders page. */
   orderId?: string;
   /** When that order was last created or updated from this cart (ms). */
@@ -281,4 +286,23 @@ export function nepalDate(ms: number, withTime = false) {
     timeZone: "Asia/Kathmandu", day: "numeric", month: "short",
     ...(withTime ? { hour: "numeric", minute: "2-digit", hour12: true } : {}),
   });
+}
+
+type SavedQuote = { rate: CommissionOption; totalNPR: number; advance?: number; rateAuto?: boolean; [key: string]: unknown };
+
+/**
+ * The quotation after the products changed, worked out on the server as part of the save (so it doesn't depend on
+ * the browser staying open). Needs a price for every product; returns null when one is missing (a new product the
+ * team hasn't priced yet), and the quotation is then cleared until the team prices it.
+ */
+export function refreshQuote<Q extends SavedQuote>(quote: Q, items: CartItem[], quotedAt: unknown): (Q & { quotedAt: unknown }) | null {
+  const lines = items.map(item => ({ priceInr: item.priceInr ?? NaN, quantity: item.quantity }));
+  if (!lines.length || !lines.every(line => Number.isFinite(line.priceInr) && line.priceInr > 0)) return null;
+  const totalInr = lines.reduce((sum, line) => sum + line.priceInr * line.quantity, 0);
+  const rate: CommissionOption = quote.rateAuto ? getDefaultServiceRate(totalInr) : quote.rate;
+  try {
+    return { ...quote, rate, totalNPR: cartQuotation(lines, rate).totalNPR, quotedAt };
+  } catch {
+    return null;
+  }
 }

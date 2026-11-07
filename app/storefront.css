@@ -580,8 +580,11 @@ input.order-detail-name:focus { outline: 2px solid #e9944e; outline-offset: 1px;
 .dark .cart-order-flag { background: #0f2a1b; color: #6ee7a0; }
 .dark .cart-order-flag.is-outdated { background: #3a2412; color: #ffb36e; }
 .cart-create-order.is-outdated { border-color: #f0b27a; }
-.cart-order-alert { padding: 10px 12px; border-radius: 10px; border: 1px solid #f0b27a; background: #fff6ee; color: #7a3a0a; font-size: 12px; line-height: 1.5; }
-.dark .cart-order-alert { background: #2a1a0d; border-color: #7a4a1f; color: #ffcf9e; }
+.cart-order-alert { display: flex; align-items: flex-start; gap: 10px; padding: 12px 14px; border-radius: 12px; border: 1px solid #f5b5ad; border-left: 4px solid #d93025; background: #fdecea; color: #7f1d1d; font-size: 13px; line-height: 1.5; }
+.cart-order-alert strong { color: #b91c1c; }
+.cart-order-alert-icon { flex-shrink: 0; display: grid; place-items: center; width: 22px; height: 22px; margin-top: 1px; border-radius: 50%; background: #d93025; color: #fff; font-size: 14px; font-weight: 800; }
+.dark .cart-order-alert { background: #3b1414; border-color: #7f2a24; border-left-color: #f87171; color: #fecaca; }
+.dark .cart-order-alert strong { color: #fca5a5; }
 
 /* Customer: a confirmed order can't be cancelled from the cart. */
 .cart-confirmed { flex-shrink: 0; padding: 4px 10px; border-radius: 999px; background: #eafaf0; color: #15803d; font-size: 11px; font-weight: 650; white-space: nowrap; }

@@ -292,9 +292,15 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
       )}
 
       {admin && cartChangedSinceOrder(linked) && (
-        <p className="cart-order-alert" role="status">
-          This cart was changed on {dateLabel(linked.updatedAt!, true)}, after the order was {linked.orderSyncedAt ? "last updated" : "created"}. Check the prices, then tap <strong>Update the order</strong> below.
-        </p>
+        <div className="cart-order-alert" role="alert">
+          <span className="cart-order-alert-icon" aria-hidden="true">!</span>
+          <p>
+            <strong>Order out of date.</strong> The cart changed on {dateLabel(linked.updatedAt!, true)}, after the order was {linked.orderSyncedAt ? "last updated" : "created"}.{" "}
+            {linked.quote
+              ? <>The quotation was updated automatically — tap <strong>Update the order</strong> below.</>
+              : <>Price the new products, then tap <strong>Update the order</strong> below.</>}
+          </p>
+        </div>
       )}
 
       <form className="form-panel order-form cart-form" onSubmit={save}>
@@ -327,7 +333,8 @@ function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted }: { reque
   const [prices, setPrices] = useState<string[]>(() => request.items.map(item => (item.priceInr ? String(item.priceInr) : "")));
   const [status, setStatus] = useState<string[]>(() => request.items.map(() => ""));
   const [reading, setReading] = useState(false);
-  const [rate, setRate] = useState<CommissionOption | null>(request.quote?.rate ?? null);
+  // null = automatic service fee (picked from the total); the server keeps it automatic when products change.
+  const [rate, setRate] = useState<CommissionOption | null>(request.quote && !request.quote.rateAuto ? request.quote.rate : null);
   const [copyState, setCopyState] = useState("");
   // What the customer has already paid; typed by the team and shown on the customer's bill.
   const [advance, setAdvance] = useState(String(request.quote?.advance ?? 0));
@@ -392,10 +399,10 @@ function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted }: { reque
     try {
       const response = await fetch("/api/cart/quote", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: request.id, prices: lines.map(line => line.priceInr), rate: appliedRate, totalNPR: quotation.totalNPR, advance: advanceAmount }),
+        body: JSON.stringify({ id: request.id, prices: lines.map(line => line.priceInr), rate: appliedRate, rateAuto: rate === null, totalNPR: quotation.totalNPR, advance: advanceAmount }),
       });
       if (!response.ok) { toast.error("Saving the quotation failed. Please try again."); return false; }
-      onSaved({ ...request, items: request.items.map((item, i) => ({ ...item, priceInr: lines[i].priceInr })), quote: { rate: appliedRate, totalNPR: quotation.totalNPR, advance: Math.round(advanceAmount), quotedAt: Date.now() } });
+      onSaved({ ...request, items: request.items.map((item, i) => ({ ...item, priceInr: lines[i].priceInr })), quote: { rate: appliedRate, rateAuto: rate === null, totalNPR: quotation.totalNPR, advance: Math.round(advanceAmount), quotedAt: Date.now() } });
       return true;
     } catch {
       toast.error("Saving the quotation failed. Check your connection.");
@@ -497,7 +504,7 @@ function CreateOrderPanel({ request, orderDeleted, mobile, unsaved, rate, quoted
   const shownTotal = typedTotal ? total : quotedTotal ? String(quotedTotal) : total;
   const shownAdvance = typedAdvance ? advance : String(quotedAdvance);
   const existing = !!request.orderId;
-  const outOfDate = existing && cartChangedSinceOrder(request);
+  const upToDate = existing && !cartChangedSinceOrder(request);
 
   async function saveOrder() {
     const totalAmount = Number(shownTotal), advancePayment = Number(shownAdvance || 0);
@@ -560,10 +567,10 @@ function CreateOrderPanel({ request, orderDeleted, mobile, unsaved, rate, quoted
   }
 
   return (
-    <div className={`cart-create-order${outOfDate ? " is-outdated" : ""}`}>
+    <div className="cart-create-order">
       <div className="cart-create-head">
         <h3>{existing ? "Order" : "Create order"}</h3>
-        {existing && <span className={outOfDate ? "cart-order-flag is-outdated" : "cart-order-flag"}>{outOfDate ? "Cart changed — update needed" : "✓ Up to date"}</span>}
+        {upToDate && <span className="cart-order-flag">✓ Up to date</span>}
       </div>
       {orderDeleted && <p className="cart-quote-warn">The earlier order was deleted from the orders page. Create it again if it’s still needed.</p>}
       {existing && <p className="small-note">On the orders page since {dateLabel(request.orderSyncedAt ?? 0, true)}. <a href="/admin" className="underline underline-offset-4">Open orders</a></p>}

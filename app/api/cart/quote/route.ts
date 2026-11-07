@@ -28,6 +28,6 @@ export async function POST(req: NextRequest) {
     return Number.isFinite(price) && price > 0 ? { ...item, priceInr: Math.round(price * 100) / 100 } : item;
   });
   // Saving a quotation also shows these prices and the bill to the customer in their cart.
-  await updateDoc(ref, { items: priced, quote: { rate: option.value, totalNPR: Math.round(totalNPR), advance: Math.round(advance), quotedAt: Timestamp.now() } });
+  await updateDoc(ref, { items: priced, quote: { rate: option.value, rateAuto: body?.rateAuto === true, totalNPR: Math.round(totalNPR), advance: Math.round(advance), quotedAt: Timestamp.now() } });
   return NextResponse.json({ ok: true });
 }

@@ -3,7 +3,7 @@ import { randomInt } from "crypto";
 import { addDoc, collection, deleteField, doc, getDoc, getDocs, query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { ADMIN_COOKIE, ADMIN_PASSWORD } from "@/lib/admin-access";
-import { cleanItems, editableRequest, itemsOf, keptFromTeam, MAX_ITEMS, millis, mergeItems, ORDER_REQUESTS, productsDiffer, toCartRequest, totalPieces, visibleRequests, type CartItem } from "@/lib/cart";
+import { cleanItems, editableRequest, refreshQuote, itemsOf, keptFromTeam, MAX_ITEMS, millis, mergeItems, ORDER_REQUESTS, productsDiffer, toCartRequest, totalPieces, visibleRequests, type CartItem } from "@/lib/cart";
 import { cartPath, checkCartAccess } from "@/lib/cart-link";
 import { nepalMobile } from "@/lib/track-auth";
 import { festivalCampaign } from "@/lib/storefront";
@@ -58,9 +58,13 @@ export async function POST(req: NextRequest) {
       updatedAt: now, editCount: (Number(data.editCount) || 0) + 1, lastEditedBy: "customer-form",
       ...(body?.firstOrderOfferRequested ? { offerCode: festivalCampaign.offerCode, firstOrderOfferRequested: true } : {}),
     };
-    const dropQuote = productsDiffer(before, merged) && !!data.quote;
-    await updateDoc(open.ref, { ...changes, ...(dropQuote ? { quote: deleteField() } : {}) });
+    // Products changed: the server works out the quotation again from the prices it has (or clears it if a new
+    // product has no price yet).
+    const requoted = productsDiffer(before, merged) && data.quote ? refreshQuote(data.quote, merged, now) : undefined;
+    const dropQuote = requoted === null;
+    await updateDoc(open.ref, { ...changes, ...(requoted ? { quote: requoted } : {}), ...(dropQuote ? { quote: deleteField() } : {}) });
     const saved: Record<string, unknown> = { ...data, ...changes };
+    if (requoted) saved.quote = requoted;
     if (dropQuote) delete saved.quote;
     return NextResponse.json({
       merged: true, requestId: data.requestId, cartPath: cartPath(mobile),
@@ -134,10 +138,14 @@ export async function PUT(req: NextRequest) {
     updatedAt: Timestamp.now(), editCount: (Number(data.editCount) || 0) + 1, lastEditedBy: who.admin ? "admin" : "customer",
   };
   // A saved quotation no longer matches once products or quantities change.
-  const dropQuote = productsChanged && !!data.quote;
-  await updateDoc(ref, { ...changes, ...(dropQuote ? { quote: deleteField() } : {}) });
+  // Products changed: the server works out the quotation again from the prices it has (or clears it if a new
+  // product has no price yet) — in this same request, so nothing waits on the browser.
+  const requoted = productsChanged && data.quote ? refreshQuote(data.quote, priced, changes.updatedAt) : undefined;
+  const dropQuote = requoted === null;
+  await updateDoc(ref, { ...changes, ...(requoted ? { quote: requoted } : {}), ...(dropQuote ? { quote: deleteField() } : {}) });
   // Answer from what was just written instead of reading the document back: one database round trip fewer.
   const saved: Record<string, unknown> = { ...data, ...changes };
+  if (requoted) saved.quote = requoted;
   if (dropQuote) delete saved.quote;
   return NextResponse.json({ request: toCartRequest(id, saved, who.admin) }, { headers: noStore });
 }
