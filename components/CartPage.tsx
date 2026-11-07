@@ -11,6 +11,7 @@ import { brands } from "@/constants/brands";
 import { commissionOptions, type CommissionOption } from "@/lib/quotation-estimate";
 import { getDefaultServiceRate } from "@/lib/storefront-estimate";
 import { fetchProductPriceViaExtension, hasExtension } from "@/lib/extension-client";
+import { fetchProductPriceViaClaude } from "@/lib/claude-price-client";
 import { SUPPORT_URL } from "@/lib/storefront";
 
 type Props = { apiQuery: string; mobile: string; admin: boolean };
@@ -269,17 +270,6 @@ function QuotePanel({ request, mobile, unsaved, onSaved }: { request: CartReques
 
   // On a computer with the ParcelSewa extension, prices are read through it (like "Verify" on the orders page).
   // Without it (phones), or when the extension can't read a page, the server asks Claude instead.
-  async function priceFromClaude(url: string): Promise<{ price: number | null; note: string }> {
-    try {
-      const response = await fetch("/api/cart/price", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) return { price: null, note: result.error || "Claude lookup failed" };
-      return { price: typeof result.price === "number" ? result.price : null, note: result.note || "Claude couldn’t find a price" };
-    } catch {
-      return { price: null, note: "No connection" };
-    }
-  }
-
   async function readPrices(only?: number) {
     setReading(true);
     setCopyState("");
@@ -303,7 +293,7 @@ function QuotePanel({ request, mobile, unsaved, onSaved }: { request: CartReques
       }
       await Promise.all(leftForClaude.map(async i => {
         setStatus(current => setAt(current, i, withExtension ? "Extension couldn’t read it — asking Claude…" : "Asking Claude for the price…"));
-        const { price, note } = await priceFromClaude(request.items[i].productUrl);
+        const { price, note } = await fetchProductPriceViaClaude(request.items[i].productUrl);
         done(i, price, note);
       }));
     } finally {

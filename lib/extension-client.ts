@@ -45,6 +45,8 @@ export async function fetchStoreImageViaExtension(productUrl: string, notes: str
 
 /** Reads a product's selling price (INR) from any store page, trying cheap fetches before a real page load. */
 export async function fetchProductPriceViaExtension(productUrl: string): Promise<{ price: number | null; note: string }> {
+    // Myntra refuses the extension's requests and its tab load ends on an error page, so don't wait on it.
+    if (/(^|\.)myntra\.com$/i.test((() => { try { return new URL(productUrl).hostname; } catch { return ""; } })())) return { price: null, note: "Myntra blocks the extension" };
     if (!(await hasExtension())) return { price: null, note: "Extension not detected (install it, then refresh the page)" };
     const tried: string[] = [];
     // The bare flipkart.com domain does not serve pages; only www does.

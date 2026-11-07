@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { updateDoc, doc, deleteDoc, deleteField, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { fetchProductPriceViaExtension, fetchStoreImageViaExtension } from "@/lib/extension-client";
+import { fetchProductPriceViaClaude } from "@/lib/claude-price-client";
 import { expectedTotal } from "@/lib/product-price-parse";
 import { isProductChecked, tickTheme } from "@/lib/product-checks";
 import { logOrderActivity } from "@/lib/order-logs";
@@ -255,7 +256,14 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                 const url = pageUrls[i];
                 if (!isProductUrl(url)) { setVerifyMessage(`Product ${i + 1} has no product page link, so it can't be checked.`); return; }
                 setVerifyMessage(`Reading price ${i + 1} of ${pageUrls.length}…`);
-                const { price, note } = await fetchProductPriceViaExtension(url);
+                let { price, note } = await fetchProductPriceViaExtension(url);
+                // Stores the extension can't read (Myntra blocks it) go to the server's Claude lookup.
+                if (!price) {
+                    setVerifyMessage(`Asking Claude for price ${i + 1} of ${pageUrls.length}…`);
+                    const fromClaude = await fetchProductPriceViaClaude(url);
+                    price = fromClaude.price;
+                    note = `extension: ${note}; Claude: ${fromClaude.note}`;
+                }
                 if (!price) { setVerifyMessage(`Couldn't read the price for product ${i + 1} (${note}).`); return; }
                 const qty = Number(order.productItems?.[i]?.quantity ?? 1) || 1;
                 items.push({ url, priceInr: price, qty });
