@@ -132,7 +132,10 @@ export function mergeItems(existing: CartItem[], incoming: CartItem[]): CartItem
 export const productsDiffer = (a: CartItem[], b: CartItem[]) =>
   JSON.stringify(a.map(i => [i.productUrl, i.quantity])) !== JSON.stringify(b.map(i => [i.productUrl, i.quantity]));
 
-/** The WhatsApp text for a new or edited request. */
+/**
+ * The WhatsApp text for a new or edited request. Uses only basic symbols (★ ✎ ▪ ☺ ⌂ ☎): some WhatsApp apps turn
+ * emoji such as 🛒 📦 into "�" when the text arrives through a wa.me link.
+ */
 export function requestMessage(options: {
   title: string; items: CartItem[]; name?: string; deliveryLocation: string; mobile: string;
   notes?: string; offerNote?: string | null; cartUrl?: string;
@@ -142,17 +145,17 @@ export function requestMessage(options: {
     title,
     ...items.flatMap((item, index) => [
       "",
-      `*${index + 1}.* 🔗 ${item.productUrl}`,
-      `    📦 Qty: ${item.quantity}`,
+      `*${index + 1}.* ${item.productUrl}`,
+      `    ▪ Qty: ${item.quantity}`,
       ...item.details.map(d => `    • ${d.label}: ${d.value}`),
     ]),
     "",
-    name ? `👤 *Name:* ${name}` : null,
-    `📍 *Delivery Address:* ${deliveryLocation}`,
-    `📞 *Customer WhatsApp:* ${mobile}`,
+    name ? `☺ *Name:* ${name}` : null,
+    `⌂ *Delivery Address:* ${deliveryLocation}`,
+    `☎ *Customer WhatsApp:* ${mobile}`,
     offerNote ?? null,
-    notes ? `📝 *Notes:* ${notes}` : null,
-    cartUrl ? `\n✏️ *Add, remove or edit products:* ${cartUrl}` : null,
+    notes ? `▪ *Notes:* ${notes}` : null,
+    cartUrl ? `\n✎ *Add, remove or edit products:* ${cartUrl}` : null,
   ].filter(line => line !== null).join("\n");
 }
 

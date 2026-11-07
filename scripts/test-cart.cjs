@@ -69,11 +69,11 @@ test("a single product with quantity 1 gives exactly the calculator's message", 
 });
 
 test("the WhatsApp message has no request ID or product count, and carries the cart link", () => {
-  const message = requestMessage({ title: "🛒 *New Order Request*", deliveryLocation: "Balkumari Kathmandu", mobile: "+9779817254118", cartUrl: "https://www.parcelsewa.com/cart?9817254118&t=1&k=2",
+  const message = requestMessage({ title: "★ *New Order Request*", deliveryLocation: "Balkumari Kathmandu", mobile: "+9779817254118", cartUrl: "https://www.parcelsewa.com/cart?9817254118&t=1&k=2",
     items: [{ productUrl: "https://amzn.in/d/026pcloo", quantity: 1, details: [] }, { productUrl: "https://amzn.in/d/09PmcqYW", quantity: 1, details: [{ type: "size", label: "Size", value: "M" }] }] });
   assert.equal(message, [
-    "🛒 *New Order Request*", "", "*1.* 🔗 https://amzn.in/d/026pcloo", "    📦 Qty: 1", "", "*2.* 🔗 https://amzn.in/d/09PmcqYW", "    📦 Qty: 1", "    • Size: M",
-    "", "📍 *Delivery Address:* Balkumari Kathmandu", "📞 *Customer WhatsApp:* +9779817254118", "", "✏️ *Add, remove or edit products:* https://www.parcelsewa.com/cart?9817254118&t=1&k=2",
+    "★ *New Order Request*", "", "*1.* https://amzn.in/d/026pcloo", "    ▪ Qty: 1", "", "*2.* https://amzn.in/d/09PmcqYW", "    ▪ Qty: 1", "    • Size: M",
+    "", "⌂ *Delivery Address:* Balkumari Kathmandu", "☎ *Customer WhatsApp:* +9779817254118", "", "✎ *Add, remove or edit products:* https://www.parcelsewa.com/cart?9817254118&t=1&k=2",
   ].join("\n"));
 });
 
@@ -104,8 +104,14 @@ test("sending the exact same form twice changes nothing and keeps the team's pri
 });
 
 test("the customer's name appears above the address", () => {
-  const message = requestMessage({ title: "🛒 *New Order Request*", name: "Sita Sharma", deliveryLocation: "Balkumari Kathmandu", mobile: "+9779817254118", items: [{ productUrl: "https://amzn.in/d/a", quantity: 1, details: [] }] });
-  assert.match(message, /\n\n👤 \*Name:\* Sita Sharma\n📍 \*Delivery Address:\* Balkumari Kathmandu\n/);
+  const message = requestMessage({ title: "★ *New Order Request*", name: "Sita Sharma", deliveryLocation: "Balkumari Kathmandu", mobile: "+9779817254118", items: [{ productUrl: "https://amzn.in/d/a", quantity: 1, details: [] }] });
+  assert.match(message, /\n\n☺ \*Name:\* Sita Sharma\n⌂ \*Delivery Address:\* Balkumari Kathmandu\n/);
+});
+
+test("the WhatsApp message uses only symbols that survive a wa.me link (no emoji outside the basic range)", () => {
+  const message = requestMessage({ title: "★ *New Order Request*", name: "Sita", deliveryLocation: "Balkumari", mobile: "+9779817254118", notes: "Fast", cartUrl: "https://www.parcelsewa.com/cart?9817254118",
+    offerNote: "★ *Festival offer requested:* yes", items: [{ productUrl: "https://amzn.in/d/a", quantity: 1, details: [{ type: "size", label: "Size", value: "M" }] }] });
+  assert.equal([...message].some(ch => ch.codePointAt(0) > 0xffff || ch === "️"), false);
 });
 
 test("product links map to the stores list, short links included", () => {

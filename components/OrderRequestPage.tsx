@@ -46,9 +46,9 @@ export default function OrderRequestComponent({ festivalOffer = false }: { festi
       if (!response.ok) { toast.error(result.error || "We couldn’t save your request. Please try again."); return; }
       const cartUrl = `${window.location.origin}${result.cartPath}`;
       const message = requestMessage({
-        title: result.merged ? "✏️ *Order Request Updated*" : "🛒 *New Order Request*", items: result.items,
+        title: result.merged ? "✎ *Order Request Updated*" : "★ *New Order Request*", items: result.items,
         name: name.trim(), deliveryLocation: deliveryLocation.trim(), mobile: mobile.trim(), notes: result.notes, cartUrl,
-        offerNote: offerRequested ? "🎉 *Festival offer requested:* First ParcelSewa order — 10% off the service fee only. Please confirm eligibility and the discounted quote." : null,
+        offerNote: offerRequested ? "★ *Festival offer requested:* First ParcelSewa order — 10% off the service fee only. Please confirm eligibility and the discounted quote." : null,
       });
       const whatsappUrl = `${SUPPORT_URL}?text=${encodeURIComponent(message)}`;
       setWhatsappDraft(whatsappUrl);
