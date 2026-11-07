@@ -3,14 +3,12 @@ import { randomInt } from "crypto";
 import { addDoc, collection, deleteField, doc, getDoc, getDocs, query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { ADMIN_COOKIE, ADMIN_PASSWORD } from "@/lib/admin-access";
-import { CART_DAYS, cleanItems, itemsOf, keptFromTeam, MAX_ITEMS, mergeItems, ORDER_REQUESTS, productsDiffer, totalPieces, type CartItem, type CartRequest } from "@/lib/cart";
+import { cleanItems, editableRequest, itemsOf, keptFromTeam, MAX_ITEMS, millis, mergeItems, ORDER_REQUESTS, productsDiffer, toCartRequest, totalPieces, visibleRequests, type CartItem } from "@/lib/cart";
 import { cartPath, checkCartAccess } from "@/lib/cart-link";
 import { nepalMobile } from "@/lib/track-auth";
 import { festivalCampaign } from "@/lib/storefront";
 
-const CART_MS = CART_DAYS * 86_400_000;
 const noStore = { "Cache-Control": "no-store" };
-const millis = (value: unknown) => (value instanceof Timestamp ? value.toMillis() : typeof value === "number" ? value : 0);
 const text = (value: unknown, max: number) => String(value ?? "").trim().slice(0, max);
 
 // Short code the customer and team can both quote in WhatsApp, e.g. PS-R-4K7Q2.
@@ -25,26 +23,7 @@ function access(req: NextRequest) {
   return checkCartAccess(req.nextUrl.searchParams, req.cookies.get(ADMIN_COOKIE)?.value);
 }
 
-// Customers can change a request only within CART_DAYS of sending it; the team can always.
-const editable = (createdAt: number, admin: boolean) => admin || Date.now() - createdAt <= CART_MS;
-
-function toCartRequest(id: string, data: Record<string, unknown>, admin: boolean): CartRequest {
-  const items = itemsOf(data);
-  const quote = data.quote as CartRequest["quote"] | undefined;
-  return {
-    id,
-    requestId: typeof data.requestId === "string" ? data.requestId : `PS-R-${id.slice(0, 5).toUpperCase()}`,
-    // Customers see prices only once the team has saved a quotation; until then they are working figures.
-    items: admin || quote ? items : items.map(item => { const shown = { ...item }; delete shown.priceInr; return shown; }),
-    customerName: String(data.customerName ?? ""),
-    deliveryLocation: String(data.deliveryLocation ?? ""),
-    notes: String(data.notes ?? ""),
-    createdAt: millis(data.createdAt),
-    ...(data.updatedAt ? { updatedAt: millis(data.updatedAt) } : {}),
-    ...(quote ? { quote: { ...quote, quotedAt: millis(quote.quotedAt) } } : {}),
-    ...(admin && typeof data.orderId === "string" ? { orderId: data.orderId, orderSyncedAt: millis(data.orderSyncedAt ?? data.orderCreatedAt) } : {}),
-  };
-}
+const editable = (createdAt: number, admin: boolean) => editableRequest(createdAt, admin);
 
 /** An order request from the /order form: a new request, or added to the number's open one. Returns the full product list and the /cart link. */
 export async function POST(req: NextRequest) {
@@ -108,11 +87,7 @@ export async function GET(req: NextRequest) {
   const who = access(req);
   if (!who.ok) return NextResponse.json({ error: who.reason }, { status: 400 });
   const snap = await getDocs(query(collection(db, ORDER_REQUESTS), where("mobile", "==", `+977${who.mobile}`)));
-  const requests = snap.docs
-    .filter(d => !d.data().cancelled && editable(millis(d.data().createdAt), who.admin))
-    .map(d => toCartRequest(d.id, d.data(), who.admin))
-    .sort((a, b) => b.createdAt - a.createdAt)
-    .slice(0, who.admin ? 20 : 10);
+  const requests = visibleRequests(snap.docs.map(d => ({ id: d.id, data: d.data() })), who.admin);
   return NextResponse.json({ mobile: who.mobile, admin: who.admin, requests }, { headers: noStore });
 }
 
@@ -131,6 +106,8 @@ export async function PUT(req: NextRequest) {
   if (!editable(millis(data.createdAt), who.admin)) return NextResponse.json({ error: "expired" }, { status: 410 });
 
   if (body?.cancel === true) {
+    // Once the team has created the order the customer has paid / confirmed, so only the team can cancel.
+    if (data.orderId && !who.admin) return NextResponse.json({ error: "This order is confirmed. Message us on WhatsApp to cancel it." }, { status: 409 });
     await updateDoc(ref, { cancelled: true, cancelledAt: Timestamp.now(), cancelledBy: who.admin ? "admin" : "customer" });
     return NextResponse.json({ ok: true });
   }

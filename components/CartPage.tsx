@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import OrderItemsEditor, { countPieces, emptyItem, fromEditorItems, toEditorItems, type EditorItem } from "@/components/OrderItemsEditor";
-import { CART_DAYS, cartQuotation, commissionText, isValidUrl, orderNotes, orderProducts, orderStoreName, ORDER_REQUESTS, syncOrderProducts, type CartRequest } from "@/lib/cart";
-import { addDoc, collection, doc, getDoc, Timestamp, updateDoc } from "firebase/firestore";
+import { CART_DAYS, cartQuotation, commissionText, isValidUrl, nepalDate, orderNotes, orderProducts, orderStoreName, ORDER_REQUESTS, syncOrderProducts, visibleRequests, type CartRequest } from "@/lib/cart";
+import { addDoc, collection, deleteField, doc, getDoc, onSnapshot, query, serverTimestamp, Timestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { logOrderActivity } from "@/lib/order-logs";
 import { brands } from "@/constants/brands";
@@ -16,8 +16,8 @@ import { SUPPORT_URL } from "@/lib/storefront";
 
 type Props = { apiQuery: string; mobile: string; admin: boolean };
 
-const dateLabel = (ms: number, withTime = false) =>
-  new Date(ms).toLocaleString("en-GB", { day: "numeric", month: "short", ...(withTime ? { hour: "numeric", minute: "2-digit" } : {}) });
+// Dates are shown in Nepal time wherever the page is opened.
+const dateLabel = nepalDate;
 const npr = (amount: number) => `NPR ${amount.toLocaleString("en-IN")}`;
 const storeName = (url: string) => { try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return "link"; } };
 
@@ -48,9 +48,12 @@ export default function CartPage({ apiQuery, mobile, admin }: Props) {
   // Bumped after an order is created here, to load the cart again.
   const [reloadKey, setReloadKey] = useState(0);
 
+  // Live: the cart follows the database, so the customer and the team see each other's saves straight away.
+  // If live updates aren't available (blocked network, database rules), it loads through the API every 15 seconds.
   useEffect(() => {
     let active = true;
-    fetch(`/api/cart?${apiQuery}`, { cache: "no-store" })
+    let poll: ReturnType<typeof setInterval> | undefined;
+    const load = () => fetch(`/api/cart?${apiQuery}`, { cache: "no-store" })
       .then(async response => {
         const result = await response.json().catch(() => ({}));
         if (!active) return;
@@ -58,8 +61,13 @@ export default function CartPage({ apiQuery, mobile, admin }: Props) {
         else setError(result.error === "expired" ? "This cart link has expired. Message us on WhatsApp to change your order." : "We couldn’t open this cart. Please use the link from your WhatsApp message.");
       })
       .catch(() => { if (active) setError("We couldn’t load your cart. Check your connection and try again."); });
-    return () => { active = false; };
-  }, [apiQuery, reloadKey]);
+    const stop = onSnapshot(
+      query(collection(db, ORDER_REQUESTS), where("mobile", "==", `+977${mobile}`)),
+      snap => { if (active) setRequests(visibleRequests(snap.docs.map(d => ({ id: d.id, data: d.data() })), admin)); },
+      () => { if (!active || poll) return; void load(); poll = setInterval(load, 15000); },
+    );
+    return () => { active = false; stop(); if (poll) clearInterval(poll); };
+  }, [apiQuery, mobile, admin, reloadKey]);
 
   const replace = (updated: CartRequest) => setRequests(current => current?.map(r => (r.id === updated.id ? updated : r)) ?? null);
   const drop = (id: string) => setRequests(current => current?.filter(r => r.id !== id) ?? null);
@@ -166,6 +174,21 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
   const dirty = draft !== savedShape;
   useUnsavedWarning(dirty);
 
+  // A save from elsewhere (the customer, the team, another tab) arrives live. With no unsaved edits here the boxes
+  // simply show it; with unsaved edits they are kept and a warning offers the latest copy instead.
+  const remoteShape = JSON.stringify([request.items, request.customerName, request.deliveryLocation, request.notes]);
+  const [seen, setSeen] = useState({ remote: remoteShape, saved: savedShape });
+  const [conflict, setConflict] = useState(false);
+  const loadLatest = () => {
+    setItems(toEditorItems(request.items)); setCustomerName(request.customerName);
+    setDeliveryLocation(request.deliveryLocation); setNotes(request.notes); setConflict(false);
+  };
+  if (remoteShape !== seen.remote) {
+    setSeen({ remote: remoteShape, saved: savedShape });
+    if (draft === seen.saved) loadLatest();
+    else if (draft !== savedShape && !saving) setConflict(true);
+  }
+
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (inFlight.current || !dirty) return;
@@ -186,6 +209,7 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
       // Only the saved copy is replaced, so the boxes being edited are left alone; Save shows again on the next change.
       onSaved(result.request);
       setJustSaved(true);
+      setConflict(false);
     } catch {
       toast.error("Couldn’t save. Check your connection and try again.");
     } finally {
@@ -228,6 +252,15 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
     }
   }
 
+  // Team only: whether the order this cart points to still exists. If it was deleted on the orders page, the cart
+  // forgets it (for the customer too) and offers Create order again.
+  const orderExists = useOrderExists(admin ? request.orderId : undefined);
+  const linked: CartRequest = orderExists === false ? { ...request, orderId: undefined, orderSyncedAt: undefined, ordered: false } : request;
+  useEffect(() => {
+    if (orderExists !== false || !request.orderId) return;
+    updateDoc(doc(db, ORDER_REQUESTS, request.id), { orderId: deleteField(), orderSyncedAt: deleteField() }).catch(() => {});
+  }, [orderExists, request.id, request.orderId]);
+
   async function cancelRequest() {
     if (!window.confirm("Cancel this order request? It will be removed from your cart.")) return;
     const response = await fetch(`/api/cart?${apiQuery}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, cancel: true }) });
@@ -245,13 +278,22 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
         </p>
         <div className="cart-request-actions">
           {admin && <button type="button" className="cart-images-btn" disabled={!!fetchingImages} onClick={fetchImages}>{fetchingImages ? `Images ${fetchingImages}…` : "Fetch images"}</button>}
-          <button type="button" className="cart-cancel" onClick={cancelRequest}>Cancel</button>
+          {request.ordered && !admin
+            ? <span className="cart-confirmed">✓ Order confirmed</span>
+            : <button type="button" className="cart-cancel" onClick={cancelRequest}>Cancel</button>}
         </div>
       </div>
 
-      {admin && cartChangedSinceOrder(request) && (
+      {conflict && (
+        <div className="cart-conflict" role="alert">
+          <p>This order was just changed somewhere else. Saving now will replace those changes with yours.</p>
+          <button type="button" onClick={loadLatest}>Show the latest instead</button>
+        </div>
+      )}
+
+      {admin && cartChangedSinceOrder(linked) && (
         <p className="cart-order-alert" role="status">
-          This cart was changed on {dateLabel(request.updatedAt!, true)}, after the order was {request.orderSyncedAt ? "last updated" : "created"}. Check the prices, then tap <strong>Update the order</strong> below.
+          This cart was changed on {dateLabel(linked.updatedAt!, true)}, after the order was {linked.orderSyncedAt ? "last updated" : "created"}. Check the prices, then tap <strong>Update the order</strong> below.
         </p>
       )}
 
@@ -274,14 +316,14 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
       {!admin && request.quote && <QuoteBill request={request} changing={dirty} />}
 
       {/* Remounts with fresh price boxes when the products or quantities change. */}
-      {admin && <QuotePanel key={JSON.stringify(request.items.map(item => [item.productUrl, item.quantity]))} request={request} mobile={mobile} unsaved={dirty} onSaved={onSaved} />}
+      {admin && <QuotePanel key={JSON.stringify(request.items.map(item => [item.productUrl, item.quantity]))} request={linked} mobile={mobile} unsaved={dirty} onSaved={onSaved} orderDeleted={orderExists === false && !!request.orderId} />}
     </article>
   );
 }
 
 // ── Team only: read each product's price through the ParcelSewa extension (like "Verify" on the orders page),
 //    or type it in, then copy a quotation in the quotation calculator's format. ───────────────────────────────
-function QuotePanel({ request, mobile, unsaved, onSaved }: { request: CartRequest; mobile: string; unsaved: boolean; onSaved: (r: CartRequest) => void }) {
+function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted }: { request: CartRequest; mobile: string; unsaved: boolean; onSaved: (r: CartRequest) => void; orderDeleted: boolean }) {
   const [prices, setPrices] = useState<string[]>(() => request.items.map(item => (item.priceInr ? String(item.priceInr) : "")));
   const [status, setStatus] = useState<string[]>(() => request.items.map(() => ""));
   const [reading, setReading] = useState(false);
@@ -435,14 +477,14 @@ function QuotePanel({ request, mobile, unsaved, onSaved }: { request: CartReques
         <p className="small-note">Fetch or type every product’s price to see the quotation.</p>
       )}
 
-      <CreateOrderPanel request={request} mobile={mobile} unsaved={unsaved} rate={appliedRate} quotedTotal={quotation?.totalNPR ?? null} quotedAdvance={Number.isFinite(advanceAmount) ? Math.round(advanceAmount) : 0} onCreated={(orderId, syncedAt) => onSaved({ ...request, orderId, orderSyncedAt: syncedAt })} />
+      <CreateOrderPanel request={request} orderDeleted={orderDeleted} mobile={mobile} unsaved={unsaved} rate={appliedRate} quotedTotal={quotation?.totalNPR ?? null} quotedAdvance={Number.isFinite(advanceAmount) ? Math.round(advanceAmount) : 0} onCreated={(orderId, syncedAt) => onSaved({ ...request, orderId, orderSyncedAt: syncedAt })} />
     </section>
   );
 }
 
 // ── Team only: create the order on the orders page from this cart, or bring an existing order up to date. ────────
-function CreateOrderPanel({ request, mobile, unsaved, rate, quotedTotal, quotedAdvance, onCreated }: {
-  request: CartRequest; mobile: string; unsaved: boolean; rate: CommissionOption; quotedTotal: number | null; quotedAdvance: number;
+function CreateOrderPanel({ request, orderDeleted, mobile, unsaved, rate, quotedTotal, quotedAdvance, onCreated }: {
+  request: CartRequest; orderDeleted: boolean; mobile: string; unsaved: boolean; rate: CommissionOption; quotedTotal: number | null; quotedAdvance: number;
   onCreated: (orderId: string, syncedAt: number) => void;
 }) {
   const [storeName, setStoreName] = useState(() => orderStoreName(request.items, brands));
@@ -479,7 +521,8 @@ function CreateOrderPanel({ request, mobile, unsaved, rate, quotedTotal, quotedA
         totalAmount,
         advancePayment,
       };
-      const syncedAt = Timestamp.now();
+      // The database's own clock, the same one the cart's "edited" time uses, so the two can be compared.
+      const syncedAt = serverTimestamp();
       let orderId = request.orderId;
       if (orderId) {
         // Only what the cart owns changes; delivery status, dates and per-product ticks stay as they are.
@@ -505,8 +548,9 @@ function CreateOrderPanel({ request, mobile, unsaved, rate, quotedTotal, quotedA
         await logOrderActivity({ action: "created", orderId, after: newOrder, page: "cart" });
       }
       await updateDoc(doc(db, ORDER_REQUESTS, request.id), { orderId, orderSyncedAt: syncedAt, ...(existing ? {} : { orderCreatedAt: syncedAt }) });
+      // The live update brings the exact saved time; until then, now.
       toast.success(existing ? "Order updated" : "Order created");
-      onCreated(orderId, syncedAt.toMillis());
+      onCreated(orderId, Date.now());
     } catch (error) {
       console.error("Saving the order failed:", error);
       toast.error(existing ? "Couldn’t update the order. Please try again." : "Couldn’t create the order. Please try again.");
@@ -521,6 +565,7 @@ function CreateOrderPanel({ request, mobile, unsaved, rate, quotedTotal, quotedA
         <h3>{existing ? "Order" : "Create order"}</h3>
         {existing && <span className={outOfDate ? "cart-order-flag is-outdated" : "cart-order-flag"}>{outOfDate ? "Cart changed — update needed" : "✓ Up to date"}</span>}
       </div>
+      {orderDeleted && <p className="cart-quote-warn">The earlier order was deleted from the orders page. Create it again if it’s still needed.</p>}
       {existing && <p className="small-note">On the orders page since {dateLabel(request.orderSyncedAt ?? 0, true)}. <a href="/admin" className="underline underline-offset-4">Open orders</a></p>}
       <div className="cart-create-grid">
         <div className="form-field"><label htmlFor={`store-${request.id}`}>Store</label><input id={`store-${request.id}`} list="cart-store-options" className="order-input" value={storeName} onChange={event => setStoreName(event.target.value)} /></div>
@@ -564,3 +609,13 @@ function QuoteBill({ request, changing }: { request: CartRequest; changing: bool
   );
 }
 
+/** Team only: true / false once known whether an order exists on the orders page (live), null while checking. */
+function useOrderExists(orderId: string | undefined): boolean | null {
+  const [state, setState] = useState<{ id: string; exists: boolean } | null>(null);
+  useEffect(() => {
+    if (!orderId) return;
+    // If the check itself fails, assume the order is there rather than offering a duplicate.
+    return onSnapshot(doc(db, "Confirm Orders", orderId), snap => setState({ id: orderId, exists: snap.exists() }), () => setState({ id: orderId, exists: true }));
+  }, [orderId]);
+  return orderId && state?.id === orderId ? state.exists : null;
+}

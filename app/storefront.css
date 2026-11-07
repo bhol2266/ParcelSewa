@@ -582,3 +582,12 @@ input.order-detail-name:focus { outline: 2px solid #e9944e; outline-offset: 1px;
 .cart-create-order.is-outdated { border-color: #f0b27a; }
 .cart-order-alert { padding: 10px 12px; border-radius: 10px; border: 1px solid #f0b27a; background: #fff6ee; color: #7a3a0a; font-size: 12px; line-height: 1.5; }
 .dark .cart-order-alert { background: #2a1a0d; border-color: #7a4a1f; color: #ffcf9e; }
+
+/* Customer: a confirmed order can't be cancelled from the cart. */
+.cart-confirmed { flex-shrink: 0; padding: 4px 10px; border-radius: 999px; background: #eafaf0; color: #15803d; font-size: 11px; font-weight: 650; white-space: nowrap; }
+.dark .cart-confirmed { background: #0f2a1b; color: #6ee7a0; }
+
+/* Live updates: someone else saved while there were unsaved edits here. */
+.cart-conflict { display: grid; gap: 8px; padding: 10px 12px; border-radius: 10px; border: 1px solid #f0b27a; background: #fff6ee; color: #7a3a0a; font-size: 12px; line-height: 1.5; }
+.cart-conflict button { justify-self: start; border: 0; background: none; padding: 0; color: #c85b13; font-size: 12px; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.dark .cart-conflict { background: #2a1a0d; border-color: #7a4a1f; color: #ffcf9e; }

@@ -37,6 +37,8 @@ export type CartRequest = {
   orderId?: string;
   /** When that order was last created or updated from this cart (ms). */
   orderSyncedAt?: number;
+  /** True for everyone once the team has created the order: the customer has paid / confirmed, so no cancelling. */
+  ordered?: boolean;
 };
 
 /**
@@ -230,4 +232,53 @@ export function syncOrderProducts(order: OrderProductFields, items: CartItem[]) 
     productItems.push({ ...(order.productItems?.[j] ?? {}), url: shown, quantity: String(item.quantity) });
   });
   return { productUrls, productPageUrls, productItems };
+}
+
+// ── Shaping saved requests for the cart page (used by /api/cart and by the page's live updates) ──────────────────
+
+/** Milliseconds from a Firestore Timestamp (or anything with toMillis), a number, or 0. */
+export function millis(value: unknown): number {
+  if (typeof value === "number") return value;
+  const stamp = value as { toMillis?: () => number } | null;
+  return stamp && typeof stamp.toMillis === "function" ? stamp.toMillis() : 0;
+}
+
+const CART_MS = CART_DAYS * 86_400_000;
+/** Customers can change a request only within CART_DAYS of sending it; the team can always. */
+export const editableRequest = (createdAt: number, admin: boolean, now = Date.now()) => admin || now - createdAt <= CART_MS;
+
+/** A saved request as the cart page shows it. Customers see prices only once the team has saved a quotation. */
+export function toCartRequest(id: string, data: Record<string, unknown>, admin: boolean): CartRequest {
+  const items = itemsOf(data);
+  const quote = data.quote as CartRequest["quote"] | undefined;
+  return {
+    id,
+    requestId: typeof data.requestId === "string" ? data.requestId : `PS-R-${id.slice(0, 5).toUpperCase()}`,
+    items: admin || quote ? items : items.map(item => { const shown = { ...item }; delete shown.priceInr; return shown; }),
+    customerName: String(data.customerName ?? ""),
+    deliveryLocation: String(data.deliveryLocation ?? ""),
+    notes: String(data.notes ?? ""),
+    createdAt: millis(data.createdAt),
+    ...(data.updatedAt ? { updatedAt: millis(data.updatedAt) } : {}),
+    ...(quote ? { quote: { ...quote, quotedAt: millis(quote.quotedAt) } } : {}),
+    ...(typeof data.orderId === "string" && data.orderId ? { ordered: true } : {}),
+    ...(admin && typeof data.orderId === "string" ? { orderId: data.orderId, orderSyncedAt: millis(data.orderSyncedAt ?? data.orderCreatedAt) } : {}),
+  };
+}
+
+/** The requests a cart shows: not cancelled, within CART_DAYS for customers, newest first. */
+export function visibleRequests(docs: { id: string; data: Record<string, unknown> }[], admin: boolean): CartRequest[] {
+  return docs
+    .filter(d => !d.data.cancelled && editableRequest(millis(d.data.createdAt), admin))
+    .map(d => toCartRequest(d.id, d.data, admin))
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .slice(0, admin ? 20 : 10);
+}
+
+/** "7 Nov, 5:37 pm" in Nepal time, wherever the page is opened. */
+export function nepalDate(ms: number, withTime = false) {
+  return new Date(ms).toLocaleString("en-GB", {
+    timeZone: "Asia/Kathmandu", day: "numeric", month: "short",
+    ...(withTime ? { hour: "numeric", minute: "2-digit", hour12: true } : {}),
+  });
 }

@@ -193,3 +193,33 @@ test("older orders without productPageUrls are matched by their product links", 
   assert.deepEqual(syncOrderProducts(order, [{ productUrl: "https://amzn.in/d/a", quantity: 2, details: [] }]).productItems,
     [{ url: "https://amzn.in/d/a", quantity: "2", checked: true }]);
 });
+
+test("customers see 'ordered' but not the order id; prices only once quoted", () => {
+  const { toCartRequest } = load("cart");
+  const data = { requestId: "PS-R-X", createdAt: 1000, items: [{ productUrl: "https://a.in/1", quantity: 1, details: [], priceInr: 500 }], orderId: "o1", orderSyncedAt: 2000 };
+  const customer = toCartRequest("r1", data, false);
+  assert.equal(customer.ordered, true);
+  assert.equal(customer.orderId, undefined);
+  assert.equal(customer.items[0].priceInr, undefined);
+  const admin = toCartRequest("r1", data, true);
+  assert.equal(admin.orderId, "o1");
+  assert.equal(admin.orderSyncedAt, 2000);
+  assert.equal(toCartRequest("r1", { ...data, quote: { rate: 30, totalNPR: 1, quotedAt: 3 } }, false).items[0].priceInr, 500);
+});
+
+test("carts hide cancelled requests, and customers only see the last 7 days", () => {
+  const { visibleRequests } = load("cart");
+  const now = Date.now(), day = 86_400_000;
+  const docs = [
+    { id: "new", data: { createdAt: now - day, items: [] } },
+    { id: "old", data: { createdAt: now - 8 * day, items: [] } },
+    { id: "gone", data: { createdAt: now - day / 2, items: [], cancelled: true } },
+  ];
+  assert.deepEqual(visibleRequests(docs, false).map(r => r.id), ["new"]);
+  assert.deepEqual(visibleRequests(docs, true).map(r => r.id), ["new", "old"]);
+});
+
+test("dates show in Nepal time (UTC+5:45)", () => {
+  const { nepalDate } = load("cart");
+  assert.equal(nepalDate(Date.UTC(2026, 10, 7, 0, 0), true).replace(/\s/g, " "), "7 Nov, 5:45 am");
+});
