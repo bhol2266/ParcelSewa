@@ -566,3 +566,9 @@ input.order-detail-name:focus { outline: 2px solid #e9944e; outline-offset: 1px;
 .image-viewer-close:hover { background: rgba(255, 255, 255, .24); }
 @keyframes image-viewer-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .image-viewer { animation: none; } }
+
+/* Admin number boxes (prices, advance, total): no up/down arrows. */
+.cart-quote-price input, .cart-quote-advance input, .cart-create-grid input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.cart-quote-price input::-webkit-outer-spin-button, .cart-quote-price input::-webkit-inner-spin-button,
+.cart-quote-advance input::-webkit-outer-spin-button, .cart-quote-advance input::-webkit-inner-spin-button,
+.cart-create-grid input[type="number"]::-webkit-outer-spin-button, .cart-create-grid input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }

@@ -393,7 +393,7 @@ function QuotePanel({ request, mobile, unsaved, onSaved }: { request: CartReques
             <div className="cart-quote-price">
               <label htmlFor={`price-${request.id}-${i}`} className="sr-only">Price of product {i + 1} in INR</label>
               <span aria-hidden="true">INR</span>
-              <input id={`price-${request.id}-${i}`} type="number" inputMode="decimal" min="0.01" step="0.01" placeholder="Price" value={prices[i] ?? ""} onChange={event => { setPrices(current => setAt(current, i, event.target.value)); setStatus(current => setAt(current, i, "")); setCopyState(""); }} />
+              <input id={`price-${request.id}-${i}`} type="number" onWheel={event => event.currentTarget.blur()} inputMode="decimal" min="0.01" step="0.01" placeholder="Price" value={prices[i] ?? ""} onChange={event => { setPrices(current => setAt(current, i, event.target.value)); setStatus(current => setAt(current, i, "")); setCopyState(""); }} />
               <button type="button" aria-label={`Fetch price of product ${i + 1}`} title="Fetch this price" disabled={reading || unsaved} onClick={() => readPrices(i)}>↻</button>
             </div>
             {status[i] && <p className={status[i].startsWith("Couldn’t") ? "cart-quote-status is-error" : "cart-quote-status"}>{status[i]}</p>}
@@ -415,7 +415,7 @@ function QuotePanel({ request, mobile, unsaved, onSaved }: { request: CartReques
           <div className="estimate-line cart-quote-total"><span>Total + courier</span><strong>{npr(quotation.totalNPR)}</strong></div>
           <div className="cart-quote-advance">
             <label htmlFor={`advance-quote-${request.id}`}>Advance paid (NPR)</label>
-            <input id={`advance-quote-${request.id}`} type="number" inputMode="numeric" min="0" value={advance} onChange={event => { setAdvance(event.target.value); setCopyState(""); }} />
+            <input id={`advance-quote-${request.id}`} type="number" onWheel={event => event.currentTarget.blur()} inputMode="numeric" min="0" value={advance} onChange={event => { setAdvance(event.target.value); setCopyState(""); }} />
           </div>
           <div className="estimate-line"><span>Remaining to pay</span><strong>{npr(Math.max(0, quotation.totalNPR - (Number.isFinite(advanceAmount) ? Math.round(advanceAmount) : 0)))}</strong></div>
           <div className="cart-quote-buttons">
@@ -499,8 +499,8 @@ function CreateOrderPanel({ request, mobile, unsaved, rate, quotedTotal, quotedA
       <div className="cart-create-grid">
         <div className="form-field"><label htmlFor={`store-${request.id}`}>Store</label><input id={`store-${request.id}`} list="cart-store-options" className="order-input" value={storeName} onChange={event => setStoreName(event.target.value)} /></div>
         <div className="form-field"><label htmlFor={`commission-${request.id}`}>Commission</label><input id={`commission-${request.id}`} className="order-input" value={commissionText(rate)} readOnly disabled /></div>
-        <div className="form-field"><label htmlFor={`total-${request.id}`}>Total (NPR)</label><input id={`total-${request.id}`} className="order-input" type="number" inputMode="numeric" min="1" value={shownTotal} placeholder="From the quotation" onChange={event => { setTypedTotal(true); setTotal(event.target.value); }} /></div>
-        <div className="form-field"><label htmlFor={`advance-${request.id}`}>Advance paid (NPR)</label><input id={`advance-${request.id}`} className="order-input" type="number" inputMode="numeric" min="0" value={shownAdvance} onChange={event => { setTypedAdvance(true); setAdvance(event.target.value); }} /></div>
+        <div className="form-field"><label htmlFor={`total-${request.id}`}>Total (NPR)</label><input id={`total-${request.id}`} className="order-input" type="number" onWheel={event => event.currentTarget.blur()} inputMode="numeric" min="1" value={shownTotal} placeholder="From the quotation" onChange={event => { setTypedTotal(true); setTotal(event.target.value); }} /></div>
+        <div className="form-field"><label htmlFor={`advance-${request.id}`}>Advance paid (NPR)</label><input id={`advance-${request.id}`} className="order-input" type="number" onWheel={event => event.currentTarget.blur()} inputMode="numeric" min="0" value={shownAdvance} onChange={event => { setTypedAdvance(true); setAdvance(event.target.value); }} /></div>
       </div>
       <datalist id="cart-store-options">{brands.map(b => <option key={b.name} value={b.name} />)}</datalist>
       <p className="small-note">Uses {request.customerName || "the customer’s name"}, +977 {mobile}, the address and the products above. Sizes, colours and notes go into the order’s notes.</p>
