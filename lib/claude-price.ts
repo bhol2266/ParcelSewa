@@ -2,6 +2,7 @@
 // available (phones, or a computer without it). Claude opens the page with web fetch and, if the store blocks that,
 // looks the product up with web search. Needs ANTHROPIC_API_KEY (the same key /api/extract-passport uses).
 import Anthropic from "@anthropic-ai/sdk";
+import { productPageUrl } from "./product-page-url";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY || "" });
 
@@ -30,7 +31,8 @@ async function expandShortLink(url: string): Promise<string> {
 }
 
 export async function findPriceWithClaude(productUrl: string): Promise<ClaudePrice> {
-  const url = await expandShortLink(productUrl);
+  // A Myntra checkout link (…/buy) shows no product; read the product page instead.
+  const url = productPageUrl(await expandShortLink(productUrl));
   const messages: Anthropic.Beta.BetaMessageParam[] = [{
     role: "user",
     content: `Find the current selling price in Indian rupees of this product: ${url}${url !== productUrl ? ` (short link: ${productUrl})` : ""}

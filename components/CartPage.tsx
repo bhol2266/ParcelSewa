@@ -13,6 +13,7 @@ import { getDefaultServiceRate } from "@/lib/storefront-estimate";
 import { fetchProductPriceViaExtension, fetchStoreImageViaExtension, hasExtension } from "@/lib/extension-client";
 import { fetchProductPriceViaClaude } from "@/lib/claude-price-client";
 import { SUPPORT_URL } from "@/lib/storefront";
+import { productPageUrl } from "@/lib/product-page-url";
 
 type Props = { apiQuery: string; mobile: string; admin: boolean };
 
@@ -240,9 +241,9 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
       for (const [n, item] of targets.entries()) {
         setFetchingImages(`${n + 1}/${targets.length}`);
         const notes = item.details.map(d => `${d.label}: ${d.value}`).join(", ");
-        let imageUrl = (await fetchStoreImageViaExtension(item.productUrl, notes)).image;
+        let imageUrl = (await fetchStoreImageViaExtension(productPageUrl(item.productUrl), notes)).image;
         if (!imageUrl) {
-          const response = await fetch("/api/fetch-product-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productUrl: item.productUrl, notes }) }).catch(() => null);
+          const response = await fetch("/api/fetch-product-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productUrl: productPageUrl(item.productUrl), notes }) }).catch(() => null);
           const result = response ? await response.json().catch(() => ({})) : {};
           imageUrl = response?.ok && typeof result.imageUrl === "string" ? result.imageUrl : null;
         }
