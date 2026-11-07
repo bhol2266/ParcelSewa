@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import toast, { Toaster } from "react-hot-toast";
 import OrderItemsEditor, { countPieces, emptyItem, fromEditorItems, toEditorItems, type EditorItem } from "@/components/OrderItemsEditor";
-import { CART_DAYS, cartQuotation, commissionText, isValidUrl, orderNotes, orderStoreName, ORDER_REQUESTS, type CartRequest } from "@/lib/cart";
-import { addDoc, collection, doc, Timestamp, updateDoc } from "firebase/firestore";
+import { CART_DAYS, cartQuotation, commissionText, isValidUrl, orderNotes, orderProducts, orderStoreName, ORDER_REQUESTS, syncOrderProducts, type CartRequest } from "@/lib/cart";
+import { addDoc, collection, doc, getDoc, Timestamp, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { logOrderActivity } from "@/lib/order-logs";
 import { brands } from "@/constants/brands";
@@ -249,6 +249,12 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
         </div>
       </div>
 
+      {admin && cartChangedSinceOrder(request) && (
+        <p className="cart-order-alert" role="status">
+          This cart was changed on {dateLabel(request.updatedAt!, true)}, after the order was {request.orderSyncedAt ? "last updated" : "created"}. Check the prices, then tap <strong>Update the order</strong> below.
+        </p>
+      )}
+
       <form className="form-panel order-form cart-form" onSubmit={save}>
         <OrderItemsEditor items={items} setItems={setItems} idPrefix={idPrefix} priceFor={request.quote ? link => request.items.find(item => item.productUrl === link)?.priceInr : undefined} />
         <fieldset className="cart-delivery">
@@ -429,73 +435,93 @@ function QuotePanel({ request, mobile, unsaved, onSaved }: { request: CartReques
         <p className="small-note">Fetch or type every product’s price to see the quotation.</p>
       )}
 
-      <CreateOrderPanel request={request} mobile={mobile} unsaved={unsaved} rate={appliedRate} quotedTotal={quotation?.totalNPR ?? null} quotedAdvance={Number.isFinite(advanceAmount) ? Math.round(advanceAmount) : 0} onCreated={orderId => onSaved({ ...request, orderId })} />
+      <CreateOrderPanel request={request} mobile={mobile} unsaved={unsaved} rate={appliedRate} quotedTotal={quotation?.totalNPR ?? null} quotedAdvance={Number.isFinite(advanceAmount) ? Math.round(advanceAmount) : 0} onCreated={(orderId, syncedAt) => onSaved({ ...request, orderId, orderSyncedAt: syncedAt })} />
     </section>
   );
 }
 
-// ── Team only: turn the request into an order on the orders page, saved the way /createOrder saves it. ────────────
+// ── Team only: create the order on the orders page from this cart, or bring an existing order up to date. ────────
 function CreateOrderPanel({ request, mobile, unsaved, rate, quotedTotal, quotedAdvance, onCreated }: {
-  request: CartRequest; mobile: string; unsaved: boolean; rate: CommissionOption; quotedTotal: number | null; quotedAdvance: number; onCreated: (orderId: string) => void;
+  request: CartRequest; mobile: string; unsaved: boolean; rate: CommissionOption; quotedTotal: number | null; quotedAdvance: number;
+  onCreated: (orderId: string, syncedAt: number) => void;
 }) {
   const [storeName, setStoreName] = useState(() => orderStoreName(request.items, brands));
   const [total, setTotal] = useState("");
   const [typedTotal, setTypedTotal] = useState(false);
   const [advance, setAdvance] = useState("");
   const [typedAdvance, setTypedAdvance] = useState(false);
-  // The advance follows the quotation's advance until the team types its own here.
-  const shownAdvance = typedAdvance ? advance : String(quotedAdvance);
-  const [creating, setCreating] = useState(false);
-  // The total follows the quotation until the team types its own.
+  const [working, setWorking] = useState(false);
+  // Total and advance follow the quotation until the team types its own here.
   const shownTotal = typedTotal ? total : quotedTotal ? String(quotedTotal) : total;
+  const shownAdvance = typedAdvance ? advance : String(quotedAdvance);
+  const existing = !!request.orderId;
+  const outOfDate = existing && cartChangedSinceOrder(request);
 
-  if (request.orderId) {
-    return <p className="cart-order-done">✓ Order created on the orders page. <a href="/admin" className="underline underline-offset-4">Open orders</a></p>;
-  }
-
-  async function createOrder() {
+  async function saveOrder() {
     const totalAmount = Number(shownTotal), advancePayment = Number(shownAdvance || 0);
     if (!request.customerName.trim()) { toast.error("Add the customer’s name in the Delivery box first."); return; }
     if (!storeName.trim()) { toast.error("Enter the store name."); return; }
-    if (!Number.isFinite(totalAmount) || totalAmount <= 0) { toast.error("Enter the total amount in NPR."); return; }
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) { toast.error("Enter the total amount in NPR — quote the products first."); return; }
     if (!Number.isFinite(advancePayment) || advancePayment < 0) { toast.error("Advance payment can’t be negative."); return; }
-    if (!window.confirm(`Create an order for ${request.customerName} — NPR ${totalAmount.toLocaleString("en-IN")}?`)) return;
-    setCreating(true);
+    const question = existing
+      ? `Update the order for ${request.customerName} with the cart's ${request.items.length} products — NPR ${totalAmount.toLocaleString("en-IN")}?`
+      : `Create an order for ${request.customerName} — NPR ${totalAmount.toLocaleString("en-IN")}?`;
+    if (!window.confirm(question)) return;
+    setWorking(true);
     try {
-      const newOrder = {
+      const details = {
         name: request.customerName.trim(),
         mobile: `+977${mobile}`,
         notes: orderNotes(request.items, request.notes),
         address: request.deliveryLocation,
         storeName: storeName.trim(),
-        orderedDate: Timestamp.now(),
         commission: commissionText(rate),
-        courierCharge: "Included",
         totalAmount,
         advancePayment,
-        // New orders always start as not delivered; the admin page marks delivery.
-        deliveryStatus: false,
-        productUrls: request.items.map(item => item.productUrl),
-        productItems: request.items.map(item => ({ url: item.productUrl, quantity: String(item.quantity) })),
-        createdAt: Timestamp.now(),
-        fromRequestId: request.requestId,
       };
-      const created = await addDoc(collection(db, "Confirm Orders"), newOrder);
-      await logOrderActivity({ action: "created", orderId: created.id, after: newOrder, page: "cart" });
-      await updateDoc(doc(db, ORDER_REQUESTS, request.id), { orderId: created.id, orderCreatedAt: Timestamp.now() });
-      toast.success("Order created");
-      onCreated(created.id);
+      const syncedAt = Timestamp.now();
+      let orderId = request.orderId;
+      if (orderId) {
+        // Only what the cart owns changes; delivery status, dates and per-product ticks stay as they are.
+        const ref = doc(db, "Confirm Orders", orderId);
+        const before = (await getDoc(ref)).data();
+        if (!before) { toast.error("That order no longer exists on the orders page."); return; }
+        const changes = { ...details, ...syncOrderProducts(before, request.items) };
+        await updateDoc(ref, changes);
+        await logOrderActivity({ action: "edited", orderId, before: { id: orderId, ...before }, after: { id: orderId, ...before, ...changes }, page: "cart" });
+      } else {
+        const newOrder = {
+          ...details,
+          orderedDate: Timestamp.now(),
+          courierCharge: "Included",
+          // New orders always start as not delivered; the admin page marks delivery.
+          deliveryStatus: false,
+          ...orderProducts(request.items),
+          createdAt: Timestamp.now(),
+          fromRequestId: request.requestId,
+        };
+        const created = await addDoc(collection(db, "Confirm Orders"), newOrder);
+        orderId = created.id;
+        await logOrderActivity({ action: "created", orderId, after: newOrder, page: "cart" });
+      }
+      await updateDoc(doc(db, ORDER_REQUESTS, request.id), { orderId, orderSyncedAt: syncedAt, ...(existing ? {} : { orderCreatedAt: syncedAt }) });
+      toast.success(existing ? "Order updated" : "Order created");
+      onCreated(orderId, syncedAt.toMillis());
     } catch (error) {
-      console.error("Create order failed:", error);
-      toast.error("Couldn’t create the order. Please try again.");
+      console.error("Saving the order failed:", error);
+      toast.error(existing ? "Couldn’t update the order. Please try again." : "Couldn’t create the order. Please try again.");
     } finally {
-      setCreating(false);
+      setWorking(false);
     }
   }
 
   return (
-    <div className="cart-create-order">
-      <h3>Create order</h3>
+    <div className={`cart-create-order${outOfDate ? " is-outdated" : ""}`}>
+      <div className="cart-create-head">
+        <h3>{existing ? "Order" : "Create order"}</h3>
+        {existing && <span className={outOfDate ? "cart-order-flag is-outdated" : "cart-order-flag"}>{outOfDate ? "Cart changed — update needed" : "✓ Up to date"}</span>}
+      </div>
+      {existing && <p className="small-note">On the orders page since {dateLabel(request.orderSyncedAt ?? 0, true)}. <a href="/admin" className="underline underline-offset-4">Open orders</a></p>}
       <div className="cart-create-grid">
         <div className="form-field"><label htmlFor={`store-${request.id}`}>Store</label><input id={`store-${request.id}`} list="cart-store-options" className="order-input" value={storeName} onChange={event => setStoreName(event.target.value)} /></div>
         <div className="form-field"><label htmlFor={`commission-${request.id}`}>Commission</label><input id={`commission-${request.id}`} className="order-input" value={commissionText(rate)} readOnly disabled /></div>
@@ -503,11 +529,16 @@ function CreateOrderPanel({ request, mobile, unsaved, rate, quotedTotal, quotedA
         <div className="form-field"><label htmlFor={`advance-${request.id}`}>Advance paid (NPR)</label><input id={`advance-${request.id}`} className="order-input" type="number" onWheel={event => event.currentTarget.blur()} inputMode="numeric" min="0" value={shownAdvance} onChange={event => { setTypedAdvance(true); setAdvance(event.target.value); }} /></div>
       </div>
       <datalist id="cart-store-options">{brands.map(b => <option key={b.name} value={b.name} />)}</datalist>
-      <p className="small-note">Uses {request.customerName || "the customer’s name"}, +977 {mobile}, the address and the products above. Sizes, colours and notes go into the order’s notes.</p>
-      <button type="button" className="button-primary" disabled={creating || unsaved} onClick={createOrder}>{creating ? "Creating…" : "Create order"}</button>
-      {unsaved && <p className="cart-quote-warn">Wait for the changes above to save first.</p>}
+      <p className="small-note">Uses {request.customerName || "the customer’s name"}, +977 {mobile}, the address and the products above{existing ? "; products still in the cart keep their pictures and received ticks" : ""}. Sizes, colours and notes go into the order’s notes.</p>
+      <button type="button" className="button-primary" disabled={working || unsaved} onClick={saveOrder}>{working ? (existing ? "Updating…" : "Creating…") : existing ? "Update the order" : "Create order"}</button>
+      {unsaved && <p className="cart-quote-warn">Save the cart changes above first.</p>}
     </div>
   );
+}
+
+/** True when the cart was edited (by the customer or the team) after the order was last brought up to date. */
+function cartChangedSinceOrder(request: CartRequest) {
+  return !!request.orderId && !!request.updatedAt && request.updatedAt > (request.orderSyncedAt ?? 0) + 1000;
 }
 
 // ── Customer: the team's saved quotation as a bill, under the products. ─────────────────────────────────────────

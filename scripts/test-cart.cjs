@@ -147,3 +147,49 @@ test("the team's price and picture stay with a product while its link is unchang
     [{ productUrl: "https://amzn.in/d/a", quantity: 3, details: [], priceInr: 999, imageUrl: "https://m.media-amazon.com/a.jpg" }]);
   assert.equal(itemsOf({ items: cart })[0].imageUrl, "https://m.media-amazon.com/a.jpg");
 });
+
+test("a new order uses the cart's pictures in the orders page's layout", () => {
+  const { orderProducts } = load("cart");
+  assert.deepEqual(orderProducts([
+    { productUrl: "https://amzn.in/d/a", quantity: 2, details: [], imageUrl: "https://img/a.jpg" },
+    { productUrl: "https://amzn.in/d/b", quantity: 1, details: [] },
+  ]), {
+    productUrls: ["https://img/a.jpg", "https://amzn.in/d/b"],
+    productPageUrls: ["https://amzn.in/d/a", "https://amzn.in/d/b"],
+    productItems: [{ url: "https://img/a.jpg", quantity: "2" }, { url: "https://amzn.in/d/b", quantity: "1" }],
+  });
+});
+
+test("updating an order keeps each remaining product's picture and received tick", () => {
+  const { syncOrderProducts } = load("cart");
+  const order = {
+    productUrls: ["https://img/a.jpg", "https://amzn.in/d/b", "https://img/c.jpg"],
+    productPageUrls: ["https://amzn.in/d/a", "https://amzn.in/d/b", "https://amzn.in/d/c"],
+    productItems: [
+      { url: "https://img/a.jpg", quantity: "1", checked: true, checkedAt: "t1" },
+      { url: "https://amzn.in/d/b", quantity: "1" },
+      { url: "https://img/c.jpg", quantity: "1", checked: true },
+    ],
+  };
+  const cart = [
+    { productUrl: "https://amzn.in/d/new", quantity: 1, details: [] },
+    { productUrl: "https://amzn.in/d/a", quantity: 3, details: [] },
+    { productUrl: "https://amzn.in/d/b", quantity: 1, details: [], imageUrl: "https://img/b.jpg" },
+  ];
+  assert.deepEqual(syncOrderProducts(order, cart), {
+    productUrls: ["https://amzn.in/d/new", "https://img/a.jpg", "https://img/b.jpg"],
+    productPageUrls: ["https://amzn.in/d/new", "https://amzn.in/d/a", "https://amzn.in/d/b"],
+    productItems: [
+      { url: "https://amzn.in/d/new", quantity: "1" },
+      { url: "https://img/a.jpg", quantity: "3", checked: true, checkedAt: "t1" },
+      { url: "https://img/b.jpg", quantity: "1" },
+    ],
+  });
+});
+
+test("older orders without productPageUrls are matched by their product links", () => {
+  const { syncOrderProducts } = load("cart");
+  const order = { productUrls: ["https://amzn.in/d/a"], productItems: [{ url: "https://amzn.in/d/a", quantity: "1", checked: true }] };
+  assert.deepEqual(syncOrderProducts(order, [{ productUrl: "https://amzn.in/d/a", quantity: 2, details: [] }]).productItems,
+    [{ url: "https://amzn.in/d/a", quantity: "2", checked: true }]);
+});

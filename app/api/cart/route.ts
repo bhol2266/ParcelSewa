@@ -42,7 +42,7 @@ function toCartRequest(id: string, data: Record<string, unknown>, admin: boolean
     createdAt: millis(data.createdAt),
     ...(data.updatedAt ? { updatedAt: millis(data.updatedAt) } : {}),
     ...(quote ? { quote: { ...quote, quotedAt: millis(quote.quotedAt) } } : {}),
-    ...(admin && typeof data.orderId === "string" ? { orderId: data.orderId } : {}),
+    ...(admin && typeof data.orderId === "string" ? { orderId: data.orderId, orderSyncedAt: millis(data.orderSyncedAt ?? data.orderCreatedAt) } : {}),
   };
 }
 

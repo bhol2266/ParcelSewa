@@ -572,3 +572,13 @@ input.order-detail-name:focus { outline: 2px solid #e9944e; outline-offset: 1px;
 .cart-quote-price input::-webkit-outer-spin-button, .cart-quote-price input::-webkit-inner-spin-button,
 .cart-quote-advance input::-webkit-outer-spin-button, .cart-quote-advance input::-webkit-inner-spin-button,
 .cart-create-grid input[type="number"]::-webkit-outer-spin-button, .cart-create-grid input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* Admin: an order made from this cart, and whether the cart changed since. */
+.cart-create-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.cart-order-flag { padding: 3px 10px; border-radius: 999px; background: #eafaf0; color: #15803d; font-size: 11px; font-weight: 650; white-space: nowrap; }
+.cart-order-flag.is-outdated { background: #fff1e4; color: #a54a0c; }
+.dark .cart-order-flag { background: #0f2a1b; color: #6ee7a0; }
+.dark .cart-order-flag.is-outdated { background: #3a2412; color: #ffb36e; }
+.cart-create-order.is-outdated { border-color: #f0b27a; }
+.cart-order-alert { padding: 10px 12px; border-radius: 10px; border: 1px solid #f0b27a; background: #fff6ee; color: #7a3a0a; font-size: 12px; line-height: 1.5; }
+.dark .cart-order-alert { background: #2a1a0d; border-color: #7a4a1f; color: #ffcf9e; }

@@ -35,6 +35,8 @@ export type CartRequest = {
   quote?: { rate: CommissionOption; totalNPR: number; quotedAt: number; advance?: number };
   /** Set once the team has turned the request into an order on the orders page. */
   orderId?: string;
+  /** When that order was last created or updated from this cart (ms). */
+  orderSyncedAt?: number;
 };
 
 /**
@@ -187,4 +189,45 @@ export const commissionText = (rate: CommissionOption) => (typeof rate === "numb
 export function orderNotes(items: CartItem[], note: string): string {
   const lines = items.flatMap((item, i) => (item.details.length ? [`Product ${i + 1}: ${item.details.map(d => `${d.label}: ${d.value}`).join(", ")}`] : []));
   return [...lines, ...(note.trim() ? [note.trim()] : [])].join("\n");
+}
+
+/**
+ * Products in the orders page's layout: `productUrls[i]` is the product picture when one is known (otherwise the
+ * store link), `productPageUrls[i]` is always the store link, and `productItems[i]` mirrors `productUrls[i]` with
+ * the quantity as text.
+ */
+export function orderProducts(items: CartItem[]) {
+  const productUrls = items.map(item => item.imageUrl || item.productUrl);
+  return {
+    productUrls,
+    productPageUrls: items.map(item => item.productUrl),
+    productItems: items.map((item, i) => ({ url: productUrls[i], quantity: String(item.quantity) })),
+  };
+}
+
+type OrderProductFields = { productUrls?: string[]; productPageUrls?: string[]; productItems?: Record<string, unknown>[] };
+
+/**
+ * The order's products brought up to date with the cart. A product still in the cart (same store link) keeps
+ * everything the orders page added to it — its picture, "received" tick and other fields — with the new quantity;
+ * new products are added; products no longer in the cart are dropped.
+ */
+export function syncOrderProducts(order: OrderProductFields, items: CartItem[]) {
+  const urls = order.productUrls ?? [];
+  const pages = order.productPageUrls?.length ? order.productPageUrls : urls;
+  const fresh = orderProducts(items);
+  const productUrls: string[] = [], productPageUrls: string[] = [], productItems: Record<string, unknown>[] = [];
+  items.forEach((item, i) => {
+    const j = pages.indexOf(item.productUrl);
+    if (j === -1) {
+      productUrls.push(fresh.productUrls[i]); productPageUrls.push(item.productUrl); productItems.push(fresh.productItems[i]);
+      return;
+    }
+    // Use the cart's picture only where the order still has the bare store link.
+    const shown = urls[j] && urls[j] !== item.productUrl ? urls[j] : fresh.productUrls[i];
+    productUrls.push(shown);
+    productPageUrls.push(item.productUrl);
+    productItems.push({ ...(order.productItems?.[j] ?? {}), url: shown, quantity: String(item.quantity) });
+  });
+  return { productUrls, productPageUrls, productItems };
 }
