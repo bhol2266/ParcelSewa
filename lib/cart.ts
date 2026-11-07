@@ -33,6 +33,16 @@ export type CartRequest = {
   orderId?: string;
 };
 
+/**
+ * The product link from whatever was pasted. Store apps share text such as
+ * "Take a look at this Makeup Brush … https://dl.flipkart.com/s/HpSDCsuuuN" — keep just the link,
+ * without trailing punctuation. Text with no link comes back trimmed and unchanged.
+ */
+export function extractUrl(text: string): string {
+  const match = String(text ?? "").match(/https?:\/\/[^\s<>"'`]+/i);
+  return match ? match[0].replace(/[),.;:!?\]}'"]+$/, "") : String(text ?? "").trim();
+}
+
 export function isValidUrl(value: string) {
   try {
     const url = new URL(value.trim());
@@ -50,7 +60,7 @@ export function cleanItems(raw: unknown): CartItem[] | string {
   if (raw.length > MAX_ITEMS) return `You can add up to ${MAX_ITEMS} products in one request.`;
   const items: CartItem[] = [];
   for (const [index, entry] of raw.entries()) {
-    const productUrl = String(entry?.productUrl ?? "").trim().slice(0, 2000);
+    const productUrl = extractUrl(String(entry?.productUrl ?? "")).slice(0, 2000);
     if (!isValidUrl(productUrl)) return `Product ${index + 1}: enter a valid product link beginning with https://.`;
     const quantity = Number(entry?.quantity);
     if (!Number.isInteger(quantity) || quantity < 1 || quantity > 999) return `Product ${index + 1}: quantity must be a whole number from 1 to 999.`;

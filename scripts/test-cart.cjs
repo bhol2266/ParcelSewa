@@ -128,3 +128,14 @@ test("commission and notes use the orders page's format", () => {
     { productUrl: "https://a.in/2", quantity: 2, details: [{ type: "size", label: "Size", value: "M" }, { type: "color", label: "Colour", value: "Blue" }] },
   ], " Need before Tihar "), "Product 2: Size: M, Colour: Blue\nNeed before Tihar");
 });
+
+test("only the link is kept from text shared by store apps", () => {
+  const { extractUrl, cleanItems } = load("cart");
+  assert.equal(extractUrl("rt https://dl.flipkart.com/s/HpSDCsuuuN"), "https://dl.flipkart.com/s/HpSDCsuuuN");
+  assert.equal(extractUrl("Take a look at this Makeup Brush Applicator on Flipkart https://dl.flipkart.com/s/HpSDCsuuuN"), "https://dl.flipkart.com/s/HpSDCsuuuN");
+  assert.equal(extractUrl("Check this out! https://amzn.in/d/026pcloo."), "https://amzn.in/d/026pcloo");
+  assert.equal(extractUrl("Myntra: Shirt (https://myntr.it/abc123)"), "https://myntr.it/abc123");
+  assert.equal(extractUrl("https://www.amazon.in/dp/B0X?th=1&psc=1"), "https://www.amazon.in/dp/B0X?th=1&psc=1");
+  assert.equal(extractUrl("  no link here  "), "no link here");
+  assert.deepEqual(cleanItems([{ productUrl: "Look at this https://dl.flipkart.com/s/X1", quantity: 1 }]), [{ productUrl: "https://dl.flipkart.com/s/X1", quantity: 1, details: [] }]);
+});

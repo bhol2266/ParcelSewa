@@ -2,10 +2,10 @@
 
 import { useState, type Dispatch, type SetStateAction } from "react";
 import toast from "react-hot-toast";
-import { DETAIL_TYPES, isValidUrl, MAX_ITEMS, type CartItem, type DetailType } from "@/lib/cart";
+import { DETAIL_TYPES, extractUrl, isValidUrl, MAX_ITEMS, type CartItem, type DetailType } from "@/lib/cart";
 
-// "amazon.in" from a valid product link, for the label beside the product title.
-const storeOf = (url: string) => (isValidUrl(url) ? new URL(url.trim()).hostname.replace(/^www\./, "") : "");
+// "amazon.in" / "flipkart.com" from a valid product link, for the label beside the product title.
+const storeOf = (url: string) => (isValidUrl(url) ? new URL(url.trim()).hostname.replace(/^(www|m|dl)\./, "") : "");
 
 // Products while they are being edited. `key` only keeps React rows stable while rows are added and removed.
 export type EditorDetail = { key: number; type: DetailType; label: string; value: string };
@@ -21,7 +21,7 @@ export const toEditorItems = (items: CartItem[]): EditorItem[] =>
 /** Products ready to send: empty details dropped, an unnamed "Something else" called "Detail". */
 export const fromEditorItems = (items: EditorItem[]): CartItem[] =>
   items.map(item => ({
-    productUrl: item.productUrl.trim(), quantity: item.quantity,
+    productUrl: extractUrl(item.productUrl), quantity: item.quantity,
     details: item.details.filter(d => d.value.trim()).map(d => ({ type: d.type, label: d.label.trim() || "Detail", value: d.value.trim() })),
   }));
 
@@ -32,7 +32,7 @@ export function checkItems(items: EditorItem[], idPrefix: string): string | null
   const badLink = items.findIndex(item => !isValidUrl(item.productUrl));
   if (badLink !== -1) {
     document.getElementById(`${idPrefix}-product-${items[badLink].key}`)?.focus();
-    return `Product ${badLink + 1}: enter a valid product link beginning with https://.`;
+    return `Product ${badLink + 1}: paste the product link (it starts with https://).`;
   }
   const badQuantity = items.findIndex(item => !Number.isInteger(item.quantity) || item.quantity < 1);
   if (badQuantity !== -1) return `Product ${badQuantity + 1}: quantity must be a whole number of at least 1.`;
@@ -83,7 +83,12 @@ export default function OrderItemsEditor({ items, setItems, idPrefix }: { items:
               <label htmlFor={id("product")} className="order-item-title">{items.length > 1 ? `Product ${index + 1}` : "Product link"}{storeOf(item.productUrl) && <span className="order-item-store">{storeOf(item.productUrl)}</span>}</label>
               {items.length > 1 && <button type="button" className="order-item-remove" onClick={() => removeItem(item.key)} aria-label={`Remove product ${index + 1}`}>Remove</button>}
             </div>
-            <input id={id("product")} className="order-input" type="url" required autoComplete="off" inputMode="url" placeholder="Paste the product link here" value={item.productUrl} onChange={event => updateItem(item.key, { productUrl: event.target.value })} />
+            {/* type="text": shared text with words around the link must not be blocked; only the link is kept. */}
+            <input id={id("product")} className="order-input" type="text" required autoComplete="off" autoCapitalize="off" spellCheck={false} inputMode="url" placeholder="Paste the product link here" value={item.productUrl} onChange={event => {
+              const typed = event.target.value;
+              const link = extractUrl(typed);
+              updateItem(item.key, { productUrl: /https?:\/\//i.test(typed) && link !== typed.trim() ? link : typed });
+            }} />
 
             <div className="order-item-bar">
               <div className="order-qty">
