@@ -273,6 +273,15 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
     updateDoc(doc(db, ORDER_REQUESTS, request.id), { orderId: deleteField(), orderSyncedAt: deleteField(), orderedItems: deleteField() }).catch(() => {});
   }, [orderExists, request.id, request.orderId]);
 
+  // The order card is the truth for which products are confirmed. Keep the cart's copy (what the customer's marks
+  // use) in step with it — e.g. after the order was edited on the orders page, or for orders made before marks existed.
+  const orderProductsKey = order.products ? JSON.stringify(order.products) : null;
+  useEffect(() => {
+    if (!admin || !request.orderId || !orderProductsKey || orderExists !== true) return;
+    if (orderProductsKey === JSON.stringify(request.orderedItems ?? null)) return;
+    updateDoc(doc(db, ORDER_REQUESTS, request.id), { orderedItems: JSON.parse(orderProductsKey) }).catch(() => {});
+  }, [admin, orderExists, orderProductsKey, request.id, request.orderId, request.orderedItems]);
+
   // Products in the confirmed order: for the team, read live from the order itself; for the customer, as last sent.
   const orderedProducts: OrderedProduct[] | null = orderExists === false ? null
     : admin ? (request.orderId ? order.products ?? request.orderedItems ?? null : null)
@@ -326,7 +335,8 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
             <span className="order-mark is-ordered">✓ Ordered</span> {admin ? "in the order" : "confirmed"} · <span className="order-mark is-new">New</span> added later{admin ? " — use Update the order" : ", awaiting confirmation"}
           </p>
         )}
-        <OrderItemsEditor items={items} setItems={setItems} idPrefix={idPrefix} priceFor={request.quote ? link => request.items.find(item => item.productUrl === link)?.priceInr : undefined}
+        {/* The team always sees known prices; customers only once a quotation is saved. */}
+        <OrderItemsEditor items={items} setItems={setItems} idPrefix={idPrefix} priceFor={admin || request.quote ? link => request.items.find(item => item.productUrl === link)?.priceInr : undefined}
           orderMark={orderedProducts ? (link, quantity) => orderMarkOf(link, quantity, orderedProducts) : undefined} />
         <fieldset className="cart-delivery">
           <legend>Delivery</legend>
