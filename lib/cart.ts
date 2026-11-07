@@ -31,7 +31,8 @@ export type CartRequest = {
   notes: string;
   createdAt: number;
   updatedAt?: number;
-  quote?: { rate: CommissionOption; totalNPR: number; quotedAt: number };
+  /** The team's saved quotation; `advance` is what the customer has already paid (typed by the team). */
+  quote?: { rate: CommissionOption; totalNPR: number; quotedAt: number; advance?: number };
   /** Set once the team has turned the request into an order on the orders page. */
   orderId?: string;
 };

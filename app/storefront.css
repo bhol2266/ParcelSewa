@@ -525,3 +525,44 @@ input.order-detail-name:focus { outline: 2px solid #e9944e; outline-offset: 1px;
 .cart-request-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .cart-images-btn { min-height: 34px; padding: 4px 11px; border: 1px solid var(--store-line); border-radius: 8px; background: var(--store-paper); color: var(--store-ink); font-size: 12px; font-weight: 600; cursor: pointer; }
 .cart-images-btn:disabled { opacity: .6; cursor: wait; }
+.cart-quote-advance { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 6px; font-size: 12px; color: var(--store-text); }
+.cart-quote-advance input { width: 120px; min-height: 38px; border: 1px solid var(--store-line); border-radius: 8px; background: var(--store-paper); color: var(--store-ink); padding: 7px 10px; font-size: 14px; text-align: right; }
+.cart-quote-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 6px; }
+.cart-quote-buttons .button-secondary, .cart-quote-buttons .button-primary { width: 100%; min-height: 44px; padding: 10px 12px; }
+.cart-quote-buttons .button-secondary:disabled { opacity: .7; cursor: default; }
+
+/* Customer: quoted price per product (replaces the store label so the row stays one line). */
+.order-item-price { margin-right: auto; padding: 2px 8px; border-radius: 999px; background: #fff1e4; color: #a54a0c; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.order-item-price small { font-weight: 600; opacity: .8; }
+.dark .order-item-price { background: #3a2412; color: #ffb36e; }
+
+/* Customer: the saved quotation, styled like a bill. */
+.cart-bill { display: grid; gap: 2px; padding: 16px; border: 1px dashed var(--store-line); border-radius: 14px; background: var(--store-paper); }
+.cart-bill-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-bottom: 8px; margin-bottom: 4px; border-bottom: 1px dashed var(--store-line); }
+.storefront .cart-bill-head h3 { font-size: 15px; letter-spacing: -.01em; }
+.cart-bill-head span { font-size: 11px; color: var(--store-text); }
+.cart-bill-line { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-block: 6px; font-size: 12px; }
+.cart-bill-line > span { color: var(--store-text); }
+.cart-bill-line > strong { color: var(--store-ink); font-weight: 650; white-space: nowrap; }
+.cart-bill-line.is-total { margin-top: 4px; padding-top: 10px; border-top: 1px dashed var(--store-line); font-size: 14px; }
+.cart-bill-line.is-total > span { color: var(--store-ink); font-weight: 650; }
+.cart-bill-line.is-total > strong { font-size: 17px; }
+.cart-bill-line.is-paid > strong { color: #15803d; }
+.dark .cart-bill-line.is-paid > strong { color: #6ee7a0; }
+.cart-bill-line.is-due { margin-top: 2px; padding: 10px 12px; border-radius: 10px; background: #fff1e4; }
+.cart-bill-line.is-due > span, .cart-bill-line.is-due > strong { color: #a54a0c; font-weight: 700; }
+.cart-bill-line.is-due > strong { font-size: 17px; }
+.dark .cart-bill-line.is-due { background: #3a2412; }
+.dark .cart-bill-line.is-due > span, .dark .cart-bill-line.is-due > strong { color: #ffb36e; }
+.cart-bill-note { margin-top: 6px; font-size: 11px; color: var(--store-text); }
+.cart-bill-warn { margin-top: 6px; font-size: 11px; color: #a54a0c; }
+
+/* Product picture: thumbnail opens a full-screen viewer. */
+.form-panel .order-item-thumb-btn { flex-shrink: 0; width: auto; padding: 0; border: 0; background: none; border-radius: 8px; cursor: zoom-in; }
+.form-panel .order-item-thumb-btn:focus-visible { outline: 2px solid #e9944e; outline-offset: 2px; }
+.image-viewer { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; padding: 56px 16px 24px; background: rgba(8, 18, 30, .86); cursor: zoom-out; animation: image-viewer-in .15s ease-out; }
+.image-viewer img { max-width: min(92vw, 720px); max-height: 82vh; object-fit: contain; border-radius: 12px; background: #fff; box-shadow: 0 20px 60px rgba(0, 0, 0, .45); cursor: default; }
+.image-viewer-close { position: absolute; top: 12px; right: 12px; width: 40px; height: 40px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(255, 255, 255, .14); color: #fff; font-size: 26px; line-height: 1; cursor: pointer; }
+.image-viewer-close:hover { background: rgba(255, 255, 255, .24); }
+@keyframes image-viewer-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .image-viewer { animation: none; } }

@@ -34,14 +34,14 @@ function toCartRequest(id: string, data: Record<string, unknown>, admin: boolean
   return {
     id,
     requestId: typeof data.requestId === "string" ? data.requestId : `PS-R-${id.slice(0, 5).toUpperCase()}`,
-    // Prices are the team's working figures, so customers don't see them.
-    items: admin ? items : items.map(item => { const shown = { ...item }; delete shown.priceInr; return shown; }),
+    // Customers see prices only once the team has saved a quotation; until then they are working figures.
+    items: admin || quote ? items : items.map(item => { const shown = { ...item }; delete shown.priceInr; return shown; }),
     customerName: String(data.customerName ?? ""),
     deliveryLocation: String(data.deliveryLocation ?? ""),
     notes: String(data.notes ?? ""),
     createdAt: millis(data.createdAt),
     ...(data.updatedAt ? { updatedAt: millis(data.updatedAt) } : {}),
-    ...(admin && quote ? { quote: { ...quote, quotedAt: millis(quote.quotedAt) } } : {}),
+    ...(quote ? { quote: { ...quote, quotedAt: millis(quote.quotedAt) } } : {}),
     ...(admin && typeof data.orderId === "string" ? { orderId: data.orderId } : {}),
   };
 }

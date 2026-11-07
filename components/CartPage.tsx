@@ -250,7 +250,7 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
       </div>
 
       <form className="form-panel order-form cart-form" onSubmit={save}>
-        <OrderItemsEditor items={items} setItems={setItems} idPrefix={idPrefix} />
+        <OrderItemsEditor items={items} setItems={setItems} idPrefix={idPrefix} priceFor={request.quote ? link => request.items.find(item => item.productUrl === link)?.priceInr : undefined} />
         <fieldset className="cart-delivery">
           <legend>Delivery</legend>
           <div className="form-field"><label htmlFor={`${idPrefix}-name`}>Name</label><input id={`${idPrefix}-name`} className="order-input" autoComplete="name" maxLength={80} placeholder="e.g. Sita Sharma" value={customerName} onChange={event => setCustomerName(event.target.value)} /></div>
@@ -264,6 +264,8 @@ function RequestCard({ request, apiQuery, mobile, admin, onSaved, onCancelled }:
           </div>
         ) : justSaved && <p className="cart-save-status is-saved" role="status">✓ Saved</p>}
       </form>
+
+      {!admin && request.quote && <QuoteBill request={request} changing={dirty} />}
 
       {/* Remounts with fresh price boxes when the products or quantities change. */}
       {admin && <QuotePanel key={JSON.stringify(request.items.map(item => [item.productUrl, item.quantity]))} request={request} mobile={mobile} unsaved={dirty} onSaved={onSaved} />}
@@ -279,6 +281,9 @@ function QuotePanel({ request, mobile, unsaved, onSaved }: { request: CartReques
   const [reading, setReading] = useState(false);
   const [rate, setRate] = useState<CommissionOption | null>(request.quote?.rate ?? null);
   const [copyState, setCopyState] = useState("");
+  // What the customer has already paid; typed by the team and shown on the customer's bill.
+  const [advance, setAdvance] = useState(String(request.quote?.advance ?? 0));
+  const [savingQuote, setSavingQuote] = useState(false);
 
   const lines = request.items.map((item, i) => ({ priceInr: Number(prices[i]), quantity: item.quantity }));
   const complete = lines.length > 0 && lines.every(line => Number.isFinite(line.priceInr) && line.priceInr > 0);
@@ -325,6 +330,37 @@ function QuotePanel({ request, mobile, unsaved, onSaved }: { request: CartReques
     }
   }
 
+  const advanceAmount = Number(advance || 0);
+  // Whether the prices, fee or advance differ from the quotation the customer currently sees.
+  const quoteChanged = !!quotation && (!request.quote
+    || request.quote.totalNPR !== quotation.totalNPR || request.quote.rate !== appliedRate || (request.quote.advance ?? 0) !== Math.round(advanceAmount)
+    || request.items.some((item, i) => item.priceInr !== lines[i].priceInr));
+
+  /** Saves prices, fee and advance on the request; the customer's cart then shows them as a bill. */
+  async function saveQuote(): Promise<boolean> {
+    if (!quotation) return false;
+    if (!Number.isFinite(advanceAmount) || advanceAmount < 0) { toast.error("Advance can’t be negative."); return false; }
+    setSavingQuote(true);
+    try {
+      const response = await fetch("/api/cart/quote", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: request.id, prices: lines.map(line => line.priceInr), rate: appliedRate, totalNPR: quotation.totalNPR, advance: advanceAmount }),
+      });
+      if (!response.ok) { toast.error("Saving the quotation failed. Please try again."); return false; }
+      onSaved({ ...request, items: request.items.map((item, i) => ({ ...item, priceInr: lines[i].priceInr })), quote: { rate: appliedRate, totalNPR: quotation.totalNPR, advance: Math.round(advanceAmount), quotedAt: Date.now() } });
+      return true;
+    } catch {
+      toast.error("Saving the quotation failed. Check your connection.");
+      return false;
+    } finally {
+      setSavingQuote(false);
+    }
+  }
+
+  async function updateQuote() {
+    if (await saveQuote()) toast.success(request.quote ? "Quotation updated — the customer sees it now" : "Quotation saved — the customer sees it now");
+  }
+
   async function copy() {
     if (!quotation) return;
     try {
@@ -333,13 +369,8 @@ function QuotePanel({ request, mobile, unsaved, onSaved }: { request: CartReques
     } catch {
       setCopyState("Clipboard blocked — copy it from the preview below.");
     }
-    // Keep the prices and quotation on the request for next time.
-    const response = await fetch("/api/cart/quote", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: request.id, prices: lines.map(line => line.priceInr), rate: appliedRate, totalNPR: quotation.totalNPR }),
-    });
-    if (response.ok) onSaved({ ...request, items: request.items.map((item, i) => ({ ...item, priceInr: lines[i].priceInr })), quote: { rate: appliedRate, totalNPR: quotation.totalNPR, quotedAt: Date.now() } });
-    else toast.error("Quotation copied, but saving the prices failed.");
+    // Copying also saves the quotation, so the customer's cart shows it.
+    if (quoteChanged) await saveQuote();
   }
 
   return (
@@ -382,7 +413,15 @@ function QuotePanel({ request, mobile, unsaved, onSaved }: { request: CartReques
           <div className="estimate-line"><span>Products · INR {quotation.totalInr.toLocaleString("en-IN")}</span><strong>{npr(quotation.productNPR)}</strong></div>
           <div className="estimate-line"><span>Service & handling · {quotation.serviceLabel}</span><strong>{npr(quotation.serviceNPR)}</strong></div>
           <div className="estimate-line cart-quote-total"><span>Total + courier</span><strong>{npr(quotation.totalNPR)}</strong></div>
-          <button type="button" className="button-primary" disabled={unsaved} onClick={copy}>{copyState === "Quotation copied" ? "✓ Copied" : "Copy quotation"}</button>
+          <div className="cart-quote-advance">
+            <label htmlFor={`advance-quote-${request.id}`}>Advance paid (NPR)</label>
+            <input id={`advance-quote-${request.id}`} type="number" inputMode="numeric" min="0" value={advance} onChange={event => { setAdvance(event.target.value); setCopyState(""); }} />
+          </div>
+          <div className="estimate-line"><span>Remaining to pay</span><strong>{npr(Math.max(0, quotation.totalNPR - (Number.isFinite(advanceAmount) ? Math.round(advanceAmount) : 0)))}</strong></div>
+          <div className="cart-quote-buttons">
+            <button type="button" className="button-secondary" disabled={unsaved || savingQuote || !quoteChanged} onClick={updateQuote}>{savingQuote ? "Saving…" : !quoteChanged ? "✓ Customer sees this" : request.quote ? "Update quotation" : "Save quotation"}</button>
+            <button type="button" className="button-primary" disabled={unsaved} onClick={copy}>{copyState === "Quotation copied" ? "✓ Copied" : "Copy quotation"}</button>
+          </div>
           {copyState && copyState !== "Quotation copied" && <p className="cart-quote-status is-error">{copyState}</p>}
           <details className="quotation-preview" open={copyState.startsWith("Clipboard")}><summary>Preview message</summary><pre>{quotation.message}</pre></details>
         </div>
@@ -390,19 +429,22 @@ function QuotePanel({ request, mobile, unsaved, onSaved }: { request: CartReques
         <p className="small-note">Fetch or type every product’s price to see the quotation.</p>
       )}
 
-      <CreateOrderPanel request={request} mobile={mobile} unsaved={unsaved} rate={appliedRate} quotedTotal={quotation?.totalNPR ?? null} onCreated={orderId => onSaved({ ...request, orderId })} />
+      <CreateOrderPanel request={request} mobile={mobile} unsaved={unsaved} rate={appliedRate} quotedTotal={quotation?.totalNPR ?? null} quotedAdvance={Number.isFinite(advanceAmount) ? Math.round(advanceAmount) : 0} onCreated={orderId => onSaved({ ...request, orderId })} />
     </section>
   );
 }
 
 // ── Team only: turn the request into an order on the orders page, saved the way /createOrder saves it. ────────────
-function CreateOrderPanel({ request, mobile, unsaved, rate, quotedTotal, onCreated }: {
-  request: CartRequest; mobile: string; unsaved: boolean; rate: CommissionOption; quotedTotal: number | null; onCreated: (orderId: string) => void;
+function CreateOrderPanel({ request, mobile, unsaved, rate, quotedTotal, quotedAdvance, onCreated }: {
+  request: CartRequest; mobile: string; unsaved: boolean; rate: CommissionOption; quotedTotal: number | null; quotedAdvance: number; onCreated: (orderId: string) => void;
 }) {
   const [storeName, setStoreName] = useState(() => orderStoreName(request.items, brands));
   const [total, setTotal] = useState("");
   const [typedTotal, setTypedTotal] = useState(false);
-  const [advance, setAdvance] = useState("0");
+  const [advance, setAdvance] = useState("");
+  const [typedAdvance, setTypedAdvance] = useState(false);
+  // The advance follows the quotation's advance until the team types its own here.
+  const shownAdvance = typedAdvance ? advance : String(quotedAdvance);
   const [creating, setCreating] = useState(false);
   // The total follows the quotation until the team types its own.
   const shownTotal = typedTotal ? total : quotedTotal ? String(quotedTotal) : total;
@@ -412,7 +454,7 @@ function CreateOrderPanel({ request, mobile, unsaved, rate, quotedTotal, onCreat
   }
 
   async function createOrder() {
-    const totalAmount = Number(shownTotal), advancePayment = Number(advance || 0);
+    const totalAmount = Number(shownTotal), advancePayment = Number(shownAdvance || 0);
     if (!request.customerName.trim()) { toast.error("Add the customer’s name in the Delivery box first."); return; }
     if (!storeName.trim()) { toast.error("Enter the store name."); return; }
     if (!Number.isFinite(totalAmount) || totalAmount <= 0) { toast.error("Enter the total amount in NPR."); return; }
@@ -458,7 +500,7 @@ function CreateOrderPanel({ request, mobile, unsaved, rate, quotedTotal, onCreat
         <div className="form-field"><label htmlFor={`store-${request.id}`}>Store</label><input id={`store-${request.id}`} list="cart-store-options" className="order-input" value={storeName} onChange={event => setStoreName(event.target.value)} /></div>
         <div className="form-field"><label htmlFor={`commission-${request.id}`}>Commission</label><input id={`commission-${request.id}`} className="order-input" value={commissionText(rate)} readOnly disabled /></div>
         <div className="form-field"><label htmlFor={`total-${request.id}`}>Total (NPR)</label><input id={`total-${request.id}`} className="order-input" type="number" inputMode="numeric" min="1" value={shownTotal} placeholder="From the quotation" onChange={event => { setTypedTotal(true); setTotal(event.target.value); }} /></div>
-        <div className="form-field"><label htmlFor={`advance-${request.id}`}>Advance paid (NPR)</label><input id={`advance-${request.id}`} className="order-input" type="number" inputMode="numeric" min="0" value={advance} onChange={event => setAdvance(event.target.value)} /></div>
+        <div className="form-field"><label htmlFor={`advance-${request.id}`}>Advance paid (NPR)</label><input id={`advance-${request.id}`} className="order-input" type="number" inputMode="numeric" min="0" value={shownAdvance} onChange={event => { setTypedAdvance(true); setAdvance(event.target.value); }} /></div>
       </div>
       <datalist id="cart-store-options">{brands.map(b => <option key={b.name} value={b.name} />)}</datalist>
       <p className="small-note">Uses {request.customerName || "the customer’s name"}, +977 {mobile}, the address and the products above. Sizes, colours and notes go into the order’s notes.</p>
@@ -467,3 +509,27 @@ function CreateOrderPanel({ request, mobile, unsaved, rate, quotedTotal, onCreat
     </div>
   );
 }
+
+// ── Customer: the team's saved quotation as a bill, under the products. ─────────────────────────────────────────
+function QuoteBill({ request, changing }: { request: CartRequest; changing: boolean }) {
+  const quote = request.quote!;
+  const lines = request.items.map(item => ({ priceInr: item.priceInr ?? NaN, quantity: item.quantity }));
+  if (!lines.every(line => Number.isFinite(line.priceInr) && line.priceInr > 0)) return null;
+  let bill: ReturnType<typeof cartQuotation>;
+  try { bill = cartQuotation(lines, quote.rate); } catch { return null; }
+  const total = bill.totalNPR;
+  const advance = Math.min(quote.advance ?? 0, total);
+  return (
+    <section className="cart-bill" aria-label="Your quotation">
+      <div className="cart-bill-head"><h3>Your quotation</h3><span>{dateLabel(quote.quotedAt, true)}</span></div>
+      <div className="cart-bill-line"><span>Products · INR {bill.totalInr.toLocaleString("en-IN")} × 1.6</span><strong>{npr(bill.productNPR)}</strong></div>
+      <div className="cart-bill-line"><span>Service & handling · {bill.serviceLabel}</span><strong>{npr(bill.serviceNPR)}</strong></div>
+      <div className="cart-bill-line is-total"><span>Total</span><strong>{npr(total)}</strong></div>
+      {advance > 0 && <div className="cart-bill-line is-paid"><span>Advance paid</span><strong>− {npr(advance)}</strong></div>}
+      {advance > 0 && <div className="cart-bill-line is-due"><span>Remaining to pay</span><strong>{npr(total - advance)}</strong></div>}
+      <p className="cart-bill-note">+ courier charge (NPR 180/kg), paid on delivery.</p>
+      {changing && <p className="cart-bill-warn">Saving changes to products or quantities sends them to our team for a new quote.</p>}
+    </section>
+  );
+}
+

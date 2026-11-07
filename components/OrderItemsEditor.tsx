@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { createPortal } from "react-dom";
 import toast from "react-hot-toast";
 import { DETAIL_TYPES, extractUrl, isValidUrl, MAX_ITEMS, type CartItem, type DetailType } from "@/lib/cart";
 
@@ -44,8 +45,13 @@ export function checkItems(items: EditorItem[], idPrefix: string): string | null
 }
 
 /** The product cards shared by the /order form and the /cart page. */
-export default function OrderItemsEditor({ items, setItems, idPrefix }: { items: EditorItem[]; setItems: Dispatch<SetStateAction<EditorItem[]>>; idPrefix: string }) {
+export default function OrderItemsEditor({ items, setItems, idPrefix, priceFor }: {
+  items: EditorItem[]; setItems: Dispatch<SetStateAction<EditorItem[]>>; idPrefix: string;
+  /** The quoted INR price for a product link, once the team has saved a quotation. */
+  priceFor?: (productUrl: string) => number | undefined;
+}) {
   const [openPicker, setOpenPicker] = useState<number | null>(null);
+  const [zoomed, setZoomed] = useState<{ src: string; alt: string } | null>(null);
   const focusLater = (id: string) => setTimeout(() => document.getElementById(id)?.focus(), 0);
 
   const updateItem = (key: number, changes: Partial<EditorItem>) =>
@@ -76,6 +82,7 @@ export default function OrderItemsEditor({ items, setItems, idPrefix }: { items:
 
   return (
     <div className="order-items">
+      {zoomed && <ImageViewer src={zoomed.src} alt={zoomed.alt} onClose={() => setZoomed(null)} />}
       {items.map((item, index) => {
         const available = DETAIL_TYPES.filter(d => d.type === "other" || !item.details.some(existing => existing.type === d.type));
         const pickerOpen = openPicker === item.key;
@@ -86,7 +93,9 @@ export default function OrderItemsEditor({ items, setItems, idPrefix }: { items:
             {/* Two compact rows: [picture or number] [link] [×], then quantity · store · details. */}
             <div className="order-item-top">
               {item.imageUrl && item.imageOf === extractUrl(item.productUrl)
-                ? <img className="order-item-thumb" src={item.imageUrl} alt={`Product ${index + 1}`} loading="lazy" referrerPolicy="no-referrer" />
+                ? <button type="button" className="order-item-thumb-btn" onClick={() => setZoomed({ src: item.imageUrl!, alt: `Product ${index + 1}` })} aria-label={`View product ${index + 1} picture`}>
+                    <img className="order-item-thumb" src={item.imageUrl} alt="" loading="lazy" referrerPolicy="no-referrer" />
+                  </button>
                 : <span className="order-item-num" aria-hidden="true">{index + 1}</span>}
               <label htmlFor={id("product")} className="sr-only">Product {index + 1} link</label>
               {/* type="text": shared text with words around the link must not be blocked; only the link is kept. */}
@@ -107,7 +116,11 @@ export default function OrderItemsEditor({ items, setItems, idPrefix }: { items:
                   <button type="button" aria-label="Increase quantity" onClick={() => updateItem(item.key, { quantity: (item.quantity || 0) + 1 })}>+</button>
                 </div>
               </div>
-              {storeOf(item.productUrl) && <span className="order-item-store">{storeOf(item.productUrl)}</span>}
+              {(() => {
+                const price = priceFor?.(extractUrl(item.productUrl));
+                if (price) return <span className="order-item-price" title="Quoted price per piece">₹{price.toLocaleString("en-IN")}{item.quantity > 1 ? <small> × {item.quantity}</small> : null}</span>;
+                return storeOf(item.productUrl) ? <span className="order-item-store">{storeOf(item.productUrl)}</span> : null;
+              })()}
               {!pickerOpen && <button type="button" className="order-detail-toggle" onClick={() => setOpenPicker(item.key)}><span aria-hidden="true">+</span> {item.details.length ? "More" : "Details"}</button>}
             </div>
 
@@ -138,5 +151,23 @@ export default function OrderItemsEditor({ items, setItems, idPrefix }: { items:
       })}
       <button type="button" className="order-item-add" onClick={addItem} disabled={items.length >= MAX_ITEMS}><span aria-hidden="true">+</span> Add another product</button>
     </div>
+  );
+}
+
+/** A product picture shown large over the page; tap outside, the × or Esc closes it. */
+function ImageViewer({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") onClose(); };
+    const scroll = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = scroll; };
+  }, [onClose]);
+  return createPortal(
+    <div className="image-viewer" role="dialog" aria-modal="true" aria-label={alt} onClick={onClose}>
+      <button type="button" className="image-viewer-close" onClick={onClose} aria-label="Close picture" autoFocus>×</button>
+      <img src={src} alt={alt} referrerPolicy="no-referrer" onClick={event => event.stopPropagation()} />
+    </div>,
+    document.body,
   );
 }
