@@ -3,9 +3,15 @@
 const POLL_MS = 2500;
 const GIVE_UP_MS = 120_000;
 
-export async function fetchProductPriceViaClaude(url: string): Promise<{ price: number | null; note: string }> {
-  const read = (result: { price?: unknown; note?: unknown; error?: unknown }) =>
-    ({ price: typeof result.price === "number" ? result.price : null, note: String(result.note || result.error || "Claude couldn’t find a price") });
+/** The price (and the product photo Claude saw on the same page, when there is one). */
+export type ClaudeLookup = { price: number | null; note: string; imageUrl?: string };
+
+export async function fetchProductPriceViaClaude(url: string): Promise<ClaudeLookup> {
+  const read = (result: { price?: unknown; note?: unknown; error?: unknown; imageUrl?: unknown }): ClaudeLookup => ({
+    price: typeof result.price === "number" ? result.price : null,
+    note: String(result.note || result.error || "Claude couldn’t find a price"),
+    ...(typeof result.imageUrl === "string" && result.imageUrl.startsWith("https://") ? { imageUrl: result.imageUrl } : {}),
+  });
   try {
     const started = await fetch("/api/cart/price", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
     const first = await started.json().catch(() => ({}));

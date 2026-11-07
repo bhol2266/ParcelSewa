@@ -247,6 +247,9 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
           const result = response ? await response.json().catch(() => ({})) : {};
           imageUrl = response?.ok && typeof result.imageUrl === "string" ? result.imageUrl : null;
         }
+        // Stores the picture scrapers can't read (Myntra): the Claude lookup reads the page and reports the photo.
+        // The backend keeps lookups for 30 minutes, so after a price lookup this costs nothing extra.
+        if (!imageUrl) imageUrl = (await fetchProductPriceViaClaude(item.productUrl)).imageUrl ?? null;
         if (imageUrl) found.push({ productUrl: item.productUrl, imageUrl });
       }
       if (!found.length) { toast.error("Couldn’t find any product pictures."); return; }
