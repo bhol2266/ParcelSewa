@@ -60,7 +60,7 @@ export default function OrderItemsEditor({ items, setItems, idPrefix, priceFor }
   function addItem() {
     if (items.length >= MAX_ITEMS) { toast.error(`You can add up to ${MAX_ITEMS} products in one request.`); return; }
     const added = emptyItem();
-    setItems(current => [...current, added]);
+    setItems(current => [added, ...current]);
     focusLater(`${idPrefix}-product-${added.key}`);
   }
 
@@ -83,6 +83,8 @@ export default function OrderItemsEditor({ items, setItems, idPrefix, priceFor }
   return (
     <div className="order-items">
       {zoomed && <ImageViewer src={zoomed.src} alt={zoomed.alt} onClose={() => setZoomed(null)} />}
+      {/* At the top: a new product goes first, so it is in view without scrolling past the list. */}
+      <button type="button" className="order-item-add" onClick={addItem} disabled={items.length >= MAX_ITEMS}><span aria-hidden="true">+</span> Add another product</button>
       {items.map((item, index) => {
         const available = DETAIL_TYPES.filter(d => d.type === "other" || !item.details.some(existing => existing.type === d.type));
         const pickerOpen = openPicker === item.key;
@@ -149,7 +151,6 @@ export default function OrderItemsEditor({ items, setItems, idPrefix, priceFor }
           </fieldset>
         );
       })}
-      <button type="button" className="order-item-add" onClick={addItem} disabled={items.length >= MAX_ITEMS}><span aria-hidden="true">+</span> Add another product</button>
     </div>
   );
 }
