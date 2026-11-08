@@ -1,4 +1,6 @@
+import { cookies } from "next/headers";
 import TrackOrderPage from "@/components/TrackOrderPage";
+import { ADMIN_COOKIE, ADMIN_PASSWORD } from "@/lib/admin-access";
 
 // app/trackOrder/page.tsx (Server Component)
 export const metadata = {
@@ -14,7 +16,9 @@ export const metadata = {
 
 const Page = async ({ searchParams }: { searchParams: Promise<{ mobile?: string | string[] }> }) => {
   const params = await searchParams;
-  return <TrackOrderPage initialMobile={typeof params.mobile === "string" ? params.mobile : ""} />;
+  // The team (admin cookie) tracks with the number only, without the payment amount.
+  const admin = (await cookies()).get(ADMIN_COOKIE)?.value === ADMIN_PASSWORD;
+  return <TrackOrderPage initialMobile={typeof params.mobile === "string" ? params.mobile : ""} admin={admin} />;
 };
 
 export default Page;

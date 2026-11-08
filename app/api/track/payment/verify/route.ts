@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { collection, doc, getDoc, getDocs, query, setDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { orderedMillis } from "@/lib/late-orders";
+import { ADMIN_COOKIE, ADMIN_PASSWORD } from "@/lib/admin-access";
 import { cookieOptions, nepalMobile, sessionValue, SESSION_COOKIE } from "@/lib/track-auth";
 
 // The other way to sign in on /trackOrder (no SMS): the customer types the advance or remaining payment of any of
@@ -17,6 +18,16 @@ export async function POST(req: NextRequest) {
     const { mobile: raw, amount: rawAmount } = await req.json().catch(() => ({ mobile: "", amount: "" }));
     const mobile = nepalMobile(raw);
     if (!mobile) return NextResponse.json({ error: "invalid-number" }, { status: 400 });
+
+    // The team (admin cookie) opens any customer's tracking with just the number.
+    if (req.cookies.get(ADMIN_COOKIE)?.value === ADMIN_PASSWORD) {
+        const any = await getDocs(query(collection(db, "Confirm Orders"), where("mobile", "==", `+977${mobile}`)));
+        if (any.empty) return NextResponse.json({ error: "no-orders" }, { status: 404 });
+        const res = NextResponse.json({ ok: true });
+        res.cookies.set(SESSION_COOKIE, sessionValue(mobile), cookieOptions);
+        return res;
+    }
+
     const amount = Number(String(rawAmount ?? "").replace(/[,\s]/g, ""));
     if (!Number.isFinite(amount) || amount <= 0) return NextResponse.json({ error: "invalid-amount" }, { status: 400 });
 

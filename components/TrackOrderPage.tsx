@@ -48,7 +48,7 @@ async function post(url: string, body: unknown) {
     return { ok: res.ok, data: await res.json().catch(() => ({})) };
 }
 
-export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?: string }) {
+export default function TrackOrderPage({ initialMobile = "", admin = false }: { initialMobile?: string; admin?: boolean }) {
     const [mobile, setMobile] = useState(initialMobile.replace(/\D/g, "").slice(-10));
     const [status, setStatus] = useState<Status>("idle");
     const [orders, setOrders] = useState<any[]>([]);
@@ -172,7 +172,7 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
     };
 
     const verifyAmount = async () => {
-        if (!valid || !amount || busy) return;
+        if (!valid || (!amount && !admin) || busy) return;
         setBusy(true);
         setLoginError("");
         try {
@@ -231,6 +231,8 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                             ? <>Enter your last payment amount for <strong className="text-white">+977 {mobile}</strong>. It can be the advance or remaining payment from any of your last 3 orders.</>
                             : SMS_LOGIN
                             ? "Verify the mobile number you ordered with to see live tracking and all your ParcelSewa orders. You only do this once on this device."
+                            : admin
+                            ? "Admin mode: enter the customer's mobile number to see their orders."
                             : "Enter the mobile number you ordered with and your last payment amount to see live tracking and all your ParcelSewa orders. You only do this once on this device."}
                     </p>
                     </>}
@@ -261,7 +263,7 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                                     )}
                                 </div>
                             </div>
-                            <div>
+                            {!admin && <div>
                                 <label htmlFor="track-amount" className="mb-1.5 block text-xs font-semibold uppercase tracking-wider text-white/70">Enter your last payment amount</label>
                                 <div className="flex min-w-0 items-center rounded-2xl bg-white p-1.5 shadow-xl shadow-black/20 ring-1 ring-black/5 focus-within:ring-2 focus-within:ring-[#f48b28] dark:bg-[#111c2d]">
                                     <span className="flex items-center gap-1.5 rounded-xl bg-[var(--store-soft)] px-3 py-3 text-sm font-semibold text-[var(--store-ink)]">Rs.</span>
@@ -278,14 +280,14 @@ export default function TrackOrderPage({ initialMobile = "" }: { initialMobile?:
                                     />
                                 </div>
                                 <p className="mt-1.5 text-xs text-white/65">The advance or remaining payment from any of your last 3 orders.</p>
-                            </div>
+                            </div>}
                             <button
                                 type="submit"
-                                disabled={!valid || !amount || busy}
+                                disabled={!valid || (!amount && !admin) || busy}
                                 className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#f48b28] px-5 py-4 text-sm font-bold text-[#122235] shadow-lg shadow-[#f48b28]/30 transition hover:bg-[#ffad63] active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 {busy ? <ArrowPathIcon className="size-5 animate-spin" aria-hidden /> : <LockClosedIcon className="size-5" aria-hidden />}
-                                Verify &amp; track
+                                {admin ? "Track" : <>Verify &amp; track</>}
                             </button>
                         </form>
                     )}
