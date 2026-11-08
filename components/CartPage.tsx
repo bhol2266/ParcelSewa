@@ -577,6 +577,17 @@ function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted, orderData
         <p className="small-note">Fetch or type every product’s price to see the quotation.</p>
       )}
 
+      {/* Like the cart's Save bar: shown while the quotation (prices, service fee or advance) differs from the saved one. */}
+      {quotation && quoteChanged && !unsaved && (
+        <>
+          <div className="order-submit cart-save-bar">
+            <p className="order-summary"><strong>Quotation changed</strong><span>{npr(quotation.totalNPR)} · {quotation.serviceLabel}</span></p>
+            <button type="button" disabled={savingQuote} className="button-primary" onClick={updateQuote}>{savingQuote ? "Saving…" : "Save"}</button>
+          </div>
+          <div className="cart-save-spacer" aria-hidden="true" />
+        </>
+      )}
+
       <CreateOrderPanel request={request} orderDeleted={orderDeleted} orderData={orderData} mobile={mobile} unsaved={unsaved} rate={appliedRate} quotedTotal={quotation?.totalNPR ?? null} quotedProductNPR={quotation?.productNPR ?? null} quotedAdvance={Number.isFinite(advanceAmount) ? Math.round(advanceAmount) : 0} onRateChange={next => { setRate(next); setCopyState(""); }} onCreated={(orderId, syncedAt) => onSaved({ ...request, orderId, orderSyncedAt: syncedAt })} />
     </section>
   );
