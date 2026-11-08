@@ -577,7 +577,7 @@ function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted, orderData
         <p className="small-note">Fetch or type every product’s price to see the quotation.</p>
       )}
 
-      <CreateOrderPanel request={request} orderDeleted={orderDeleted} orderData={orderData} mobile={mobile} unsaved={unsaved} rate={appliedRate} quotedTotal={quotation?.totalNPR ?? null} quotedProductNPR={quotation?.productNPR ?? null} quotedAdvance={Number.isFinite(advanceAmount) ? Math.round(advanceAmount) : 0} onCreated={(orderId, syncedAt) => onSaved({ ...request, orderId, orderSyncedAt: syncedAt })} />
+      <CreateOrderPanel request={request} orderDeleted={orderDeleted} orderData={orderData} mobile={mobile} unsaved={unsaved} rate={appliedRate} quotedTotal={quotation?.totalNPR ?? null} quotedProductNPR={quotation?.productNPR ?? null} quotedAdvance={Number.isFinite(advanceAmount) ? Math.round(advanceAmount) : 0} onRateChange={next => { setRate(next); setCopyState(""); }} onCreated={(orderId, syncedAt) => onSaved({ ...request, orderId, orderSyncedAt: syncedAt })} />
     </section>
   );
 }
@@ -586,8 +586,9 @@ function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted, orderData
 const ORDER_COMMISSIONS = ["5%", "10%", "15%", "20%", "25%", "30%", "35%", "40%", "45%", "50%", "Flat NPR 800", "Flat NPR 1000"];
 
 // ── Team only: create the order on the orders page from this cart, or bring an existing order up to date. ────────
-function CreateOrderPanel({ request, orderDeleted, orderData, mobile, unsaved, rate, quotedTotal, quotedProductNPR, quotedAdvance, onCreated }: {
+function CreateOrderPanel({ request, orderDeleted, orderData, mobile, unsaved, rate, quotedTotal, quotedProductNPR, quotedAdvance, onRateChange, onCreated }: {
   request: CartRequest; orderDeleted: boolean; orderData: Record<string, unknown> | null; mobile: string; unsaved: boolean; rate: CommissionOption; quotedTotal: number | null; quotedProductNPR: number | null; quotedAdvance: number;
+  onRateChange: (rate: CommissionOption) => void;
   onCreated: (orderId: string, syncedAt: number) => void;
 }) {
   // An existing order keeps its own store name unless the team changes it here.
@@ -615,6 +616,15 @@ function CreateOrderPanel({ request, orderDeleted, orderData, mobile, unsaved, r
     storeName, commission: shownCommission, totalAmount: Number(shownTotal), advancePayment: Number(shownAdvance || 0), items: request.items,
   }) : null;
   const upToDate = existing && (diffs ? diffs.length === 0 : !cartChangedSinceOrder(request));
+
+  // A commission the quotation also offers changes the quotation's service fee too, so both stay the same; others
+  // (45%, Flat NPR 800) only change this order's total.
+  function pickCommission(value: string) {
+    setTypedTotal(false);
+    const quoteRate = commissionOptions.find(option => commissionText(option.value) === value)?.value;
+    if (quoteRate !== undefined) { setCommission(null); onRateChange(quoteRate); }
+    else setCommission(value);
+  }
 
   async function saveOrder() {
     const totalAmount = Number(shownTotal), advancePayment = Number(shownAdvance || 0);
@@ -690,7 +700,7 @@ function CreateOrderPanel({ request, orderDeleted, orderData, mobile, unsaved, r
       <div className="cart-create-grid">
         <div className="form-field"><label htmlFor={`store-${request.id}`}>Store</label><input id={`store-${request.id}`} list="cart-store-options" className="order-input" value={storeName} onChange={event => setStoreName(event.target.value)} /></div>
         <div className="form-field"><label htmlFor={`commission-${request.id}`}>Commission</label>
-          <select id={`commission-${request.id}`} className="order-input" value={shownCommission} onChange={event => { setCommission(event.target.value); setTypedTotal(false); }}>
+          <select id={`commission-${request.id}`} className="order-input" value={shownCommission} onChange={event => pickCommission(event.target.value)}>
             {[...new Set([...ORDER_COMMISSIONS, shownCommission])].map(option => <option key={option} value={option}>{option}</option>)}
           </select>
         </div>
