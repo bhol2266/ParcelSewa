@@ -14,6 +14,7 @@ import { fetchProductPriceViaExtension, fetchStoreImageViaExtension, hasExtensio
 import { fetchProductPriceViaClaude } from "@/lib/claude-price-client";
 import { SUPPORT_URL } from "@/lib/storefront";
 import { productPageUrl } from "@/lib/product-page-url";
+import { commissionAmount } from "@/lib/product-price-parse";
 
 type Props = { apiQuery: string; mobile: string; admin: boolean };
 
@@ -576,14 +577,17 @@ function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted, orderData
         <p className="small-note">Fetch or type every product’s price to see the quotation.</p>
       )}
 
-      <CreateOrderPanel request={request} orderDeleted={orderDeleted} orderData={orderData} mobile={mobile} unsaved={unsaved} rate={appliedRate} quotedTotal={quotation?.totalNPR ?? null} quotedAdvance={Number.isFinite(advanceAmount) ? Math.round(advanceAmount) : 0} onCreated={(orderId, syncedAt) => onSaved({ ...request, orderId, orderSyncedAt: syncedAt })} />
+      <CreateOrderPanel request={request} orderDeleted={orderDeleted} orderData={orderData} mobile={mobile} unsaved={unsaved} rate={appliedRate} quotedTotal={quotation?.totalNPR ?? null} quotedProductNPR={quotation?.productNPR ?? null} quotedAdvance={Number.isFinite(advanceAmount) ? Math.round(advanceAmount) : 0} onCreated={(orderId, syncedAt) => onSaved({ ...request, orderId, orderSyncedAt: syncedAt })} />
     </section>
   );
 }
 
+// The commission choices on the orders page (/createOrder), as saved on an order.
+const ORDER_COMMISSIONS = ["5%", "10%", "15%", "20%", "25%", "30%", "35%", "40%", "45%", "50%", "Flat NPR 800", "Flat NPR 1000"];
+
 // ── Team only: create the order on the orders page from this cart, or bring an existing order up to date. ────────
-function CreateOrderPanel({ request, orderDeleted, orderData, mobile, unsaved, rate, quotedTotal, quotedAdvance, onCreated }: {
-  request: CartRequest; orderDeleted: boolean; orderData: Record<string, unknown> | null; mobile: string; unsaved: boolean; rate: CommissionOption; quotedTotal: number | null; quotedAdvance: number;
+function CreateOrderPanel({ request, orderDeleted, orderData, mobile, unsaved, rate, quotedTotal, quotedProductNPR, quotedAdvance, onCreated }: {
+  request: CartRequest; orderDeleted: boolean; orderData: Record<string, unknown> | null; mobile: string; unsaved: boolean; rate: CommissionOption; quotedTotal: number | null; quotedProductNPR: number | null; quotedAdvance: number;
   onCreated: (orderId: string, syncedAt: number) => void;
 }) {
   // An existing order keeps its own store name unless the team changes it here.
@@ -594,13 +598,21 @@ function CreateOrderPanel({ request, orderDeleted, orderData, mobile, unsaved, r
   const [typedAdvance, setTypedAdvance] = useState(false);
   const [working, setWorking] = useState(false);
   // Total and advance follow the quotation until the team types its own here.
-  const shownTotal = typedTotal ? total : quotedTotal ? String(quotedTotal) : total;
+  // Commission: the quotation's service fee unless the team picks another here (an existing order starts from its own).
+  const quoteCommission = commissionText(rate);
+  const [commission, setCommission] = useState<string | null>(() => (orderData && typeof orderData.commission === "string" && orderData.commission) || null);
+  const shownCommission = commission ?? quoteCommission;
+  // A different commission recalculates the total from the quoted product amount (until the team types a total).
+  const commissionFee = quotedProductNPR !== null && shownCommission !== quoteCommission ? commissionAmount(shownCommission, quotedProductNPR) : null;
+  const shownTotal = typedTotal ? total
+    : commissionFee !== null && quotedProductNPR !== null ? String(quotedProductNPR + commissionFee)
+    : quotedTotal ? String(quotedTotal) : total;
   const shownAdvance = typedAdvance ? advance : String(quotedAdvance);
   const existing = !!request.orderId;
   // Compared by contents with the order card: what this button would write vs what the order has now.
   const diffs = existing && orderData ? orderDifferences(orderData, {
     name: request.customerName, address: request.deliveryLocation, notes: orderNotes(request.items, request.notes),
-    storeName, commission: commissionText(rate), totalAmount: Number(shownTotal), advancePayment: Number(shownAdvance || 0), items: request.items,
+    storeName, commission: shownCommission, totalAmount: Number(shownTotal), advancePayment: Number(shownAdvance || 0), items: request.items,
   }) : null;
   const upToDate = existing && (diffs ? diffs.length === 0 : !cartChangedSinceOrder(request));
 
@@ -622,7 +634,7 @@ function CreateOrderPanel({ request, orderDeleted, orderData, mobile, unsaved, r
         notes: orderNotes(request.items, request.notes),
         address: request.deliveryLocation,
         storeName: storeName.trim(),
-        commission: commissionText(rate),
+        commission: shownCommission,
         totalAmount,
         advancePayment,
       };
@@ -677,7 +689,11 @@ function CreateOrderPanel({ request, orderDeleted, orderData, mobile, unsaved, r
       {existing && <p className="small-note">On the orders page since {dateLabel(request.orderSyncedAt ?? 0, true)}. <a href="/admin" className="underline underline-offset-4">Open orders</a></p>}
       <div className="cart-create-grid">
         <div className="form-field"><label htmlFor={`store-${request.id}`}>Store</label><input id={`store-${request.id}`} list="cart-store-options" className="order-input" value={storeName} onChange={event => setStoreName(event.target.value)} /></div>
-        <div className="form-field"><label htmlFor={`commission-${request.id}`}>Commission</label><input id={`commission-${request.id}`} className="order-input" value={commissionText(rate)} readOnly disabled /></div>
+        <div className="form-field"><label htmlFor={`commission-${request.id}`}>Commission</label>
+          <select id={`commission-${request.id}`} className="order-input" value={shownCommission} onChange={event => { setCommission(event.target.value); setTypedTotal(false); }}>
+            {[...new Set([...ORDER_COMMISSIONS, shownCommission])].map(option => <option key={option} value={option}>{option}</option>)}
+          </select>
+        </div>
         <div className="form-field"><label htmlFor={`total-${request.id}`}>Total (NPR)</label><input id={`total-${request.id}`} className="order-input" type="number" onWheel={event => event.currentTarget.blur()} inputMode="numeric" min="1" value={shownTotal} placeholder="From the quotation" onChange={event => { setTypedTotal(true); setTotal(event.target.value); }} /></div>
         <div className="form-field"><label htmlFor={`advance-${request.id}`}>Advance paid (NPR)</label><input id={`advance-${request.id}`} className="order-input" type="number" onWheel={event => event.currentTarget.blur()} inputMode="numeric" min="0" value={shownAdvance} onChange={event => { setTypedAdvance(true); setAdvance(event.target.value); }} /></div>
       </div>
