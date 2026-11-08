@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchAjioImage, fetchFlipkartImage, fetchGenericImage, isStoreUrl } from "@/lib/product-images";
+import { productPageUrl } from "@/lib/product-page-url";
 
 // The configured store scraper can take up to a minute on blocked product pages.
 export const maxDuration = 180;
@@ -43,7 +44,10 @@ async function fetchMyntraImageFromBackend(productUrl: string): Promise<string |
 
 export async function POST(req: NextRequest) {
     try {
-        const { productUrl, notes } = await req.json();
+        const body = await req.json();
+        const notes = body?.notes;
+        // Read the page that shows the product (Myntra: myntra.com/<product number>; its long links often 404).
+        const productUrl = typeof body?.productUrl === "string" ? productPageUrl(body.productUrl) : body?.productUrl;
 
         if (!productUrl) {
             return NextResponse.json({ error: "Missing productUrl" }, { status: 400 });

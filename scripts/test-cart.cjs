@@ -287,11 +287,12 @@ test("a saved detail in Firestore's field order compares equal to the editor's",
   assert.equal(JSON.stringify(canonicalItems(fromFirestore)), JSON.stringify(canonicalItems(fromEditor)));
 });
 
-test("Myntra checkout links are looked up on the product page", () => {
+test("Myntra links are looked up at myntra.com/<product number>", () => {
   const { productPageUrl } = load("product-page-url");
-  assert.equal(productPageUrl("https://www.myntra.com/tights/blissclub/blissclub-high-waisted-flare-pants-with-1-back-pocket/25856156/buy"),
-    "https://www.myntra.com/tights/blissclub/blissclub-high-waisted-flare-pants-with-1-back-pocket/25856156");
-  assert.equal(productPageUrl("https://www.myntra.com/tights/blissclub/x/25856156"), "https://www.myntra.com/tights/blissclub/x/25856156");
+  assert.equal(productPageUrl("https://www.myntra.com/tights/blissclub/blissclub-high-waisted-flare-pants-with-1-back-pocket/25856156/buy"), "https://www.myntra.com/25856156");
+  assert.equal(productPageUrl("https://www.myntra.com/tights/blissclub/x/25856156"), "https://www.myntra.com/25856156");
+  assert.equal(productPageUrl("https://www.myntra.com/25856156"), "https://www.myntra.com/25856156");
+  assert.equal(productPageUrl("https://www.myntra.com/wsa-all-new?f=Discount%20Range%3A30.0"), "https://www.myntra.com/wsa-all-new?f=Discount%20Range%3A30.0");
   const amazon = "https://www.amazon.in/dp/B09JVNZVH3/?_encoding=UTF8&ref_=pd_hp";
   assert.equal(productPageUrl(amazon), amazon);
   assert.equal(productPageUrl("not a link"), "not a link");
