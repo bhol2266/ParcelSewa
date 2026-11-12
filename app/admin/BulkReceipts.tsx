@@ -25,7 +25,27 @@ type Item = {
     sure: boolean;
     // undefined = still to decide, "" = skip, otherwise the order id.
     choice?: string;
+    // SHA-256 of the photo file, to catch the same photo added twice.
+    hash?: string;
+    // Why this receipt looks like a duplicate (it is then skipped unless an order is picked anyway).
+    duplicate?: string;
 };
+
+async function fileHash(file: File): Promise<string> {
+    const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+    return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// The order (any order, not just this batch's candidates) that already has this tracking number, if one does.
+async function orderWithTracking(trackingNumber: string): Promise<Order | null> {
+    const ref = collection(db, "Confirm Orders");
+    const [inList, single] = await Promise.all([
+        getDocs(query(ref, where("courierTrackingNumbers", "array-contains", trackingNumber), limit(1))),
+        getDocs(query(ref, where("courierTrackingNumber", "==", trackingNumber), limit(1))),
+    ]);
+    const hit = inList.docs[0] ?? single.docs[0];
+    return hit ? ({ id: hit.id, ...hit.data() } as Order) : null;
+}
 
 const DELIVERED_WINDOW_MS = 48 * 3600_000;
 const last10 = (v: unknown) => String(v ?? "").replace(/\D/g, "").slice(-10);
@@ -111,8 +131,26 @@ export default function BulkReceipts({ onClose, onDone }: { onClose: () => void;
 
     const update = (key: string, patch: Partial<Item>) => setItems((list) => list.map((it) => (it.key === key ? { ...it, ...patch } : it)));
 
+    // Which receipt in this window first claimed a photo (by file hash) or a tracking number. Set synchronously so
+    // two copies finishing at the same moment can't both get through.
+    const seenHashes = useRef(new Map<string, string>());
+    const seenTracking = useRef(new Map<string, string>());
+    const forget = (key: string) => {
+        for (const map of [seenHashes.current, seenTracking.current]) for (const [k, v] of map) if (v === key) map.delete(k);
+    };
+
     const processOne = useCallback(async (key: string, file: File) => {
         try {
+            // 1. The very same photo already added in this window: don't upload or read it again.
+            const hash = await fileHash(file).catch(() => "");
+            if (hash) {
+                const first = seenHashes.current.get(hash);
+                if (first && first !== key) {
+                    update(key, { status: "done", hash, duplicate: "Same photo was added twice in this upload.", suggestions: [], sure: false, choice: "" });
+                    return;
+                }
+                seenHashes.current.set(hash, key);
+            }
             const { urls, errors } = await uploadProductImages([file]);
             if (!urls[0]) throw new Error(errors[0] || "Upload failed");
             update(key, { url: urls[0], status: "reading" });
@@ -121,8 +159,24 @@ export default function BulkReceipts({ onClose, onDone }: { onClose: () => void;
             if (!res.ok) throw new Error(data.error || "Couldn't read the receipt");
             const reading = data as Reading;
             const { suggestions, sure } = suggest(reading, ordersRef.current);
-            const already = suggestions[0]?.order.courierTrackingNumber && suggestions[0].order.courierTrackingNumber === reading.trackingNumber;
-            update(key, { status: "done", reading, suggestions, sure: sure && !already, choice: sure && !already ? suggestions[0].order.id : undefined });
+            const tn = reading.trackingNumber;
+
+            // 2. Another photo of the same receipt in this upload (same tracking number).
+            if (tn) {
+                const first = seenTracking.current.get(tn);
+                if (first && first !== key) {
+                    update(key, { status: "done", reading, suggestions, sure: false, choice: "", duplicate: `Same receipt (#${tn}) as another photo in this upload.` });
+                    return;
+                }
+                seenTracking.current.set(tn, key);
+            }
+            // 3. This receipt is already attached to an order (any order, even older ones).
+            const owner = tn ? await orderWithTracking(tn).catch(() => null) : null;
+            if (owner) {
+                update(key, { status: "done", reading, suggestions, sure: false, choice: "", duplicate: `Already attached to ${owner.name || "an order"}'s order (#${tn}).` });
+                return;
+            }
+            update(key, { status: "done", reading, suggestions, sure, choice: sure ? suggestions[0].order.id : undefined });
         } catch (err) {
             update(key, { status: "error", error: err instanceof Error ? err.message : "Failed", suggestions: [], sure: false });
         }
@@ -162,9 +216,12 @@ export default function BulkReceipts({ onClose, onDone }: { onClose: () => void;
             for (const [orderId, its] of byOrder) {
                 const order = ordersRef.current.find((o) => o.id === orderId);
                 const urls = its.map((it) => it.url as string);
-                const tracking = its.map((it) => it.reading?.trackingNumber).filter(Boolean).at(-1);
+                const trackings = its.map((it) => it.reading?.trackingNumber).filter((n): n is string => !!n);
+                const tracking = trackings.at(-1);
                 const patch: Record<string, unknown> = { courierReceipts: arrayUnion(...urls) };
-                if (tracking) patch.courierTrackingNumber = tracking;
+                // Every tracking number is kept (an order can have more than one parcel), so a later upload of the
+                // same receipt is caught as a duplicate.
+                if (tracking) Object.assign(patch, { courierTrackingNumber: tracking, courierTrackingNumbers: arrayUnion(...trackings) });
                 await updateDoc(doc(db, "Confirm Orders", orderId), patch);
                 await logOrderActivity({
                     action: "file_added", orderId, before: order,
@@ -218,7 +275,7 @@ export default function BulkReceipts({ onClose, onDone }: { onClose: () => void;
                         const needsCheck = it.status === "done" && it.choice === undefined;
                         const clash = it.choice ? usedBy(it.choice) > 1 : false;
                         return (
-                            <div key={it.key} className={`flex gap-3 rounded-xl p-2.5 ring-1 ${it.status === "error" ? "bg-rose-50 ring-rose-200" : needsCheck ? "bg-amber-50 ring-amber-300" : it.choice ? "bg-emerald-50/60 ring-emerald-200" : "bg-gray-50 ring-gray-200"}`}>
+                            <div key={it.key} className={`flex gap-3 rounded-xl p-2.5 ring-1 ${it.status === "error" ? "bg-rose-50 ring-rose-200" : it.duplicate && !it.choice ? "bg-gray-100 opacity-80 ring-gray-300" : needsCheck ? "bg-amber-50 ring-amber-300" : it.choice ? "bg-emerald-50/60 ring-emerald-200" : "bg-gray-50 ring-gray-200"}`}>
                                 <button type="button" onClick={() => setViewing(it.url || it.preview)} className="h-16 w-16 shrink-0 overflow-hidden rounded-lg bg-gray-200 ring-1 ring-gray-200">
                                     <img src={it.preview} alt="Receipt" className="h-full w-full object-cover" />
                                 </button>
@@ -226,6 +283,11 @@ export default function BulkReceipts({ onClose, onDone }: { onClose: () => void;
                                     {it.status === "uploading" && <p className="text-gray-500">Uploading…</p>}
                                     {it.status === "reading" && <p className="text-gray-500">Reading the receipt…</p>}
                                     {it.status === "error" && <p className="text-rose-700">{it.error}</p>}
+                                    {it.duplicate && (
+                                        <p className="text-xs font-semibold text-gray-700">
+                                            ⚠ Duplicate: {it.duplicate} <span className="font-normal text-gray-500">Skipped{it.reading ? ". Pick an order below only if it really is a different parcel." : "."}</span>
+                                        </p>
+                                    )}
                                     {it.status === "done" && it.reading && (
                                         <>
                                             <p className="text-xs text-gray-600">
@@ -263,7 +325,7 @@ export default function BulkReceipts({ onClose, onDone }: { onClose: () => void;
                                         </>
                                     )}
                                 </div>
-                                <button type="button" onClick={() => setItems((list) => list.filter((x) => x.key !== it.key))} aria-label="Remove" className="h-7 w-7 shrink-0 rounded-full text-gray-400 hover:bg-white hover:text-gray-700">✕</button>
+                                <button type="button" onClick={() => { forget(it.key); setItems((list) => list.filter((x) => x.key !== it.key)); }} aria-label="Remove" className="h-7 w-7 shrink-0 rounded-full text-gray-400 hover:bg-white hover:text-gray-700">✕</button>
                             </div>
                         );
                     })}

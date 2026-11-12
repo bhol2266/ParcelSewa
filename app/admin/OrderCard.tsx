@@ -9,7 +9,7 @@ import { expectedTotal } from "@/lib/product-price-parse";
 import { isOrderAllReceived, isProductChecked, tickTheme } from "@/lib/product-checks";
 import { logOrderActivity } from "@/lib/order-logs";
 import { uploadProductImages, PRODUCT_IMAGE_ACCEPT } from "@/lib/upload-product-image";
-import OrderFilesMenu from "./OrderFilesMenu";
+import OrderFilesMenu, { CourierReceiptsRow } from "./OrderFilesMenu";
 
 interface OrderProps {
     order: any;
@@ -899,6 +899,8 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                                 </div>
                             );
                         })()}
+
+                        <CourierReceiptsRow order={order} refresh={refresh} />
 
                         {order.notes && order.notes.trim() !== "" && (
                             <div className="rounded-xl border-l-4 border-amber-400 bg-amber-50 px-3 py-2">

@@ -4,16 +4,48 @@
 // Photos go to Cloudflare R2 (/api/upload-product-image) and their links are saved on the order.
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { doc, updateDoc } from "firebase/firestore";
+import { deleteField, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { logOrderActivity } from "@/lib/order-logs";
 import { pastedImages, PRODUCT_IMAGE_ACCEPT, uploadProductImages } from "@/lib/upload-product-image";
 
-// Courier receipts are added in bulk from the admin header's "Receipts" link instead (app/admin/BulkReceipts.tsx).
 const ALBUMS = {
     orderScreenshots: { title: "Order screenshots", icon: "🛒", empty: "No website order screenshots yet." },
+    courierReceipts: { title: "Courier receipts", icon: "🧾", empty: "No courier receipts yet." },
 } as const;
-type AlbumKey = keyof typeof ALBUMS;
+export type AlbumKey = keyof typeof ALBUMS;
+// Courier receipts are added in bulk from the admin header's "Receipts" link (app/admin/BulkReceipts.tsx) and shown
+// on the card itself (CourierReceiptsRow), so the ⋯ menu only lists the screenshots.
+const MENU_ALBUMS: AlbumKey[] = ["orderScreenshots"];
+
+/** The order's courier receipts as small thumbnails on the card; tapping one opens them large. */
+export function CourierReceiptsRow({ order, refresh }: { order: any; refresh: (orderId?: string) => void }) {
+    const [open, setOpen] = useState(false);
+    const receipts: string[] = Array.isArray(order.courierReceipts) ? order.courierReceipts : [];
+    if (!receipts.length) return null;
+    const numbers: string[] = order.courierTrackingNumbers?.length ? order.courierTrackingNumbers : order.courierTrackingNumber ? [order.courierTrackingNumber] : [];
+    return (
+        <>
+            <div className="flex items-center gap-2 rounded-xl bg-white/70 px-3 py-2 ring-1 ring-white">
+                <span className="text-sm">🧾</span>
+                <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-semibold uppercase leading-none tracking-wider text-gray-400">Courier receipt</p>
+                    <p className="mt-0.5 truncate text-sm font-medium text-gray-800">{numbers.length ? numbers.map((n) => `#${n}`).join(", ") : "No tracking number read"}</p>
+                </div>
+                <div className="flex shrink-0 gap-1">
+                    {receipts.slice(0, 3).map((url, i) => (
+                        <button key={url + i} type="button" onClick={() => setOpen(true)} title="View courier receipt"
+                            className="h-9 w-9 overflow-hidden rounded-lg bg-gray-100 ring-1 ring-gray-200 transition hover:ring-2 hover:ring-blue-400">
+                            <img src={url} alt={`Courier receipt ${i + 1}`} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                        </button>
+                    ))}
+                    {receipts.length > 3 && <span className="grid h-9 w-9 place-items-center rounded-lg bg-gray-100 text-xs font-bold text-gray-600">+{receipts.length - 3}</span>}
+                </div>
+            </div>
+            {open && createPortal(<AlbumModal order={order} refresh={refresh} albumKey="courierReceipts" onClose={() => setOpen(false)} />, document.body)}
+        </>
+    );
+}
 
 export default function OrderFilesMenu({ order, refresh }: { order: any; refresh: (orderId?: string) => void }) {
     const [menuOpen, setMenuOpen] = useState(false);
@@ -42,7 +74,7 @@ export default function OrderFilesMenu({ order, refresh }: { order: any; refresh
                 </button>
                 {menuOpen && (
                     <div className="absolute right-0 top-9 z-30 w-56 overflow-hidden rounded-xl bg-white py-1 shadow-xl ring-1 ring-gray-200">
-                        {(Object.keys(ALBUMS) as AlbumKey[]).map((key) => (
+                        {MENU_ALBUMS.map((key) => (
                             <button key={key} type="button" onClick={() => { setAlbum(key); setMenuOpen(false); }}
                                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm font-medium text-gray-700 transition hover:bg-gray-50">
                                 <span>{ALBUMS[key].icon}</span>
@@ -70,7 +102,10 @@ function AlbumModal({ order, refresh, albumKey, onClose }: { order: any; refresh
     const [viewing, setViewing] = useState<number | null>(null);
 
     const save = async (next: string[], what: "added" | "replaced" | "removed", details: Record<string, unknown>) => {
-        await updateDoc(doc(db, "Confirm Orders", order.id), { [albumKey]: next });
+        const patch: Record<string, unknown> = { [albumKey]: next };
+        // The last courier receipt gone: its tracking number goes too, so the tracking page and duplicate checks forget it.
+        if (albumKey === "courierReceipts" && next.length === 0) Object.assign(patch, { courierTrackingNumber: deleteField(), courierTrackingNumbers: deleteField() });
+        await updateDoc(doc(db, "Confirm Orders", order.id), patch);
         await logOrderActivity({
             action: what === "added" ? "file_added" : what === "replaced" ? "file_replaced" : "file_removed",
             orderId: order.id, before: order, after: { ...order, [albumKey]: next },
