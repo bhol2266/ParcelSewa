@@ -6,7 +6,7 @@ import { db } from "@/lib/firebase/firebaseClient";
 import { fetchProductPriceViaExtension, fetchStoreImageViaExtension } from "@/lib/extension-client";
 import { fetchProductPriceViaClaude } from "@/lib/claude-price-client";
 import { expectedTotal } from "@/lib/product-price-parse";
-import { isProductChecked, tickTheme } from "@/lib/product-checks";
+import { isOrderAllReceived, isProductChecked, tickTheme } from "@/lib/product-checks";
 import { logOrderActivity } from "@/lib/order-logs";
 import { uploadProductImages, PRODUCT_IMAGE_ACCEPT } from "@/lib/upload-product-image";
 
@@ -535,11 +535,15 @@ export default function OrderCard({ order, refresh }: OrderProps) {
     };
 
     // ── Status theme — colour lives in the accent bar / pill / avatar, not the whole card ──
+    // A pending order with every product ticked received (Ankush page) turns blue, like on the Ankush page.
+    const allReceived = isOrderAllReceived(order);
     const baseTheme = isCancelled
         ? { bar: "from-slate-400 to-slate-500", pill: "bg-white text-slate-700 ring-slate-200", dot: "bg-slate-500", avatar: "from-slate-400 to-slate-600", label: "Cancelled", tint: "from-slate-200 to-slate-100", ring: "ring-slate-300" }
         : isDelivered
             ? { bar: "from-rose-400 to-red-500", pill: "bg-white text-rose-700 ring-rose-200", dot: "bg-rose-500", avatar: "from-rose-400 to-red-500", label: "Delivered", tint: "from-rose-100 to-orange-50", ring: "ring-rose-300/70" }
-            : { bar: "from-emerald-400 to-green-500", pill: "bg-white text-emerald-700 ring-emerald-200", dot: "bg-emerald-500", avatar: "from-emerald-400 to-green-500", label: "Pending", tint: "from-emerald-100 to-teal-50", ring: "ring-emerald-300/70" };
+            : allReceived
+                ? { bar: "from-sky-400 to-blue-500", pill: "bg-white text-blue-700 ring-blue-200", dot: "bg-blue-500", avatar: "from-sky-400 to-blue-500", label: "✓ All received", tint: "from-blue-100 to-sky-50", ring: "ring-blue-300/70" }
+                : { bar: "from-emerald-400 to-green-500", pill: "bg-white text-emerald-700 ring-emerald-200", dot: "bg-emerald-500", avatar: "from-emerald-400 to-green-500", label: "Pending", tint: "from-emerald-100 to-teal-50", ring: "ring-emerald-300/70" };
 
     const errorOn = order.hasError === true;
 

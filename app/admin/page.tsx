@@ -418,7 +418,14 @@ export default function OrdersPage() {
                                 {option === "delivered" && "Delivered Orders"}
                                 {option === "errors" && `⚠️ Errors (${errorCount})`}
                                 {option === "late" && `⏰ Late (${lateCount})`}
-                                {option === "received" && `✅ All Received (${receivedCount})`}
+                                {option === "received" && (
+                                    <span className="inline-flex items-center gap-1.5">
+                                        <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full ${(selectedMonth ? sortOption : allTimeSortOption) === "received" ? "bg-white text-blue-500" : "bg-blue-500 text-white"}`}>
+                                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5"><path d="M4 10.5l4 4 8-9" /></svg>
+                                        </span>
+                                        All Received ({receivedCount})
+                                    </span>
+                                )}
                             </button>
                         ))}
                         {allTimeSortOption === "delivered" && (
@@ -441,7 +448,14 @@ export default function OrdersPage() {
                                 {option === "delivered" && "Delivered Orders"}
                                 {option === "errors" && `⚠️ Errors (${errorCount})`}
                                 {option === "late" && `⏰ Late (${lateCount})`}
-                                {option === "received" && `✅ All Received (${receivedCount})`}
+                                {option === "received" && (
+                                    <span className="inline-flex items-center gap-1.5">
+                                        <span className={`inline-flex h-4 w-4 items-center justify-center rounded-full ${(selectedMonth ? sortOption : allTimeSortOption) === "received" ? "bg-white text-blue-500" : "bg-blue-500 text-white"}`}>
+                                            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="h-2.5 w-2.5"><path d="M4 10.5l4 4 8-9" /></svg>
+                                        </span>
+                                        All Received ({receivedCount})
+                                    </span>
+                                )}
                             </button>
                         ))}
                     </div>
