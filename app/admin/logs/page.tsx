@@ -26,6 +26,9 @@ const ACTION_STYLE: Record<LogAction, { icon: string; cls: string }> = {
     border_photo_replaced: { icon: "🔁", cls: "bg-cyan-50 text-cyan-700 ring-cyan-200" },
     border_photo_removed: { icon: "🗑️", cls: "bg-cyan-50 text-cyan-700 ring-cyan-200" },
     payment_asked: { icon: "💬", cls: "bg-green-50 text-green-700 ring-green-200" },
+    file_added: { icon: "🧾", cls: "bg-indigo-50 text-indigo-700 ring-indigo-200" },
+    file_replaced: { icon: "🔁", cls: "bg-indigo-50 text-indigo-700 ring-indigo-200" },
+    file_removed: { icon: "🗑️", cls: "bg-indigo-50 text-indigo-700 ring-indigo-200" },
 };
 
 // Quick filters on top of the action type: anything that touched prices or products.

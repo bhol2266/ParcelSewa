@@ -20,7 +20,10 @@ export type LogAction =
     | "border_photo_added"
     | "border_photo_replaced"
     | "border_photo_removed"
-    | "payment_asked";
+    | "payment_asked"
+    | "file_added"
+    | "file_replaced"
+    | "file_removed";
 
 export const ACTION_LABEL: Record<LogAction, string> = {
     created: "Order created",
@@ -37,6 +40,9 @@ export const ACTION_LABEL: Record<LogAction, string> = {
     border_photo_replaced: "Border photo replaced",
     border_photo_removed: "Border photo removed",
     payment_asked: "Payment asked on WhatsApp",
+    file_added: "Receipt/screenshot added",
+    file_replaced: "Receipt/screenshot replaced",
+    file_removed: "Receipt/screenshot removed",
 };
 
 export type ChangeKind = "price" | "customer" | "status" | "other";

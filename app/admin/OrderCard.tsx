@@ -9,6 +9,7 @@ import { expectedTotal } from "@/lib/product-price-parse";
 import { isOrderAllReceived, isProductChecked, tickTheme } from "@/lib/product-checks";
 import { logOrderActivity } from "@/lib/order-logs";
 import { uploadProductImages, PRODUCT_IMAGE_ACCEPT } from "@/lib/upload-product-image";
+import OrderFilesMenu from "./OrderFilesMenu";
 
 interface OrderProps {
     order: any;
@@ -587,6 +588,7 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             <span className={`h-1.5 w-1.5 rounded-full ${theme.dot}`} />
                             {theme.label}
                         </span>
+                        <OrderFilesMenu order={order} refresh={refresh} />
                     </div>
 
                 {isEditing ? (
