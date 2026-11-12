@@ -594,7 +594,7 @@ function OrderCard({ order }: { order: any }) {
                     {cancelled && (
                         <p className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">This order was cancelled. Contact us on WhatsApp if you have any questions about it.</p>
                     )}
-                    {withCourier && <CourierPanel handedOver={handedOverAt(order)} />}
+                    {withCourier && <CourierPanel handedOver={handedOverAt(order)} receipt={order.courierReceipts?.[0]} trackingNumber={order.courierTrackingNumber} />}
                     <OrderDetails order={order} delivered={delivered} withCourier={withCourier} cancelled={cancelled} deliveredOn={deliveredOn} due={due} />
                     <ItemList order={order} products={products} trackingFor={trackingFor} cancelled={cancelled} />
                 </div>
@@ -602,6 +602,25 @@ function OrderCard({ order }: { order: any }) {
                 {!cancelled && headline && <div className="min-w-0 lg:sticky lg:top-24"><ProductGroup images={groups[0].products} tracking={headline} single /></div>}
             </div>}
         </article>
+    );
+}
+
+// Photos of the courier receipt we attached in /admin (bulk receipts or the card's ⋯ menu).
+function CourierReceipts({ order }: { order: any }) {
+    const receipts: string[] = Array.isArray(order.courierReceipts) ? order.courierReceipts : [];
+    if (!receipts.length) return null;
+    return (
+        <div className="mt-2 border-t border-[var(--store-line)] pt-2">
+            <p className="mb-1.5 text-sm text-[var(--store-text)]">Courier receipt</p>
+            <div className="flex flex-wrap gap-2">
+                {receipts.map((url, i) => (
+                    <a key={url} href={url} target="_blank" rel="noopener noreferrer" title="Open the courier receipt"
+                        className="block h-20 w-20 overflow-hidden rounded-lg bg-white ring-1 ring-[var(--store-line)] transition hover:ring-sky-400">
+                        <img src={url} alt={`Courier receipt ${i + 1}`} loading="lazy" className="h-full w-full object-cover" />
+                    </a>
+                ))}
+            </div>
+        </div>
     );
 }
 
@@ -632,7 +651,9 @@ function OrderDetails({ order, delivered, withCourier, cancelled, deliveredOn, d
                     <DetailRow label="Ordered">{formatDay(orderDate(order)) || "—"}</DetailRow>
                     <DetailRow label="Status">{cancelled ? "Cancelled" : delivered ? `Delivered${deliveredOn ? ` ${formatDay(deliveredOn)}` : ""}` : withCourier ? "With Aramex courier" : "On the way"}</DetailRow>
                     {order.notes && <DetailRow label="Notes">{order.notes}</DetailRow>}
+                    {order.courierTrackingNumber && <DetailRow label="Tracking no.">{order.courierTrackingNumber}</DetailRow>}
                 </dl>
+                <CourierReceipts order={order} />
             </section>
             <section className="rounded-xl border border-[var(--store-line)] bg-[var(--store-paper)] p-3 sm:p-4">
                 <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-[var(--store-text)]">Payment</h3>
@@ -850,7 +871,7 @@ function StatusBadge({ cancelled, delivered, withCourier }: { cancelled: boolean
 }
 
 // While Aramex has the parcel: track it on their site, call the nearest office, and where to find the tracking number.
-function CourierPanel({ handedOver }: { handedOver: Date | null }) {
+function CourierPanel({ handedOver, receipt, trackingNumber }: { handedOver: Date | null; receipt?: string; trackingNumber?: string }) {
     const [open, setOpen] = useState<"" | "contacts" | "number">("");
     const toggle = (panel: "contacts" | "number") => setOpen((cur) => (cur === panel ? "" : panel));
     const btn = "inline-flex items-center justify-center gap-1.5 rounded-xl px-3 py-2.5 text-xs font-bold transition active:scale-[.98]";
@@ -894,7 +915,17 @@ function CourierPanel({ handedOver }: { handedOver: Date | null }) {
                 </ul>
             )}
 
-            {open === "number" && (
+            {open === "number" && receipt && (
+                <div className="mt-3 rounded-xl border border-[var(--store-line)] bg-[var(--store-paper)] p-3">
+                    {trackingNumber
+                        ? <p className="text-sm">Your tracking number: <strong className="select-all font-bold tracking-wide">{trackingNumber}</strong></p>
+                        : <p className="text-xs leading-relaxed text-[var(--store-text)]">Your tracking number is the number printed <strong className="text-[var(--store-ink)]">under the barcode</strong> on your receipt below.</p>}
+                    <a href={receipt} target="_blank" rel="noopener noreferrer" className="mx-auto mt-3 block max-w-[260px] overflow-hidden rounded-lg ring-1 ring-[var(--store-line)]">
+                        <img src={receipt} alt="Your courier receipt" loading="lazy" className="h-auto w-full bg-white" />
+                    </a>
+                </div>
+            )}
+            {open === "number" && !receipt && (
                 <div className="mt-3 rounded-xl border border-[var(--store-line)] bg-[var(--store-paper)] p-3">
                     <p className="text-xs leading-relaxed text-[var(--store-text)]">
                         We send you a photo of your Aramex receipt on <strong className="text-[var(--store-ink)]">WhatsApp</strong>. Your tracking number is the number printed <strong className="text-[var(--store-ink)]">under the barcode</strong> on it. Enter that number on the Aramex tracking page.

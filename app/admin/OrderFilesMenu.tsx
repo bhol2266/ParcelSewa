@@ -50,6 +50,12 @@ export default function OrderFilesMenu({ order, refresh }: { order: any; refresh
                                 <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] font-bold text-gray-600">{count(key)}</span>
                             </button>
                         ))}
+                        {/* Opens the page's bulk window (app/admin/page.tsx listens for this event). */}
+                        <button type="button" onClick={() => { setMenuOpen(false); window.dispatchEvent(new Event("open-bulk-receipts")); }}
+                            className="flex w-full items-center gap-2 border-t border-gray-100 px-3 py-2 text-left text-sm font-medium text-blue-700 transition hover:bg-blue-50">
+                            <span>📥</span>
+                            <span className="flex-1">Bulk upload receipts (all orders)</span>
+                        </button>
                     </div>
                 )}
             </div>
