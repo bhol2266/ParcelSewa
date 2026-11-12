@@ -37,6 +37,8 @@ export default function Navbar() {
           </nav>
           <div className="header-actions">
             {inAdmin && adminLinks.map((item) => <Link key={item.href} className="admin-navigation" href={item.href}>{item.name}</Link>)}
+            {/* Opens the orders page's bulk courier receipts window (app/admin/page.tsx listens for this event). */}
+            {pathname === "/admin" && <button type="button" className="admin-navigation" onClick={() => window.dispatchEvent(new Event("open-bulk-receipts"))}>Receipts</button>}
             <ThemeToggle />
             <Link href="/order" className="header-order">Start an order <ArrowUpRightIcon className="size-4" aria-hidden="true" /></Link>
             <Disclosure.Button className="mobile-menu-button" aria-label={open ? "Close navigation menu" : "Open navigation menu"}>{open ? <XMarkIcon /> : <Bars3Icon />}</Disclosure.Button>

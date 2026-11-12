@@ -80,7 +80,7 @@ export default function OrdersPage() {
 
     // Inside the Late section: the late orders themselves, or just their images that aren't ticked yet
     const [lateView, setLateView] = useState<LateView>("orders");
-    // Bulk courier receipts window: the button by the filters or any card's ⋯ menu opens it.
+    // Bulk courier receipts window: the "Receipts" link in the admin header (components/Navbar.tsx) opens it.
     const [showBulkReceipts, setShowBulkReceipts] = useState(false);
     useEffect(() => {
         const open = () => setShowBulkReceipts(true);
@@ -419,12 +419,6 @@ export default function OrdersPage() {
                     />
                 </div>
 
-                <div className="mb-3 flex justify-end">
-                    <button type="button" onClick={() => setShowBulkReceipts(true)}
-                        className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-100">
-                        📥 Bulk courier receipts
-                    </button>
-                </div>
                 {showBulkReceipts && <BulkReceipts onClose={() => setShowBulkReceipts(false)} onDone={() => refresh()} />}
 
                 {/* Sort Buttons — All Pending (All Time) view */}

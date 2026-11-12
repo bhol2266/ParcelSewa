@@ -1,6 +1,6 @@
 "use client";
 
-// The ⋯ menu on an admin order card: courier receipts and website order screenshots, each a small photo album.
+// The ⋯ menu on an admin order card: website order screenshots, a small photo album.
 // Photos go to Cloudflare R2 (/api/upload-product-image) and their links are saved on the order.
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -9,8 +9,8 @@ import { db } from "@/lib/firebase/firebaseClient";
 import { logOrderActivity } from "@/lib/order-logs";
 import { pastedImages, PRODUCT_IMAGE_ACCEPT, uploadProductImages } from "@/lib/upload-product-image";
 
+// Courier receipts are added in bulk from the admin header's "Receipts" link instead (app/admin/BulkReceipts.tsx).
 const ALBUMS = {
-    courierReceipts: { title: "Courier receipts", icon: "🧾", empty: "No courier receipts yet." },
     orderScreenshots: { title: "Order screenshots", icon: "🛒", empty: "No website order screenshots yet." },
 } as const;
 type AlbumKey = keyof typeof ALBUMS;
@@ -28,12 +28,12 @@ export default function OrderFilesMenu({ order, refresh }: { order: any; refresh
         return () => document.removeEventListener("mousedown", close);
     }, [menuOpen]);
 
-    const total = count("courierReceipts") + count("orderScreenshots");
+    const total = count("orderScreenshots");
 
     return (
         <>
             <div ref={menuRef} className="relative shrink-0">
-                <button type="button" onClick={() => setMenuOpen((o) => !o)} aria-label="Order files" title="Courier receipts and order screenshots"
+                <button type="button" onClick={() => setMenuOpen((o) => !o)} aria-label="Order files" title="Order screenshots"
                     className="relative grid h-7 w-7 place-items-center rounded-full bg-white text-gray-500 ring-1 ring-gray-200 transition hover:bg-gray-50 hover:text-gray-800">
                     <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4"><circle cx="4" cy="10" r="1.7" /><circle cx="10" cy="10" r="1.7" /><circle cx="16" cy="10" r="1.7" /></svg>
                     {total > 0 && (
@@ -50,12 +50,6 @@ export default function OrderFilesMenu({ order, refresh }: { order: any; refresh
                                 <span className="rounded-full bg-gray-100 px-1.5 py-0.5 text-[11px] font-bold text-gray-600">{count(key)}</span>
                             </button>
                         ))}
-                        {/* Opens the page's bulk window (app/admin/page.tsx listens for this event). */}
-                        <button type="button" onClick={() => { setMenuOpen(false); window.dispatchEvent(new Event("open-bulk-receipts")); }}
-                            className="flex w-full items-center gap-2 border-t border-gray-100 px-3 py-2 text-left text-sm font-medium text-blue-700 transition hover:bg-blue-50">
-                            <span>📥</span>
-                            <span className="flex-1">Bulk upload receipts (all orders)</span>
-                        </button>
                     </div>
                 )}
             </div>
