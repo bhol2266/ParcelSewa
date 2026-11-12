@@ -181,7 +181,8 @@ export function customerProfile(orders: any[]): CustomerProfile {
         onTheWay: live.filter((o) => !isDelivered(o)).length,
         delivered: live.filter((o) => isDelivered(o)).length,
         items: live.reduce((sum, o) => sum + orderProducts(o).reduce((n, p) => n + (Number(p.quantity) || 1), 0), 0),
-        due: live.filter((o) => !isDelivered(o)).reduce((sum, o) => sum + Math.max((Number(o.totalAmount) || 0) - (Number(o.advancePayment) || 0), 0), 0),
+        // Orders marked delivered in /admin (handed to Aramex) owe nothing here, even during the courier days.
+        due: live.filter((o) => !handedOver(o)).reduce((sum, o) => sum + Math.max((Number(o.totalAmount) || 0) - (Number(o.advancePayment) || 0), 0), 0),
         stores: [...storeCounts.entries()].sort((a, b) => b[1] - a[1]).map(([s]) => s).slice(0, 4),
     };
 }

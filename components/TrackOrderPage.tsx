@@ -527,7 +527,8 @@ function OrderCard({ order }: { order: any }) {
     const withCourier = isWithCourier(order);
     // The order moves at the pace of its slowest product.
     const headline = groups[0]?.tracking;
-    const due = delivered || cancelled ? 0 : Math.max((Number(order.totalAmount) || 0) - (Number(order.advancePayment) || 0), 0);
+    // Once the order is marked delivered in /admin (handed to Aramex), no due is shown any more.
+    const due = delivered || withCourier || cancelled ? 0 : Math.max((Number(order.totalAmount) || 0) - (Number(order.advancePayment) || 0), 0);
     const deliveredOn = delivered ? headline?.steps.at(-1)?.date ?? null : null;
     const trackingFor = new Map(groups.flatMap((g) => g.products.map((p) => [p.index, g.tracking] as const)));
     // Finished orders (delivered or cancelled) start as a short summary; the customer opens the rest if they want it.
@@ -622,13 +623,15 @@ function OrderDetails({ order, delivered, withCourier, cancelled, deliveredOn, d
                 <dl className="divide-y divide-[var(--store-line)]">
                     <DetailRow label="Order total">{rs(total)}</DetailRow>
                     <DetailRow label="Advance paid">{rs(advance)}</DetailRow>
-                    <DetailRow label={delivered ? "Balance" : "Due on delivery"}>
-                        {cancelled
-                            ? "—"
-                            : due > 0
-                                ? <span className="font-bold text-[#c85b13] dark:text-[#ffab68]">{rs(due)}</span>
-                                : <span className="font-bold text-emerald-600 dark:text-emerald-400">Paid in full</span>}
-                    </DetailRow>
+                    {!withCourier && (
+                        <DetailRow label={delivered ? "Balance" : "Due on delivery"}>
+                            {cancelled
+                                ? "—"
+                                : due > 0
+                                    ? <span className="font-bold text-[#c85b13] dark:text-[#ffab68]">{rs(due)}</span>
+                                    : <span className="font-bold text-emerald-600 dark:text-emerald-400">Paid in full</span>}
+                        </DetailRow>
+                    )}
                 </dl>
             </section>
         </div>
