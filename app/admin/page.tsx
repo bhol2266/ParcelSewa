@@ -29,6 +29,12 @@ interface Order {
 type SortOption = "latest" | "oldest" | "delivered" | "errors" | "late" | "received";
 type AllTimeSortOption = "latest" | "oldest" | "delivered" | "errors" | "late" | "received";
 
+// All Received list: orders with payment still to collect come first, then oldest first.
+const remainingOf = (o: Order) => (Number(o.totalAmount) || 0) - (Number(o.advancePayment) || 0);
+const unpaidFirst = (a: Order, b: Order) =>
+    Number(remainingOf(b) > 0) - Number(remainingOf(a) > 0) ||
+    (a.createdAt?.toMillis?.() ?? 0) - (b.createdAt?.toMillis?.() ?? 0);
+
 
 // ── Build the last 24 months list ─────────────────────────────────────────────
 function buildAvailableMonths(): { month: number; year: number; label: string }[] {
@@ -291,6 +297,7 @@ export default function OrdersPage() {
                 .filter((o) => allTimeSortOption !== "received" || isOrderAllReceived(o))
                 .sort((a, b) => {
                     if (allTimeSortOption === "late") return orderedMillis(a) - orderedMillis(b);
+                    if (allTimeSortOption === "received") return unpaidFirst(a, b);
                     if (allTimeSortOption === "latest") {
                         return (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0);
                     }
@@ -321,7 +328,7 @@ export default function OrdersPage() {
                 return monthStatOrders
                     .filter(matchesSearch)
                     .filter((o) => isOrderAllReceived(o))
-                    .sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
+                    .sort(unpaidFirst);
             case "delivered":
                 return monthDeliveredOrders
                     .filter(matchesSearch)
