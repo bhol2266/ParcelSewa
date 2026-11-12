@@ -140,7 +140,8 @@ function AlbumModal({ order, refresh, albumKey, onClose }: { order: any; refresh
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-            <input ref={inputRef} type="file" accept={PRODUCT_IMAGE_ACCEPT} multiple className="hidden"
+            {/* The click that opens the file picker must not reach the backdrop, which closes the window. */}
+            <input ref={inputRef} type="file" accept={PRODUCT_IMAGE_ACCEPT} multiple className="hidden" onClick={(e) => e.stopPropagation()}
                 onChange={(e) => { const files = Array.from(e.target.files || []); e.target.value = ""; upload(files, replaceAt.current); }} />
 
             <div className="w-full max-w-lg rounded-2xl bg-white p-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>

@@ -188,7 +188,8 @@ export default function BulkReceipts({ onClose, onDone }: { onClose: () => void;
     return createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3" onClick={() => !saving && onClose()}
             onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); addFiles(Array.from(e.dataTransfer.files)); }}>
-            <input ref={inputRef} type="file" accept={PRODUCT_IMAGE_ACCEPT} multiple className="hidden"
+            {/* The click that opens the file picker must not reach the backdrop, which closes the window. */}
+            <input ref={inputRef} type="file" accept={PRODUCT_IMAGE_ACCEPT} multiple className="hidden" onClick={(e) => e.stopPropagation()}
                 onChange={(e) => { const files = Array.from(e.target.files || []); e.target.value = ""; addFiles(files); }} />
             <div className="flex max-h-[92vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center gap-2 border-b border-gray-100 p-4">
