@@ -1,5 +1,5 @@
 // Look of a sort button on the admin and Ankush order lists: blue when active, amber for the Late section,
-// green for All Delivered (every product received).
+// green for All Received (every product received).
 export const sortButtonCls = (active: boolean, option: string) =>
     `px-4 py-2 rounded-xl border shadow-sm transition-all hover:text-white ${
         active

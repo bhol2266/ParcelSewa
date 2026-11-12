@@ -362,7 +362,7 @@ export default function OrdersPage() {
         if (sortOption === "late") setSortOption("oldest");
     }, [lateCount, allTimeSortOption, sortOption]);
 
-    // All Delivered: pending orders whose product images are all ticked received on the Ankush page.
+    // All Received: pending orders whose product images are all ticked received on the Ankush page.
     const receivedCount = (selectedMonth ? monthStatOrders : allPendingOrders).filter((o) => isOrderAllReceived(o)).length;
 
     // Late section: its orders, and the images of those orders that haven't been ticked as received
@@ -418,7 +418,7 @@ export default function OrdersPage() {
                                 {option === "delivered" && "Delivered Orders"}
                                 {option === "errors" && `⚠️ Errors (${errorCount})`}
                                 {option === "late" && `⏰ Late (${lateCount})`}
-                                {option === "received" && `✅ All Delivered (${receivedCount})`}
+                                {option === "received" && `✅ All Received (${receivedCount})`}
                             </button>
                         ))}
                         {allTimeSortOption === "delivered" && (
@@ -441,7 +441,7 @@ export default function OrdersPage() {
                                 {option === "delivered" && "Delivered Orders"}
                                 {option === "errors" && `⚠️ Errors (${errorCount})`}
                                 {option === "late" && `⏰ Late (${lateCount})`}
-                                {option === "received" && `✅ All Delivered (${receivedCount})`}
+                                {option === "received" && `✅ All Received (${receivedCount})`}
                             </button>
                         ))}
                     </div>
