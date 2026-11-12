@@ -19,14 +19,15 @@ import ClickableTiles from "@/components/ClickableTiles";
 import LateImages, { LateBar, type LateView } from "@/components/LateImages";
 import { daysSinceOrdered, isLateOrder, lateProductImages, orderedMillis } from "@/lib/late-orders";
 import { sortButtonCls } from "@/lib/sort-button";
+import { isOrderAllReceived } from "@/lib/product-checks";
 
 interface Order {
     id: string;
     [key: string]: any;
 }
 
-type SortOption = "latest" | "oldest" | "delivered" | "errors" | "late";
-type AllTimeSortOption = "latest" | "oldest" | "delivered" | "errors" | "late";
+type SortOption = "latest" | "oldest" | "delivered" | "errors" | "late" | "received";
+type AllTimeSortOption = "latest" | "oldest" | "delivered" | "errors" | "late" | "received";
 
 
 // ── Build the last 24 months list ─────────────────────────────────────────────
@@ -287,6 +288,7 @@ export default function OrdersPage() {
                 .filter(matchesSearch)
                 .filter((o) => allTimeSortOption !== "errors" || o.hasError === true)
                 .filter((o) => allTimeSortOption !== "late" || isLateOrder(o))
+                .filter((o) => allTimeSortOption !== "received" || isOrderAllReceived(o))
                 .sort((a, b) => {
                     if (allTimeSortOption === "late") return orderedMillis(a) - orderedMillis(b);
                     if (allTimeSortOption === "latest") {
@@ -315,6 +317,11 @@ export default function OrdersPage() {
                     .filter(matchesSearch)
                     .filter((o) => isLateOrder(o))
                     .sort((a, b) => orderedMillis(a) - orderedMillis(b));
+            case "received":
+                return monthStatOrders
+                    .filter(matchesSearch)
+                    .filter((o) => isOrderAllReceived(o))
+                    .sort((a, b) => (a.createdAt?.toMillis() ?? 0) - (b.createdAt?.toMillis() ?? 0));
             case "delivered":
                 return monthDeliveredOrders
                     .filter(matchesSearch)
@@ -354,6 +361,9 @@ export default function OrdersPage() {
         if (allTimeSortOption === "late") setAllTimeSortOption("oldest");
         if (sortOption === "late") setSortOption("oldest");
     }, [lateCount, allTimeSortOption, sortOption]);
+
+    // All Delivered: pending orders whose product images are all ticked received on the Ankush page.
+    const receivedCount = (selectedMonth ? monthStatOrders : allPendingOrders).filter((o) => isOrderAllReceived(o)).length;
 
     // Late section: its orders, and the images of those orders that haven't been ticked as received
     const lateSelected = (selectedMonth ? sortOption : allTimeSortOption) === "late";
@@ -397,7 +407,7 @@ export default function OrdersPage() {
                 {/* Sort Buttons — All Pending (All Time) view */}
                 {!selectedMonth && (
                     <div className="flex flex-wrap items-center gap-2 mb-6">
-                        {(["oldest", "latest", "delivered", ...(errorCount > 0 ? ["errors"] : []), ...(lateCount > 0 ? ["late"] : [])] as AllTimeSortOption[]).map((option) => (
+                        {(["oldest", "latest", "delivered", ...(errorCount > 0 ? ["errors"] : []), ...(lateCount > 0 ? ["late"] : []), "received"] as AllTimeSortOption[]).map((option) => (
                             <button
                                 key={option}
                                 className={sortButtonCls(allTimeSortOption === option, option)}
@@ -408,6 +418,7 @@ export default function OrdersPage() {
                                 {option === "delivered" && "Delivered Orders"}
                                 {option === "errors" && `⚠️ Errors (${errorCount})`}
                                 {option === "late" && `⏰ Late (${lateCount})`}
+                                {option === "received" && `✅ All Delivered (${receivedCount})`}
                             </button>
                         ))}
                         {allTimeSortOption === "delivered" && (
@@ -419,7 +430,7 @@ export default function OrdersPage() {
                 {/* Sort Buttons — Monthly view */}
                 {selectedMonth && (
                     <div className="flex flex-wrap items-center gap-2 mb-6">
-                        {(["oldest", "latest", "delivered", ...(errorCount > 0 ? ["errors"] : []), ...(lateCount > 0 ? ["late"] : [])] as SortOption[]).map((option) => (
+                        {(["oldest", "latest", "delivered", ...(errorCount > 0 ? ["errors"] : []), ...(lateCount > 0 ? ["late"] : []), "received"] as SortOption[]).map((option) => (
                             <button
                                 key={option}
                                 className={sortButtonCls(sortOption === option, option)}
@@ -430,6 +441,7 @@ export default function OrdersPage() {
                                 {option === "delivered" && "Delivered Orders"}
                                 {option === "errors" && `⚠️ Errors (${errorCount})`}
                                 {option === "late" && `⏰ Late (${lateCount})`}
+                                {option === "received" && `✅ All Delivered (${receivedCount})`}
                             </button>
                         ))}
                     </div>
