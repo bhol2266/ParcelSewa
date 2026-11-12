@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Cookies from "js-cookie";
+import { rememberLogin } from "@/lib/remember-login";
 import toast, { Toaster } from "react-hot-toast";
 import { ADMIN_COOKIE, ADMIN_PASSWORD } from "@/lib/admin-access";
 import { PRODUCT_IMAGE_ACCEPT, pastedImages, uploadProductImages } from "@/lib/upload-product-image";
@@ -137,7 +138,7 @@ export default function UploadImagePage() {
         if (value === ADMIN_PASSWORD) {
             setUnlocked(true);
             setPasswordInput("");
-            Cookies.set(ADMIN_COOKIE, ADMIN_PASSWORD, { expires: 5, path: "/" });
+            rememberLogin(ADMIN_COOKIE, ADMIN_PASSWORD);
         } else {
             setPasswordInput(value);
         }

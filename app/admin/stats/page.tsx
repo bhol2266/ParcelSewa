@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Cookies from "js-cookie";
+import { rememberLogin } from "@/lib/remember-login";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { ADMIN_COOKIE, ADMIN_PASSWORD } from "@/lib/admin-access";
@@ -75,7 +76,7 @@ export default function StatsPage() {
         if (passwordInput === ADMIN_PASSWORD) {
             setAccessGranted(true);
             setPasswordInput("");
-            Cookies.set(ADMIN_COOKIE, ADMIN_PASSWORD, { expires: 5, path: "/" });
+            rememberLogin(ADMIN_COOKIE, ADMIN_PASSWORD);
         }
     }, [passwordInput]);
 

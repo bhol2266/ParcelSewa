@@ -15,6 +15,7 @@ import OrderCard from "./OrderCard";
 import BulkReceipts from "./BulkReceipts";
 import { ADMIN_COOKIE, ADMIN_PASSWORD } from "@/lib/admin-access";
 import Cookies from "js-cookie";
+import { rememberLogin } from "@/lib/remember-login";
 import OrdersStats from "./OrdersStats";
 import ClickableTiles from "@/components/ClickableTiles";
 import LateImages, { LateBar, type LateView } from "@/components/LateImages";
@@ -223,7 +224,7 @@ export default function OrdersPage() {
         if (passwordInput === PASSWORD) {
             setAccessGranted(true);
             setPasswordInput("");
-            Cookies.set(COOKIE_NAME, PASSWORD, { expires: 5, path: "/" });
+            rememberLogin(COOKIE_NAME, PASSWORD);
         }
     }, [passwordInput]);
 

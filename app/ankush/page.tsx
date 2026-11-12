@@ -15,6 +15,8 @@ import {
 import { db } from "@/lib/firebase/firebaseClient";
 import OrderCardAnkush from "./OrderCardAnkush";
 import Cookies from "js-cookie";
+import { ADMIN_COOKIE, ADMIN_PASSWORD, ANKUSH_COOKIE, ANKUSH_PASSWORD } from "@/lib/admin-access";
+import { rememberLogin } from "@/lib/remember-login";
 import OrdersStatsAnkush from "./OrdersStatsAnkush";
 import ClickableTiles from "@/components/ClickableTiles";
 import ProductGalleryAnkush from "./ProductGalleryAnkush";
@@ -77,8 +79,6 @@ export default function Ankush() {
     // Each product image's tick as first seen in Product Images; lets a new tick wait for a reload to move it down
     const checkedWhenFirstSeen = useRef(new Map<string, boolean>());
 
-    const PASSWORD = "5555";
-    const COOKIE_NAME = "admin_access";
 
     // ── Fetch all pending orders — IDENTICAL to admin, deliveredBy filtered client-side ──
     const fetchAllPendingOrders = useCallback(async (silent = false) => {
@@ -202,8 +202,13 @@ export default function Ankush() {
     }, [selectedMonth, allTimeSortOption, allRecentDeliveredOrders.length, fetchAllRecentDeliveredOrders]);
 
     useEffect(() => {
-        const cookie = Cookies.get(COOKIE_NAME);
-        if (cookie === PASSWORD) {
+        // Unlocked by the Ankush cookie, the admin login, or the old shared cookie (moved to the Ankush cookie).
+        const legacy = Cookies.get(ADMIN_COOKIE) === ANKUSH_PASSWORD;
+        if (legacy) {
+            Cookies.remove(ADMIN_COOKIE, { path: "/" });
+            rememberLogin(ANKUSH_COOKIE, ANKUSH_PASSWORD);
+        }
+        if (legacy || Cookies.get(ANKUSH_COOKIE) === ANKUSH_PASSWORD || Cookies.get(ADMIN_COOKIE) === ADMIN_PASSWORD) {
             setAccessGranted(true);
         } else {
             setTimeout(() => passwordInputRef.current?.focus(), 300);
@@ -211,10 +216,10 @@ export default function Ankush() {
     }, []);
 
     useEffect(() => {
-        if (passwordInput === PASSWORD) {
+        if (passwordInput === ANKUSH_PASSWORD) {
             setAccessGranted(true);
             setPasswordInput("");
-            Cookies.set(COOKIE_NAME, PASSWORD, { expires: 5, path: "/" });
+            rememberLogin(ANKUSH_COOKIE, ANKUSH_PASSWORD);
         }
     }, [passwordInput]);
 
