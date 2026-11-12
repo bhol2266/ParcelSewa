@@ -63,6 +63,8 @@ export default function TrackOrderPage({ initialMobile = "", admin = false }: { 
     // The number was checked and has no orders, so no code was sent.
     const [noOrders, setNoOrders] = useState(false);
     const [resendIn, setResendIn] = useState(0);
+    // A wrong payment amount brings up the SMS code as another way in.
+    const [amountFailed, setAmountFailed] = useState(false);
 
     const showLogin = useCallback(() => {
         setLogin("phone");
@@ -183,6 +185,7 @@ export default function TrackOrderPage({ initialMobile = "", admin = false }: { 
                 return;
             }
             if (!ok) {
+                if (data.error === "wrong-amount" || data.error === "pay-limit") setAmountFailed(true);
                 const left = data.error === "wrong-amount" && data.triesLeft ? ` ${data.triesLeft} ${data.triesLeft === 1 ? "try" : "tries"} left today.` : "";
                 setLoginError(otpError(data.error) + left);
                 return;
@@ -255,7 +258,7 @@ export default function TrackOrderPage({ initialMobile = "", admin = false }: { 
                                         maxLength={10}
                                         placeholder="98XXXXXXXX"
                                         value={mobile}
-                                        onChange={(e) => { setMobile(e.target.value.replace(/\D/g, "").slice(0, 10)); setNoOrders(false); setLoginError(""); }}
+                                        onChange={(e) => { setMobile(e.target.value.replace(/\D/g, "").slice(0, 10)); setNoOrders(false); setLoginError(""); setAmountFailed(false); }}
                                         className="min-w-0 flex-1 !border-0 !bg-transparent px-3 py-3 text-lg font-semibold tracking-wider text-[var(--store-ink)] outline-none placeholder:font-normal placeholder:tracking-normal placeholder:text-gray-400"
                                     />
                                     {mobile && (
@@ -289,6 +292,19 @@ export default function TrackOrderPage({ initialMobile = "", admin = false }: { 
                                 {busy ? <ArrowPathIcon className="size-5 animate-spin" aria-hidden /> : <LockClosedIcon className="size-5" aria-hidden />}
                                 {admin ? "Track" : <>Verify &amp; track</>}
                             </button>
+                            {!admin && amountFailed && valid && (
+                                <div className="flex flex-col gap-2 rounded-2xl border border-white/15 bg-white/10 p-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <p className="text-sm text-white/85">Don&apos;t remember the amount? Get a 6-digit code by SMS on +977 {mobile}.</p>
+                                    <button
+                                        type="button"
+                                        onClick={sendCode}
+                                        disabled={busy || resendIn > 0}
+                                        className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-bold text-[#122235] transition hover:bg-white/90 active:scale-[.98] disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        {resendIn > 0 ? `Send SMS code (${resendIn}s)` : "Send SMS code"}
+                                    </button>
+                                </div>
+                            )}
                         </form>
                     )}
 
