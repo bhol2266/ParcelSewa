@@ -594,6 +594,7 @@ function OrderCard({ order }: { order: any }) {
                     {cancelled && (
                         <p className="rounded-2xl bg-rose-50 p-4 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">This order was cancelled. Contact us on WhatsApp if you have any questions about it.</p>
                     )}
+                    {!cancelled && <CourierReceipts order={order} />}
                     {withCourier && <CourierPanel handedOver={handedOverAt(order)} receipt={order.courierReceipts?.[0]} trackingNumber={order.courierTrackingNumber} />}
                     <OrderDetails order={order} delivered={delivered} withCourier={withCourier} cancelled={cancelled} deliveredOn={deliveredOn} due={due} />
                     <ItemList order={order} products={products} trackingFor={trackingFor} cancelled={cancelled} />
@@ -605,22 +606,50 @@ function OrderCard({ order }: { order: any }) {
     );
 }
 
-// Photos of the courier receipt we attached in /admin (bulk receipts or the card's ⋯ menu).
+// The courier receipt we attached in /admin (bulk receipts): its photo, larger on tap, and the tracking number to copy.
 function CourierReceipts({ order }: { order: any }) {
     const receipts: string[] = Array.isArray(order.courierReceipts) ? order.courierReceipts : [];
+    const numbers: string[] = order.courierTrackingNumbers?.length ? order.courierTrackingNumbers : order.courierTrackingNumber ? [order.courierTrackingNumber] : [];
+    const [large, setLarge] = useState<string | null>(null);
+    const [copied, setCopied] = useState("");
     if (!receipts.length) return null;
+    const copy = (n: string) => {
+        navigator.clipboard?.writeText(n).then(() => { setCopied(n); setTimeout(() => setCopied(""), 2000); }).catch(() => {});
+    };
     return (
-        <div className="mt-2 border-t border-[var(--store-line)] pt-2">
-            <p className="mb-1.5 text-sm text-[var(--store-text)]">Courier receipt</p>
-            <div className="flex flex-wrap gap-2">
+        <section className="rounded-xl border border-sky-200 bg-sky-50 p-3 sm:p-4 dark:border-sky-900/60 dark:bg-sky-950/30">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--store-text)]">Your courier receipt</h3>
+            {numbers.length > 0 && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-[var(--store-text)]">Tracking number</span>
+                    {numbers.map((n) => (
+                        <button key={n} type="button" onClick={() => copy(n)} title="Copy tracking number"
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--store-paper)] px-2.5 py-1 text-sm font-bold tracking-wide ring-1 ring-[var(--store-line)] transition hover:ring-sky-400">
+                            {n}
+                            <span className="text-[11px] font-semibold text-sky-700 dark:text-sky-300">{copied === n ? "Copied ✓" : "Copy"}</span>
+                        </button>
+                    ))}
+                </div>
+            )}
+            <div className="mt-3 flex flex-wrap gap-2">
                 {receipts.map((url, i) => (
-                    <a key={url} href={url} target="_blank" rel="noopener noreferrer" title="Open the courier receipt"
-                        className="block h-20 w-20 overflow-hidden rounded-lg bg-white ring-1 ring-[var(--store-line)] transition hover:ring-sky-400">
-                        <img src={url} alt={`Courier receipt ${i + 1}`} loading="lazy" className="h-full w-full object-cover" />
-                    </a>
+                    <button key={url} type="button" onClick={() => setLarge(url)} title="View the receipt"
+                        className="block w-40 overflow-hidden rounded-lg bg-white ring-1 ring-[var(--store-line)] transition hover:ring-sky-400 sm:w-48">
+                        <img src={url} alt={`Courier receipt ${i + 1}`} loading="lazy" className="h-auto w-full" />
+                    </button>
                 ))}
             </div>
-        </div>
+            <p className="mt-2 text-xs text-[var(--store-text)]">Tap the receipt to see it larger. Keep the tracking number handy if the courier calls.</p>
+            {large && (
+                <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-black/85 p-4" onClick={() => setLarge(null)}>
+                    <img src={large} alt="Courier receipt" className="max-h-[82vh] max-w-[94vw] rounded-xl bg-white object-contain" />
+                    <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                        <a href={large} target="_blank" rel="noopener noreferrer" className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-gray-800">Open full size</a>
+                        <button type="button" onClick={() => setLarge(null)} className="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/30">Close</button>
+                    </div>
+                </div>
+            )}
+        </section>
     );
 }
 
@@ -653,7 +682,6 @@ function OrderDetails({ order, delivered, withCourier, cancelled, deliveredOn, d
                     {order.notes && <DetailRow label="Notes">{order.notes}</DetailRow>}
                     {order.courierTrackingNumber && <DetailRow label="Tracking no.">{order.courierTrackingNumber}</DetailRow>}
                 </dl>
-                <CourierReceipts order={order} />
             </section>
             <section className="rounded-xl border border-[var(--store-line)] bg-[var(--store-paper)] p-3 sm:p-4">
                 <h3 className="mb-1 text-xs font-bold uppercase tracking-wider text-[var(--store-text)]">Payment</h3>
