@@ -989,8 +989,9 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             </div>
                         )}
 
-                        {/* ── Border photos + Ask Payment ── */}
-                        {!isCancelled && (
+                        {/* ── Border photos + Ask Payment: once every product is ticked received (photos already
+                            added stay visible so they can still be viewed, removed or sent) ── */}
+                        {!isCancelled && (allReceived || borderImages.length > 0) && (
                             <div className="space-y-1.5">
                                 <input ref={borderInputRef} type="file" accept={PRODUCT_IMAGE_ACCEPT} multiple className="hidden" onChange={handleBorderFiles} />
                                 {borderImages.length === 0 ? (
