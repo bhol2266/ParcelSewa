@@ -16,7 +16,11 @@ export type LogAction =
     | "error_removed"
     | "images_fetched"
     | "product_received"
-    | "product_unreceived";
+    | "product_unreceived"
+    | "border_photo_added"
+    | "border_photo_replaced"
+    | "border_photo_removed"
+    | "payment_asked";
 
 export const ACTION_LABEL: Record<LogAction, string> = {
     created: "Order created",
@@ -29,6 +33,10 @@ export const ACTION_LABEL: Record<LogAction, string> = {
     images_fetched: "Product images fetched",
     product_received: "Product ticked received",
     product_unreceived: "Product tick removed",
+    border_photo_added: "Border photo added",
+    border_photo_replaced: "Border photo replaced",
+    border_photo_removed: "Border photo removed",
+    payment_asked: "Payment asked on WhatsApp",
 };
 
 export type ChangeKind = "price" | "customer" | "status" | "other";

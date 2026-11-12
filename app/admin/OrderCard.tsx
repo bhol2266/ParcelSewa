@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { updateDoc, doc, deleteDoc, deleteField, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { fetchProductPriceViaExtension, fetchStoreImageViaExtension } from "@/lib/extension-client";
@@ -8,6 +8,7 @@ import { fetchProductPriceViaClaude } from "@/lib/claude-price-client";
 import { expectedTotal } from "@/lib/product-price-parse";
 import { isProductChecked, tickTheme } from "@/lib/product-checks";
 import { logOrderActivity } from "@/lib/order-logs";
+import { uploadProductImages, PRODUCT_IMAGE_ACCEPT } from "@/lib/upload-product-image";
 
 interface OrderProps {
     order: any;
@@ -70,6 +71,25 @@ const Meta = ({ icon: ic, label, value, action, className = "" }: { icon: React.
         {action && <span className="ml-auto shrink-0">{action}</span>}
     </div>
 );
+
+// The customer's number as WhatsApp wants it: digits only, with Nepal's 977 code.
+const whatsappNumber = (mobile: string) => {
+    const digits = String(mobile || "").replace(/\D/g, "");
+    return digits.length === 10 ? `977${digits}` : digits;
+};
+
+// Clipboard images must be PNG, and the r2.dev bucket sends no CORS headers, so load the photo
+// through our own /api/border-image route and redraw it as PNG.
+async function photoAsPng(url: string): Promise<Blob> {
+    const res = await fetch(`/api/border-image?url=${encodeURIComponent(url)}`);
+    if (!res.ok) throw new Error("Photo could not be loaded");
+    const bitmap = await createImageBitmap(await res.blob());
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
+    return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("PNG failed"))), "image/png"));
+}
 
 function hostLabel(url: string): string {
     try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url.slice(0, 30); }
@@ -160,6 +180,130 @@ export default function OrderCard({ order, refresh }: OrderProps) {
     const formatDate = (ts: any) => {
         const date = ts.toDate();
         return date.toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" });
+    };
+
+    // ── Border photos: received-product photos taken at the border ──────────────
+    const borderImages: string[] = Array.isArray(order.borderImages) ? order.borderImages : [];
+    const borderInputRef = useRef<HTMLInputElement>(null);
+    // null = add new photos, a number = replace that photo.
+    const borderReplaceAt = useRef<number | null>(null);
+    const [borderBusy, setBorderBusy] = useState("");
+    const [borderMessage, setBorderMessage] = useState("");
+    const [viewingBorder, setViewingBorder] = useState<number | null>(null);
+    const [askingPayment, setAskingPayment] = useState(false);
+
+    useEffect(() => {
+        if (!borderMessage) return;
+        const timer = setTimeout(() => setBorderMessage(""), 8000);
+        return () => clearTimeout(timer);
+    }, [borderMessage]);
+
+    useEffect(() => {
+        if (viewingBorder === null) return;
+        const count = borderImages.length;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setViewingBorder(null);
+            if (e.key === "ArrowRight") setViewingBorder(i => (i === null ? i : (i + 1) % count));
+            if (e.key === "ArrowLeft") setViewingBorder(i => (i === null ? i : (i - 1 + count) % count));
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [viewingBorder, borderImages.length]);
+
+    const pickBorderPhotos = (replaceAt: number | null) => {
+        borderReplaceAt.current = replaceAt;
+        borderInputRef.current?.click();
+    };
+
+    const saveBorderImages = async (next: string[], action: "border_photo_added" | "border_photo_replaced" | "border_photo_removed", details: Record<string, unknown>) => {
+        await updateDoc(doc(db, "Confirm Orders", order.id), { borderImages: next });
+        await logOrderActivity({ action, orderId: order.id, before: order, after: { ...order, borderImages: next }, details });
+        refresh(order.id);
+    };
+
+    const handleBorderFiles = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        e.target.value = "";
+        if (files.length === 0) return;
+        const replaceAt = borderReplaceAt.current;
+        setBorderBusy(replaceAt === null ? "Uploading…" : "Replacing…");
+        setBorderMessage("");
+        try {
+            const { urls, errors } = await uploadProductImages(replaceAt === null ? files : files.slice(0, 1));
+            if (errors.length) setBorderMessage(errors.join(" · "));
+            if (urls.length === 0) return;
+            if (replaceAt === null) {
+                await saveBorderImages([...borderImages, ...urls], "border_photo_added", { photos: urls });
+            } else {
+                const next = [...borderImages];
+                const old = next[replaceAt];
+                next[replaceAt] = urls[0];
+                await saveBorderImages(next, "border_photo_replaced", { photo: replaceAt + 1, from: old, to: urls[0] });
+            }
+        } catch (err) {
+            console.error("Border photo upload failed:", err);
+            setBorderMessage("Could not save the photo. Please try again.");
+        } finally {
+            setBorderBusy("");
+        }
+    };
+
+    const removeBorderPhoto = async (i: number) => {
+        if (!confirm("Remove this border photo?")) return;
+        setBorderBusy("Removing…");
+        try {
+            const next = borderImages.filter((_, idx) => idx !== i);
+            setViewingBorder(next.length ? Math.min(i, next.length - 1) : null);
+            await saveBorderImages(next, "border_photo_removed", { photo: i + 1, url: borderImages[i] });
+        } catch (err) {
+            console.error("Border photo remove failed:", err);
+            setBorderMessage("Could not remove the photo. Please try again.");
+        } finally {
+            setBorderBusy("");
+        }
+    };
+
+    // WhatsApp links can only carry text, so the photo goes on the clipboard (paste it into the chat)
+    // and its link goes in the message as well.
+    const handleAskPayment = async () => {
+        if (borderImages.length === 0) return;
+        setAskingPayment(true);
+        setBorderMessage("");
+        const amount = Math.max(0, remaining);
+        const message = [
+            order.name ? `Hello ${order.name},` : "Hello,",
+            "",
+            "Your order has reached the border. 📦",
+            `Please pay the remaining payment of *Rs. ${amount.toLocaleString("en-IN")}*.`,
+            "",
+            borderImages.length > 1 ? "Photos:" : "Photo:",
+            ...borderImages,
+            "",
+            "Thank you,",
+            "ParcelSewa",
+        ].join("\n");
+
+        let copied = false;
+        try {
+            if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+                await Promise.race([
+                    navigator.clipboard.write([new ClipboardItem({ "image/png": photoAsPng(borderImages[0]) })]),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), 4000)),
+                ]);
+                copied = true;
+            }
+        } catch (err) {
+            console.warn("Could not copy the border photo:", err);
+        }
+
+        const link = `https://wa.me/${whatsappNumber(order.mobile)}?text=${encodeURIComponent(message)}`;
+        const opened = window.open(link, "_blank");
+        if (!opened) window.location.href = link;
+        setBorderMessage(copied
+            ? "Photo copied. In the WhatsApp chat press Ctrl+V to attach it, then Send."
+            : "WhatsApp opened with the message and photo link. Press Send.");
+        logOrderActivity({ action: "payment_asked", orderId: order.id, before: order, after: order, details: { remaining: amount, photos: borderImages.length } });
+        setAskingPayment(false);
     };
 
     const handleCopy = () => {
@@ -841,6 +985,42 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                             </div>
                         )}
 
+                        {/* ── Border photos + Ask Payment ── */}
+                        {!isCancelled && (
+                            <div className="space-y-1.5">
+                                <input ref={borderInputRef} type="file" accept={PRODUCT_IMAGE_ACCEPT} multiple className="hidden" onChange={handleBorderFiles} />
+                                {borderImages.length === 0 ? (
+                                    <button type="button" disabled={!!borderBusy} onClick={() => pickBorderPhotos(null)}
+                                        className="flex w-full items-center justify-center gap-2 rounded-xl bg-white px-3 py-2 text-sm font-semibold text-cyan-700 ring-1 ring-cyan-300 transition hover:bg-cyan-50 active:scale-[0.99] disabled:opacity-60">
+                                        {borderBusy || "📦 Upload border photos"}
+                                    </button>
+                                ) : (
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex min-w-0 shrink-0 items-center gap-1">
+                                            {borderImages.map((url, i) => (
+                                                <button key={url + i} type="button" onClick={() => setViewingBorder(i)} title={`Border photo ${i + 1}`}
+                                                    className="h-9 w-9 shrink-0 overflow-hidden rounded-lg bg-gray-100 ring-1 ring-cyan-300 transition hover:ring-2 hover:ring-cyan-500">
+                                                    <img src={url} alt={`Border photo ${i + 1}`} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                                                </button>
+                                            ))}
+                                            <button type="button" disabled={!!borderBusy} onClick={() => pickBorderPhotos(null)} title="Add another border photo"
+                                                className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-dashed border-cyan-400 bg-white text-lg font-semibold text-cyan-600 transition hover:bg-cyan-50 disabled:opacity-60">
+                                                {borderBusy ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-cyan-500 border-t-transparent" /> : "+"}
+                                            </button>
+                                        </div>
+                                        <button type="button" onClick={handleAskPayment} disabled={askingPayment || !!borderBusy}
+                                            title={remaining > 0 ? `Ask for Rs. ${remaining.toLocaleString("en-IN")} on WhatsApp` : "Payment is already cleared"}
+                                            className="flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-green-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:from-emerald-600 hover:to-green-700 active:scale-[0.99] disabled:opacity-60">
+                                            <span className="truncate">{askingPayment ? "Preparing…" : "💬 Ask Payment"}</span>
+                                        </button>
+                                    </div>
+                                )}
+                                {borderMessage && (
+                                    <p className="rounded-lg bg-cyan-50 px-2.5 py-1.5 text-xs leading-snug text-cyan-800 ring-1 ring-cyan-200">{borderMessage}</p>
+                                )}
+                            </div>
+                        )}
+
                         <div className="flex gap-2 pt-0.5">
                             <button
                                 type="button"
@@ -861,6 +1041,35 @@ export default function OrderCard({ order, refresh }: OrderProps) {
                 )}
                 </div>
             </div>
+
+            {/* ── Border photo viewer ── */}
+            {viewingBorder !== null && borderImages[viewingBorder] && (
+                <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-3 bg-black/85 p-4" onClick={() => setViewingBorder(null)}>
+                    <div className="relative flex max-h-[80vh] max-w-[92vw] items-center justify-center" onClick={(e) => e.stopPropagation()}>
+                        <img src={borderImages[viewingBorder]} alt={`Border photo ${viewingBorder + 1}`} className="max-h-[80vh] max-w-[92vw] rounded-xl object-contain shadow-2xl" />
+                        {borderImages.length > 1 && (
+                            <>
+                                <button type="button" aria-label="Previous photo" onClick={() => setViewingBorder((viewingBorder - 1 + borderImages.length) % borderImages.length)}
+                                    className="absolute left-2 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/60 text-xl text-white hover:bg-black/80">‹</button>
+                                <button type="button" aria-label="Next photo" onClick={() => setViewingBorder((viewingBorder + 1) % borderImages.length)}
+                                    className="absolute right-2 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-black/60 text-xl text-white hover:bg-black/80">›</button>
+                            </>
+                        )}
+                        {borderBusy && (
+                            <div className="absolute inset-0 grid place-items-center rounded-xl bg-black/50 text-sm font-semibold text-white">{borderBusy}</div>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        {borderImages.length > 1 && <span className="mr-1 text-xs font-semibold text-white/70">{viewingBorder + 1} / {borderImages.length}</span>}
+                        <button type="button" disabled={!!borderBusy} onClick={() => pickBorderPhotos(viewingBorder)}
+                            className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-gray-800 transition hover:bg-gray-100 disabled:opacity-60">🔁 Replace</button>
+                        <button type="button" disabled={!!borderBusy} onClick={() => removeBorderPhoto(viewingBorder)}
+                            className="rounded-xl bg-rose-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-700 disabled:opacity-60">🗑️ Remove</button>
+                        <button type="button" onClick={() => setViewingBorder(null)}
+                            className="rounded-xl bg-white/15 px-4 py-2 text-sm font-semibold text-white ring-1 ring-white/30 transition hover:bg-white/25">Close</button>
+                    </div>
+                </div>
+            )}
 
             {/* ── Cancel Modal ── */}
             {showCancelConfirm && (

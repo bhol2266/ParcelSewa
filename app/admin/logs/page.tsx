@@ -22,6 +22,10 @@ const ACTION_STYLE: Record<LogAction, { icon: string; cls: string }> = {
     images_fetched: { icon: "🤖", cls: "bg-purple-50 text-purple-700 ring-purple-200" },
     product_received: { icon: "☑️", cls: "bg-teal-50 text-teal-700 ring-teal-200" },
     product_unreceived: { icon: "⬜", cls: "bg-gray-50 text-gray-700 ring-gray-200" },
+    border_photo_added: { icon: "📦", cls: "bg-cyan-50 text-cyan-700 ring-cyan-200" },
+    border_photo_replaced: { icon: "🔁", cls: "bg-cyan-50 text-cyan-700 ring-cyan-200" },
+    border_photo_removed: { icon: "🗑️", cls: "bg-cyan-50 text-cyan-700 ring-cyan-200" },
+    payment_asked: { icon: "💬", cls: "bg-green-50 text-green-700 ring-green-200" },
 };
 
 // Quick filters on top of the action type: anything that touched prices or products.
