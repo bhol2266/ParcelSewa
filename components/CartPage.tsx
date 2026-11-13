@@ -262,20 +262,30 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
         if (imageUrl) found.push({ productUrl: item.productUrl, imageUrl });
       }
       if (!found.length) { toast.error("Couldn’t find any product pictures."); return prices; }
-      const response = await fetch("/api/cart/images", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, images: found }) });
-      if (!response.ok) { toast.error("Found pictures, but saving them failed."); return prices; }
-      const byUrl = new Map(found.map(f => [f.productUrl, f.imageUrl]));
-      onSaved({ ...request, items: request.items.map(item => (byUrl.has(item.productUrl) ? { ...item, imageUrl: byUrl.get(item.productUrl) } : item)) });
-      // Show them in the cards now, without touching anything being edited.
-      setItems(current => current.map(item => {
-        const link = fromEditorItems([item])[0].productUrl;
-        return byUrl.has(link) ? { ...item, imageUrl: byUrl.get(link), imageOf: link } : item;
-      }));
+      if (!(await saveImages(found))) { toast.error("Found pictures, but saving them failed."); return prices; }
       toast.success(`${found.length} of ${targets.length} pictures found`);
       return prices;
     } finally {
       setFetchingImages("");
     }
+  }
+
+  // Pictures saved in this page, so a quotation saved from an older copy of the request doesn't drop them here.
+  const savedImages = useRef(new Map<string, string>());
+  const withSavedImages = (r: CartRequest): CartRequest => ({ ...r, items: r.items.map(item => (!item.imageUrl && savedImages.current.has(item.productUrl) ? { ...item, imageUrl: savedImages.current.get(item.productUrl) } : item)) });
+
+  /** Saves product pictures on the request and shows them in the cards, without touching anything being edited. */
+  async function saveImages(found: { productUrl: string; imageUrl: string }[]): Promise<boolean> {
+    const response = await fetch("/api/cart/images", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, images: found }) }).catch(() => null);
+    if (!response?.ok) return false;
+    const byUrl = new Map(found.map(f => [f.productUrl, f.imageUrl]));
+    byUrl.forEach((imageUrl, productUrl) => savedImages.current.set(productUrl, imageUrl));
+    onSaved({ ...request, items: request.items.map(item => (byUrl.has(item.productUrl) ? { ...item, imageUrl: byUrl.get(item.productUrl) } : item)) });
+    setItems(current => current.map(item => {
+      const link = fromEditorItems([item])[0].productUrl;
+      return byUrl.has(link) ? { ...item, imageUrl: byUrl.get(link), imageOf: link } : item;
+    }));
+    return true;
   }
 
   // Team only: whether the order this cart points to still exists. If it was deleted on the orders page, the cart
@@ -388,7 +398,7 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
       {!admin && request.quote && <QuoteBill request={request} changing={dirty} />}
 
       {/* Remounts with fresh price boxes when the products or quantities change. */}
-      {admin && <QuotePanel key={JSON.stringify(request.items.map(item => [item.productUrl, item.quantity]))} request={linked} mobile={mobile} unsaved={dirty} onSaved={onSaved} orderDeleted={orderExists === false && !!request.orderId} orderData={orderExists === false ? null : order.data} autoPrice={autoPrice} onAutoPriceDone={() => setAutoPrice(null)} />}
+      {admin && <QuotePanel key={JSON.stringify(request.items.map(item => [item.productUrl, item.quantity]))} request={linked} mobile={mobile} unsaved={dirty} onSaved={r => onSaved(withSavedImages(r))} onImages={found => { void saveImages(found); }} orderDeleted={orderExists === false && !!request.orderId} orderData={orderExists === false ? null : order.data} autoPrice={autoPrice} onAutoPriceDone={() => setAutoPrice(null)} />}
       {dirty && <div className="cart-save-spacer" aria-hidden="true" />}
     </article>
   );
@@ -399,8 +409,10 @@ type AutoPrice = { token: number; saveQuote: boolean; known?: Record<string, num
 
 // ── Team only: read each product's price through the ParcelSewa extension (like "Verify" on the orders page),
 //    or type it in, then copy a quotation in the quotation calculator's format. ───────────────────────────────
-function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted, orderData, autoPrice, onAutoPriceDone }: {
+function QuotePanel({ request, mobile, unsaved, onSaved, onImages, orderDeleted, orderData, autoPrice, onAutoPriceDone }: {
   request: CartRequest; mobile: string; unsaved: boolean; onSaved: (r: CartRequest) => void; orderDeleted: boolean;
+  /** Product pictures the price lookup found for products that have none yet. */
+  onImages: (found: { productUrl: string; imageUrl: string }[]) => void;
   orderData: Record<string, unknown> | null; autoPrice: AutoPrice | null; onAutoPriceDone: () => void;
 }) {
   const [prices, setPrices] = useState<string[]>(() => request.items.map(item => (item.priceInr ? String(item.priceInr) : "")));
@@ -454,11 +466,15 @@ function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted, orderData
       } else {
         leftForClaude.push(...indexes);
       }
+      const pictures: { productUrl: string; imageUrl: string }[] = [];
       await Promise.all(leftForClaude.map(async i => {
         setStatus(current => setAt(current, i, withExtension ? "Extension couldn’t read it — asking Claude…" : "Asking Claude for the price…"));
-        const { price, note } = await fetchProductPriceViaClaude(request.items[i].productUrl);
+        const { price, note, imageUrl } = await fetchProductPriceViaClaude(request.items[i].productUrl);
         done(i, price, note);
+        // The same lookup also reports the product photo: keep it for products still without a picture.
+        if (imageUrl && !request.items[i].imageUrl) pictures.push({ productUrl: request.items[i].productUrl, imageUrl });
       }));
+      if (pictures.length) onImages(pictures);
     } finally {
       setReading(false);
     }
