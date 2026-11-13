@@ -21,8 +21,9 @@ function send(message: Record<string, unknown>, replyType: string, timeoutMs: nu
 
 export const hasExtension = async () => !!(await send({ type: "PARCELSEWA_PING" }, "PARCELSEWA_PONG", 600));
 
-/** Returns the product image (or null) plus a short note on what the extension did, for the progress log. */
-export async function fetchStoreImageViaExtension(productUrl: string, notes: string): Promise<{ image: string | null; note: string }> {
+/** Returns the product image (or null) plus a short note on what the extension did, for the progress log. The price
+ *  on the same page is read too, so a following price lookup doesn't have to open the page again. */
+export async function fetchStoreImageViaExtension(productUrl: string, notes: string): Promise<{ image: string | null; note: string; price?: number }> {
     let url: URL;
     try { url = new URL(productUrl); } catch { return { image: null, note: "" }; }
     const store = isStoreUrl(url, "flipkart.com") ? "flipkart" : isStoreUrl(url, "ajio.com") ? "ajio" : null;
@@ -30,17 +31,19 @@ export async function fetchStoreImageViaExtension(productUrl: string, notes: str
     if (url.protocol !== "https:" || /myntra\.com$/i.test(url.hostname)) return { image: null, note: "" };
     if (!(await hasExtension())) return { image: null, note: "Extension not detected on this page (install it, then refresh); using server" };
     const tried: string[] = [];
+    let price: number | undefined;
     if (store === "flipkart" && url.hostname === "flipkart.com") url.hostname = "www.flipkart.com";
     // Ajio blocks plain fetches, so it needs a real page load; Flipkart tries the cheap fetches first.
     for (const mode of store === "ajio" ? ["tab"] : store === "flipkart" ? ["browser", "crawler", "tab"] : ["browser", "tab"]) {
         const reply = await send({ type: "PARCELSEWA_FETCH_HTML", url: url.href, mode }, "PARCELSEWA_HTML_RESULT", 45000);
         if (!reply?.ok || !reply.html) { tried.push(`${mode}: ${reply ? reply.error || `HTTP ${reply.status}` : "no response"}`); continue; }
+        price ??= extractPrice(reply.html) || undefined;
         const images = store ? extractStoreImages(reply.html, productUrl, store) : extractGenericImages(reply.html, productUrl);
         const image = chooseImage(images, notes);
-        if (image) return { image, note: `Found via extension (${mode})` };
+        if (image) return { image, note: `Found via extension (${mode})`, price };
         tried.push(`${mode}: page had no product image`);
     }
-    return { image: null, note: `Extension found nothing (${tried.join("; ")}); using server` };
+    return { image: null, note: `Extension found nothing (${tried.join("; ")}); using server`, price };
 }
 
 /** Reads a product's selling price (INR) from any store page, trying cheap fetches before a real page load. */

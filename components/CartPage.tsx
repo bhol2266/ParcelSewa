@@ -172,7 +172,7 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
   const [saving, setSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
   // Team: set after a save that left the quotation out of date; the quotation panel fetches missing prices and saves it.
-  const [autoPrice, setAutoPrice] = useState<{ token: number; saveQuote: boolean } | null>(() => (quoteOnOpen ? { token: 1, saveQuote: true } : null));
+  const [autoPrice, setAutoPrice] = useState<AutoPrice | null>(() => (quoteOnOpen ? { token: 1, saveQuote: true } : null));
   const inFlight = useRef(false);
   const idPrefix = `cart-${request.id}`;
 
@@ -234,7 +234,9 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
 
   // Team only: product pictures, read like the orders page does (the extension first, then the server).
   const [fetchingImages, setFetchingImages] = useState("");
-  async function fetchImages() {
+  // Returns the prices read from the same store pages, so the price step doesn't open them a second time.
+  async function fetchImages(): Promise<Record<string, number>> {
+    const prices: Record<string, number> = {};
     const missing = request.items.filter(item => !item.imageUrl);
     const targets = missing.length ? missing : request.items;
     const found: { productUrl: string; imageUrl: string }[] = [];
@@ -242,7 +244,9 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
       for (const [n, item] of targets.entries()) {
         setFetchingImages(`${n + 1}/${targets.length}`);
         const notes = item.details.map(d => `${d.label}: ${d.value}`).join(", ");
-        let imageUrl = (await fetchStoreImageViaExtension(productPageUrl(item.productUrl), notes)).image;
+        const viaExtension = await fetchStoreImageViaExtension(productPageUrl(item.productUrl), notes);
+        if (viaExtension.price) prices[item.productUrl] = viaExtension.price;
+        let imageUrl = viaExtension.image;
         if (!imageUrl) {
           const response = await fetch("/api/fetch-product-image", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ productUrl: productPageUrl(item.productUrl), notes }) }).catch(() => null);
           const result = response ? await response.json().catch(() => ({})) : {};
@@ -250,12 +254,16 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
         }
         // Stores the picture scrapers can't read (Myntra): the Claude lookup reads the page and reports the photo.
         // The backend keeps lookups for 30 minutes, so after a price lookup this costs nothing extra.
-        if (!imageUrl) imageUrl = (await fetchProductPriceViaClaude(item.productUrl)).imageUrl ?? null;
+        if (!imageUrl) {
+          const lookup = await fetchProductPriceViaClaude(item.productUrl);
+          if (lookup.price && !prices[item.productUrl]) prices[item.productUrl] = lookup.price;
+          imageUrl = lookup.imageUrl ?? null;
+        }
         if (imageUrl) found.push({ productUrl: item.productUrl, imageUrl });
       }
-      if (!found.length) { toast.error("Couldn’t find any product pictures."); return; }
+      if (!found.length) { toast.error("Couldn’t find any product pictures."); return prices; }
       const response = await fetch("/api/cart/images", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, images: found }) });
-      if (!response.ok) { toast.error("Found pictures, but saving them failed."); return; }
+      if (!response.ok) { toast.error("Found pictures, but saving them failed."); return prices; }
       const byUrl = new Map(found.map(f => [f.productUrl, f.imageUrl]));
       onSaved({ ...request, items: request.items.map(item => (byUrl.has(item.productUrl) ? { ...item, imageUrl: byUrl.get(item.productUrl) } : item)) });
       // Show them in the cards now, without touching anything being edited.
@@ -264,6 +272,7 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
         return byUrl.has(link) ? { ...item, imageUrl: byUrl.get(link), imageOf: link } : item;
       }));
       toast.success(`${found.length} of ${targets.length} pictures found`);
+      return prices;
     } finally {
       setFetchingImages("");
     }
@@ -306,8 +315,8 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
   // Team: one tap fetches missing pictures, then the quotation panel fetches missing prices and saves the quotation
   // (the same step Save runs). Pictures first: the extension reads one store page at a time.
   async function fetchImagesAndPrices() {
-    if (request.items.some(item => !item.imageUrl)) await fetchImages();
-    setAutoPrice({ token: Date.now(), saveQuote: true });
+    const known = request.items.some(item => !item.imageUrl) ? await fetchImages() : {};
+    setAutoPrice({ token: Date.now(), saveQuote: true, known });
   }
 
   async function cancelRequest() {
@@ -385,11 +394,14 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
   );
 }
 
+/** A request for the quotation panel to fetch missing prices (and save the quotation when `saveQuote`). */
+type AutoPrice = { token: number; saveQuote: boolean; known?: Record<string, number> };
+
 // ── Team only: read each product's price through the ParcelSewa extension (like "Verify" on the orders page),
 //    or type it in, then copy a quotation in the quotation calculator's format. ───────────────────────────────
 function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted, orderData, autoPrice, onAutoPriceDone }: {
   request: CartRequest; mobile: string; unsaved: boolean; onSaved: (r: CartRequest) => void; orderDeleted: boolean;
-  orderData: Record<string, unknown> | null; autoPrice: { token: number; saveQuote: boolean } | null; onAutoPriceDone: () => void;
+  orderData: Record<string, unknown> | null; autoPrice: AutoPrice | null; onAutoPriceDone: () => void;
 }) {
   const [prices, setPrices] = useState<string[]>(() => request.items.map(item => (item.priceInr ? String(item.priceInr) : "")));
   const [status, setStatus] = useState<string[]>(() => request.items.map(() => ""));
@@ -415,15 +427,20 @@ function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted, orderData
 
   // On a computer with the ParcelSewa extension, prices are read through it (like "Verify" on the orders page).
   // Without it (phones), or when the extension can't read a page, the server asks Claude instead.
-  async function readPrices(only?: number): Promise<Map<number, number>> {
+  // `known`: prices already read from the store pages (by Fetch images & prices), used instead of a second lookup.
+  async function readPrices(only?: number, known?: Record<string, number>): Promise<Map<number, number>> {
     setReading(true);
     setCopyState("");
     const found = new Map<number, number>();
-    const indexes = request.items.map((_, i) => i).filter(i => (only !== undefined ? i === only : !prices[i]));
     const done = (i: number, price: number | null, note: string) => {
       if (price) { found.set(i, price); setPrices(current => setAt(current, i, String(price))); setStatus(current => setAt(current, i, "")); }
       else setStatus(current => setAt(current, i, `Couldn’t read the price (${note}). Type it in.`));
     };
+    const indexes = request.items.map((_, i) => i).filter(i => (only !== undefined ? i === only : !prices[i])).filter(i => {
+      const price = known?.[request.items[i].productUrl];
+      if (price) done(i, price, "");
+      return !price;
+    });
     try {
       const withExtension = await hasExtension();
       // The extension opens store pages one at a time; Claude lookups run side by side.
@@ -453,7 +470,7 @@ function QuotePanel({ request, mobile, unsaved, onSaved, orderDeleted, orderData
     if (!autoPrice) return;
     const timer = setTimeout(async () => {
       onAutoPriceDone();
-      const found = await readPrices();
+      const found = await readPrices(undefined, autoPrice.known);
       const finalPrices = request.items.map((item, i) => found.get(i) ?? (Number(prices[i]) || 0));
       if (!autoPrice.saveQuote) { if (found.size) toast.success("Prices fetched — check them, then tap Save quotation"); return; }
       if (!finalPrices.every(price => price > 0)) { toast.error("Some prices couldn’t be found — type them in, then tap Update quotation."); return; }
