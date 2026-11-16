@@ -25,7 +25,7 @@ function access(req: NextRequest) {
 
 const editable = (createdAt: number, admin: boolean) => editableRequest(createdAt, admin);
 
-/** An order request from the /order form: a new request, or added to the number's open one. Returns the full product list and the /cart link. */
+/** A new order request. With `replace` (the /order form) it replaces the number's open cart; otherwise it is added to the open one. Returns the full product list and the /cart link. */
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const items = cleanItems(body?.items);
@@ -46,7 +46,16 @@ export async function POST(req: NextRequest) {
     .filter(d => !d.data().cancelled && editable(millis(d.data().createdAt), false))
     .sort((a, b) => millis(b.data().createdAt) - millis(a.data().createdAt))[0];
   const admin = req.cookies.get(ADMIN_COOKIE)?.value === ADMIN_PASSWORD;
-  if (open) {
+  const requestId = makeRequestId();
+
+  // The /order page starts a fresh cart: open requests the team hasn't turned into an order yet are cancelled and
+  // replaced by this one. Confirmed orders are left alone.
+  let replaced = 0;
+  if (body?.replace === true) {
+    const stale = mine.docs.filter(d => !d.data().cancelled && !d.data().orderId && editable(millis(d.data().createdAt), false));
+    await Promise.all(stale.map(d => updateDoc(d.ref, { cancelled: true, cancelledAt: now, cancelledBy: "customer-form", replacedBy: requestId })));
+    replaced = stale.length;
+  } else if (open) {
     const data = open.data();
     const before = itemsOf(data);
     const merged = mergeItems(before, items);
@@ -73,7 +82,6 @@ export async function POST(req: NextRequest) {
     }, { headers: noStore });
   }
 
-  const requestId = makeRequestId();
   const record = {
     requestId, items, itemCount: items.length, totalQuantity: totalPieces(items),
     // The first product is also kept at the top level, matching older single-product records.
@@ -83,7 +91,7 @@ export async function POST(req: NextRequest) {
     ...(body?.firstOrderOfferRequested ? { offerCode: festivalCampaign.offerCode, firstOrderOfferRequested: true } : {}),
   };
   const created = await addDoc(collection(db, ORDER_REQUESTS), record);
-  return NextResponse.json({ merged: false, requestId, cartPath: cartPath(mobile), items, notes, request: toCartRequest(created.id, record, admin) }, { headers: noStore });
+  return NextResponse.json({ merged: false, replaced, requestId, cartPath: cartPath(mobile), items, notes, request: toCartRequest(created.id, record, admin) }, { headers: noStore });
 }
 
 /** The cart: this number's order requests from the last CART_DAYS (every request for the team). */

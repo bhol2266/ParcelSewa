@@ -16,7 +16,7 @@ export default function OrderRequestComponent({ festivalOffer = false }: { festi
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [whatsappDraft, setWhatsappDraft] = useState("");
-  const [savedMerged, setSavedMerged] = useState(false);
+  const [savedReplaced, setSavedReplaced] = useState(false);
   const [savedCartUrl, setSavedCartUrl] = useState("");
   const [firstOrderOfferRequested, setFirstOrderOfferRequested] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
@@ -37,25 +37,25 @@ export default function OrderRequestComponent({ festivalOffer = false }: { festi
     try {
       setLoading(true);
       setWhatsappDraft("");
-      // The server saves the request, or adds these products to the number's open request, and returns the full list.
+      // The server saves a fresh request, replacing the number's open (unconfirmed) cart if there is one.
       const response = await fetch("/api/cart", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: products, name: name.trim(), mobile: mobile.trim(), deliveryLocation: deliveryLocation.trim(), notes: notes.trim(), firstOrderOfferRequested: offerRequested }),
+        body: JSON.stringify({ items: products, name: name.trim(), mobile: mobile.trim(), deliveryLocation: deliveryLocation.trim(), notes: notes.trim(), firstOrderOfferRequested: offerRequested, replace: true }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) { toast.error(result.error || "We couldn’t save your request. Please try again."); return; }
       const cartUrl = `${window.location.origin}${result.cartPath}`;
       const message = requestMessage({
-        title: result.merged ? "✎ *Order Request Updated*" : "★ *New Order Request*", items: result.items,
+        title: result.replaced ? "★ *New Order Request* (replaces my earlier cart)" : "★ *New Order Request*", items: result.items,
         name: name.trim(), deliveryLocation: deliveryLocation.trim(), mobile: mobile.trim(), notes: result.notes, cartUrl,
         offerNote: offerRequested ? "★ *Festival offer requested:* First ParcelSewa order — 10% off the service fee only. Please confirm eligibility and the discounted quote." : null,
       });
       const whatsappUrl = `${SUPPORT_URL}?text=${encodeURIComponent(message)}`;
       setWhatsappDraft(whatsappUrl);
-      setSavedMerged(result.merged);
+      setSavedReplaced(result.replaced > 0);
       setSavedCartUrl(result.cartPath);
       window.open(whatsappUrl, "_blank", "noopener,noreferrer");
-      toast.success(result.merged ? "Added to your open order. Send the WhatsApp message to let us know." : "Request saved. Send the prepared WhatsApp message to continue.");
+      toast.success(result.replaced ? "New cart saved — it replaces your earlier one. Send the WhatsApp message to let us know." : "Request saved. Send the prepared WhatsApp message to continue.");
       setItems([emptyItem()]); setName(""); setMobile("+977"); setDeliveryLocation(""); setNotes(""); setShowNotes(false);
       setFirstOrderOfferRequested(false);
     } catch (error) {
@@ -78,7 +78,7 @@ export default function OrderRequestComponent({ festivalOffer = false }: { festi
         <div className="order-desktop-only"><Link href="/price-calculator" className="text-link mt-6">Want a budget estimate first? Try the calculator →</Link><p className="small-note mt-5">Need help choosing a link? <WhatsAppLink>Chat with our team</WhatsAppLink></p></div>
       </div>
       <div>
-        {whatsappDraft && <div className="surface-panel order-saved mb-5" role="status"><h2 className="text-xl">{savedMerged ? "Added to your open order" : "Request saved"}</h2><p className="small-note mt-2">{savedMerged ? "You already had an order with us from the last 7 days, so these products were added to it. " : ""}If WhatsApp didn’t open, tap below and press send. To add, remove or change products later, use your cart link (valid for 7 days).</p><WhatsAppLink href={whatsappDraft} className="mt-4">Continue on WhatsApp</WhatsAppLink>{savedCartUrl && <Link href={savedCartUrl} className="text-link mt-4 block">Open my cart →</Link>}</div>}
+        {whatsappDraft && <div className="surface-panel order-saved mb-5" role="status"><h2 className="text-xl">{savedReplaced ? "New cart saved" : "Request saved"}</h2><p className="small-note mt-2">{savedReplaced ? "Your earlier cart from the last 7 days was replaced with these products. " : ""}If WhatsApp didn’t open, tap below and press send. To add, remove or change products later, use your cart link (valid for 7 days).</p><WhatsAppLink href={whatsappDraft} className="mt-4">Continue on WhatsApp</WhatsAppLink>{savedCartUrl && <Link href={savedCartUrl} className="text-link mt-4 block">Open my cart →</Link>}</div>}
         <form onSubmit={handleSubmit} className="form-panel order-form">
           {festivalOffer && <div className="order-offer-panel"><p className="eyebrow">Dashain & Tihar offer</p><h3>10% off your first order’s service fee</h3><label htmlFor="first-order-offer"><input id="first-order-offer" type="checkbox" checked={firstOrderOfferRequested} onChange={event => setFirstOrderOfferRequested(event.target.checked)} /><span>This is my first ParcelSewa order. Please apply the service fee offer.</span></label><p>Our team verifies eligibility and confirms the discount in your quote. Product and delivery charges are unchanged.</p><Link href="/offers#offer-details">Read offer details →</Link></div>}
 
