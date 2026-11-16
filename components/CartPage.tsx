@@ -329,6 +329,25 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
     setAutoPrice({ token: Date.now(), saveQuote: true, known });
   }
 
+  // Team: the customer sent the /order form again and this request replaced an earlier cart; bring its products back.
+  const [merging, setMerging] = useState("");
+  async function mergeReplaced(from: { id: string; requestId: string }) {
+    setMerging(from.id);
+    try {
+      const response = await fetch(`/api/cart?${apiQuery}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, mergeFrom: from.id }) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) { toast.error(result.error || "Couldn’t merge. Please try again."); return; }
+      toast.success(result.added ? `Added ${result.added} ${result.added === 1 ? "product" : "products"} from ${from.requestId}` : `Nothing new in ${from.requestId}; it's marked merged`);
+      const saved = result.request as CartRequest;
+      onSaved({ ...saved, replaced: request.replaced?.filter(r => r.id !== from.id) });
+      if (!saved.quote || saved.items.some(item => !(typeof item.priceInr === "number" && item.priceInr > 0))) setAutoPrice({ token: Date.now(), saveQuote: true });
+    } catch {
+      toast.error("Couldn’t merge. Check your connection and try again.");
+    } finally {
+      setMerging("");
+    }
+  }
+
   async function cancelRequest() {
     if (!window.confirm("Cancel this order request? It will be removed from your cart.")) return;
     const response = await fetch(`/api/cart?${apiQuery}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: request.id, cancel: true }) });
@@ -351,6 +370,13 @@ function RequestCard({ request, apiQuery, mobile, admin, quoteOnOpen = false, on
             : <button type="button" className="cart-cancel" onClick={cancelRequest}>Cancel</button>}
         </div>
       </div>
+
+      {admin && request.replaced?.map(old => (
+        <div key={old.id} className="cart-replaced" role="status">
+          <p><strong>Replaced an earlier cart.</strong> When the customer sent this request it replaced {old.requestId} (sent {dateLabel(old.createdAt, true)}, {old.itemCount} {old.itemCount === 1 ? "product" : "products"}, {old.totalQuantity} {old.totalQuantity === 1 ? "piece" : "pieces"}).</p>
+          <button type="button" disabled={!!merging || dirty} title={dirty ? "Save your changes first" : undefined} onClick={() => void mergeReplaced(old)}>{merging === old.id ? "Merging…" : "Merge its products in"}</button>
+        </div>
+      ))}
 
       {conflict && (
         <div className="cart-conflict" role="alert">

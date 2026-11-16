@@ -403,6 +403,13 @@ input.order-detail-name:focus { outline: 2px solid #e9944e; outline-offset: 1px;
 .order-contact .form-field label, .order-form > .form-field label { font-size: 12px; }
 
 .order-submit { display: flex; align-items: center; gap: 14px; }
+/* /order: the number already has an open cart, so the customer picks add or replace. */
+.order-open-cart { display: grid; gap: 10px; padding: 14px 16px; border-radius: 12px; border: 1px solid #f0b27a; border-left: 4px solid #e8730c; background: #fff6ee; color: #5c2c06; font-size: 13px; line-height: 1.5; }
+.order-open-cart h3 { margin: 0; font-size: 15px; color: inherit; }
+.order-open-cart p { margin: 0; }
+.order-open-cart-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.order-open-cart-actions button { flex: 1 1 180px; }
+.dark .order-open-cart { background: #2a1a0d; border-color: #7a4a1f; border-left-color: #f59e0b; color: #ffdcb8; }
 .order-summary { display: grid; flex-shrink: 0; font-size: 11px; line-height: 1.35; color: var(--store-text); }
 .order-summary strong { color: var(--store-ink); font-size: 13px; }
 .form-panel .order-submit button { flex: 1; width: auto; }
@@ -595,6 +602,13 @@ input.order-detail-name:focus { outline: 2px solid #e9944e; outline-offset: 1px;
 .dark .cart-confirmed { background: #0f2a1b; color: #6ee7a0; }
 
 /* Live updates: someone else saved while there were unsaved edits here. */
+/* Team: an earlier cart this request replaced, with a button to merge its products back in. */
+.cart-replaced { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; border-radius: 10px; border: 1px solid #f0b27a; background: #fff6ee; color: #7a3a0a; font-size: 12px; line-height: 1.5; }
+.cart-replaced p { flex: 1 1 260px; margin: 0; }
+.cart-replaced button { border: 1px solid #c85b13; border-radius: 8px; background: #fff; color: #c85b13; padding: 6px 12px; font-size: 12px; font-weight: 650; cursor: pointer; }
+.cart-replaced button:disabled { opacity: .55; cursor: default; }
+.dark .cart-replaced { background: #2a1a0d; border-color: #7a4a1f; color: #ffcf9e; }
+.dark .cart-replaced button { background: transparent; border-color: #f59e0b; color: #fbbf24; }
 .cart-conflict { display: grid; gap: 8px; padding: 10px 12px; border-radius: 10px; border: 1px solid #f0b27a; background: #fff6ee; color: #7a3a0a; font-size: 12px; line-height: 1.5; }
 .cart-conflict button { justify-self: start; border: 0; background: none; padding: 0; color: #c85b13; font-size: 12px; font-weight: 650; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .dark .cart-conflict { background: #2a1a0d; border-color: #7a4a1f; color: #ffcf9e; }

@@ -46,7 +46,14 @@ export type CartRequest = {
   ordered?: boolean;
   /** The products (link and quantity) that were in the order when it was last created or updated from this cart. */
   orderedItems?: OrderedProduct[];
+  /**
+   * Team only: earlier carts from this number that the customer replaced by sending the /order form again with this
+   * one, and that haven't been merged back in yet.
+   */
+  replaced?: ReplacedCart[];
 };
+
+export type ReplacedCart = { id: string; requestId: string; itemCount: number; totalQuantity: number; createdAt: number };
 
 /**
  * The product link from whatever was pasted. Store apps share text such as
@@ -107,21 +114,29 @@ export function itemsOf(data: Record<string, unknown>): CartItem[] {
 
 export const totalPieces = (items: CartItem[]) => items.reduce((sum, item) => sum + item.quantity, 0);
 
-/**
- * When a customer sends the form again while a request is still open: a product already in the cart (same link)
- * takes the new quantity and details, keeping the team's price; new links are added at the end. Sending the same
- * form twice therefore changes nothing.
- */
 /** What the team added to a product (price, picture), carried over while its link stays the same. */
 export const keptFromTeam = (item: CartItem) => ({
   ...(typeof item.priceInr === "number" ? { priceInr: item.priceInr } : {}),
   ...(item.imageUrl ? { imageUrl: item.imageUrl } : {}),
 });
 
+/**
+ * The same product: same link and the same details. One link can be several products (a badge in "25 jumps" and
+ * "50 jumps", a chapstick in four colours), so the link alone isn't enough.
+ */
+const detailsKey = (item: CartItem) =>
+  JSON.stringify(item.details.map(d => [d.type, d.value.trim().toLowerCase()]).sort());
+export const sameProduct = (a: CartItem, b: CartItem) => a.productUrl === b.productUrl && detailsKey(a) === detailsKey(b);
+
+/**
+ * When a customer adds products to a request that is still open: a product already in the cart (same link and
+ * details) takes the new quantity, keeping the team's price; anything else is added at the end. Sending the same
+ * form twice therefore changes nothing.
+ */
 export function mergeItems(existing: CartItem[], incoming: CartItem[]): CartItem[] {
   const merged = existing.map(item => ({ ...item }));
   for (const item of incoming) {
-    const index = merged.findIndex(old => old.productUrl === item.productUrl);
+    const index = merged.findIndex(old => sameProduct(old, item));
     if (index === -1) merged.push(item);
     else merged[index] = { ...item, ...keptFromTeam(merged[index]) };
   }
@@ -279,9 +294,17 @@ export function toCartRequest(id: string, data: Record<string, unknown>, admin: 
 
 /** The requests a cart shows: not cancelled, within CART_DAYS for customers, newest first. */
 export function visibleRequests(docs: { id: string; data: Record<string, unknown> }[], admin: boolean): CartRequest[] {
+  const replacedBy = (requestId: string): ReplacedCart[] => docs
+    .filter(d => d.data.cancelled && d.data.replacedBy === requestId && !d.data.mergedInto)
+    .map(d => { const items = itemsOf(d.data); return { id: d.id, requestId: String(d.data.requestId ?? ""), itemCount: items.length, totalQuantity: totalPieces(items), createdAt: millis(d.data.createdAt) }; })
+    .sort((a, b) => b.createdAt - a.createdAt);
   return docs
     .filter(d => !d.data.cancelled && editableRequest(millis(d.data.createdAt), admin))
-    .map(d => toCartRequest(d.id, d.data, admin))
+    .map(d => {
+      const request = toCartRequest(d.id, d.data, admin);
+      const replaced = admin ? replacedBy(request.requestId) : [];
+      return replaced.length ? { ...request, replaced } : request;
+    })
     .sort((a, b) => b.createdAt - a.createdAt)
     .slice(0, admin ? 20 : 10);
 }

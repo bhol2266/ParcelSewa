@@ -3,7 +3,7 @@ import { randomInt } from "crypto";
 import { addDoc, collection, deleteField, doc, getDoc, getDocs, query, Timestamp, updateDoc, where } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebaseClient";
 import { ADMIN_COOKIE, ADMIN_PASSWORD } from "@/lib/admin-access";
-import { cleanItems, editableRequest, refreshQuote, itemsOf, keptFromTeam, MAX_ITEMS, millis, mergeItems, ORDER_REQUESTS, productsDiffer, toCartRequest, totalPieces, visibleRequests, type CartItem } from "@/lib/cart";
+import { cleanItems, editableRequest, sameProduct,refreshQuote, itemsOf, keptFromTeam, MAX_ITEMS, millis, mergeItems, ORDER_REQUESTS, productsDiffer, toCartRequest, totalPieces, visibleRequests, type CartItem } from "@/lib/cart";
 import { cartPath, checkCartAccess } from "@/lib/cart-link";
 import { nepalMobile } from "@/lib/track-auth";
 import { festivalCampaign } from "@/lib/storefront";
@@ -25,7 +25,11 @@ function access(req: NextRequest) {
 
 const editable = (createdAt: number, admin: boolean) => editableRequest(createdAt, admin);
 
-/** A new order request. With `replace` (the /order form) it replaces the number's open cart; otherwise it is added to the open one. Returns the full product list and the /cart link. */
+/**
+ * A new order request. `replace: true` replaces the number's open cart; otherwise the products are added to the open
+ * one. `replace: "ask"` (the /order form) saves nothing while an open cart exists and answers 409 with a summary of
+ * it, so the customer can choose to add to it or replace it. Returns the full product list and the /cart link.
+ */
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
   const items = cleanItems(body?.items);
@@ -40,19 +44,29 @@ export async function POST(req: NextRequest) {
   const notes = text(body?.notes, 1000);
   const now = Timestamp.now();
 
-  // Already an open request from this number (last CART_DAYS, not cancelled)? Add to it instead of starting another.
+  // Already an open request from this number (last CART_DAYS, not cancelled, not yet an order)? Add to it instead of
+  // starting another. A confirmed order is never changed from here.
   const mine = await getDocs(query(collection(db, ORDER_REQUESTS), where("mobile", "==", `+977${mobile}`)));
-  const open = mine.docs
-    .filter(d => !d.data().cancelled && editable(millis(d.data().createdAt), false))
-    .sort((a, b) => millis(b.data().createdAt) - millis(a.data().createdAt))[0];
+  const openCarts = mine.docs
+    .filter(d => !d.data().cancelled && !d.data().orderId && editable(millis(d.data().createdAt), false))
+    .sort((a, b) => millis(b.data().createdAt) - millis(a.data().createdAt));
+  const open = openCarts[0];
+  if (body?.replace === "ask" && open) {
+    const data = open.data();
+    const existing = itemsOf(data);
+    return NextResponse.json({
+      error: "You already have an open cart.", choice: true,
+      existing: { requestId: data.requestId, itemCount: existing.length, totalQuantity: totalPieces(existing), createdAt: millis(data.createdAt) },
+    }, { status: 409, headers: noStore });
+  }
   const admin = req.cookies.get(ADMIN_COOKIE)?.value === ADMIN_PASSWORD;
   const requestId = makeRequestId();
 
-  // The /order page starts a fresh cart: open requests the team hasn't turned into an order yet are cancelled and
-  // replaced by this one. Confirmed orders are left alone.
+  // Starting a fresh cart: open requests the team hasn't turned into an order yet are cancelled and replaced by this
+  // one (the team can merge them back from the cart page). Confirmed orders are left alone.
   let replaced = 0;
-  if (body?.replace === true) {
-    const stale = mine.docs.filter(d => !d.data().cancelled && !d.data().orderId && editable(millis(d.data().createdAt), false));
+  if (body?.replace === true || body?.replace === "ask") {
+    const stale = openCarts;
     await Promise.all(stale.map(d => updateDoc(d.ref, { cancelled: true, cancelledAt: now, cancelledBy: "customer-form", replacedBy: requestId })));
     replaced = stale.length;
   } else if (open) {
@@ -116,6 +130,33 @@ export async function PUT(req: NextRequest) {
   const data = snap.data();
   if (!data || data.mobile !== `+977${who.mobile}` || data.cancelled) return NextResponse.json({ error: "This request wasn't found." }, { status: 404 });
   if (!editable(millis(data.createdAt), who.admin)) return NextResponse.json({ error: "expired" }, { status: 410 });
+
+  // Team: bring back the products of an earlier cart this request replaced (the customer sent the /order form twice).
+  if (typeof body?.mergeFrom === "string") {
+    if (!who.admin) return NextResponse.json({ error: "Only the team can do this." }, { status: 403 });
+    const oldRef = doc(db, ORDER_REQUESTS, text(body.mergeFrom, 100));
+    const old = (await getDoc(oldRef)).data();
+    if (!old || old.mobile !== data.mobile || !old.cancelled || old.replacedBy !== data.requestId || old.mergedInto) {
+      return NextResponse.json({ error: "That earlier cart wasn't found or was already merged." }, { status: 404 });
+    }
+    const current = itemsOf(data);
+    const merged = [...current, ...itemsOf(old).filter(item => !current.some(kept => sameProduct(kept, item)))];
+    if (merged.length > MAX_ITEMS) return NextResponse.json({ error: `Together that's ${merged.length} products; a cart holds up to ${MAX_ITEMS}. Remove some first.` }, { status: 400 });
+    const now = Timestamp.now();
+    const changes = {
+      items: merged, itemCount: merged.length, totalQuantity: totalPieces(merged),
+      productUrl: merged[0].productUrl, quantity: merged[0].quantity,
+      updatedAt: now, editCount: (Number(data.editCount) || 0) + 1, lastEditedBy: "admin",
+    };
+    const requoted = productsDiffer(current, merged) && data.quote ? refreshQuote(data.quote, merged, now) : undefined;
+    const dropQuote = requoted === null;
+    await updateDoc(ref, { ...changes, ...(requoted ? { quote: requoted } : {}), ...(dropQuote ? { quote: deleteField() } : {}) });
+    await updateDoc(oldRef, { mergedInto: data.requestId, mergedAt: now });
+    const saved: Record<string, unknown> = { ...data, ...changes };
+    if (requoted) saved.quote = requoted;
+    if (dropQuote) delete saved.quote;
+    return NextResponse.json({ request: toCartRequest(id, saved, true), added: merged.length - current.length }, { headers: noStore });
+  }
 
   if (body?.cancel === true) {
     // Once the team has created the order the customer has paid / confirmed, so only the team can cancel.
