@@ -36,8 +36,8 @@ const INDIA_STEPS: [number, Omit<TrackingStep, "status" | "date" | "leg">][] = [
 
 // Days from reaching Raxaul to reaching the Birgunj hub.
 const BORDER_DAYS = 2;
-// Aramex takes 2-3 days from our handover to the customer's door.
-export const COURIER_DAYS = 3;
+// Customers see the order with Aramex for 5 days after it is marked delivered in /admin, then as delivered.
+export const COURIER_DAYS = 5;
 
 const toDate = (value: any): Date | null => value?.toDate?.() ?? (value instanceof Date ? value : null);
 const addDays = (date: Date, days: number) => new Date(date.getTime() + days * DAY);
@@ -101,8 +101,8 @@ export function trackProduct(order: any, index: number, now = new Date()): Produ
     steps.push(
         { key: "raxaul", title: "Received at Raxaul border", detail: "Your parcel is at our border facility, ready to cross into Nepal.", place: "Raxaul, India", leg: "border", date: borderAt, status: received ? "done" : "upcoming" },
         { key: "birgunj", title: "Crossed into Nepal, at Birgunj hub", detail: withCourier ? "Cleared the border and sorted for delivery to your address." : "Cleared the border and being prepared for delivery to your address.", place: "Birgunj, Nepal", leg: "nepal", date: crossed ? birgunjAt : null, status: crossed ? "done" : "upcoming" },
-        { key: "courier", title: "Parcel forwarded to Aramex courier", detail: delivered ? "Handed to Aramex Nepal for delivery to your address." : "Handed to Aramex Nepal. They deliver to your address in 2-3 days and may call you before delivery.", place: "Aramex Nepal", leg: "nepal", date: courierAt, status: withCourier ? "done" : "upcoming" },
-        { key: "home", title: delivered ? "Delivered to you" : "Delivery to your location", detail: delivered ? "Delivered to your address. Thank you for shopping with ParcelSewa!" : withCourier ? "Aramex is bringing it to your address, usually within 2-3 days." : "Out to your address once it leaves Birgunj.", place: order.address || "Your location, Nepal", leg: "home", date: doorAt, status: delivered ? "done" : "upcoming" },
+        { key: "courier", title: "Parcel forwarded to Aramex courier", detail: delivered ? "Handed to Aramex Nepal for delivery to your address." : "Handed to Aramex Nepal. They deliver to your address in 3-5 days and may call you before delivery.", place: "Aramex Nepal", leg: "nepal", date: courierAt, status: withCourier ? "done" : "upcoming" },
+        { key: "home", title: delivered ? "Delivered to you" : "Delivery to your location", detail: delivered ? "Delivered to your address. Thank you for shopping with ParcelSewa!" : withCourier ? "Aramex is bringing it to your address, usually within 3-5 days." : "Out to your address once it leaves Birgunj.", place: order.address || "Your location, Nepal", leg: "home", date: doorAt, status: delivered ? "done" : "upcoming" },
     );
 
     // The latest done step is the current one (unless everything is complete).
@@ -114,7 +114,7 @@ export function trackProduct(order: any, index: number, now = new Date()): Produ
     // Within the India leg, creep forward day by day so the bar visibly moves.
     const indiaShare = current.leg === "india" ? Math.min(elapsed, 9) / 10 : 0;
     // With Aramex: most of the way from Birgunj to the door, a little further each day.
-    const courierShare = current.key === "courier" ? 0.5 + Math.min(courierAt ? daysBetween(courierAt, now) : 0, COURIER_DAYS - 1) * 0.15 : 0;
+    const courierShare = current.key === "courier" ? 0.5 + (Math.min(courierAt ? daysBetween(courierAt, now) : 0, COURIER_DAYS - 1) * 0.3) / (COURIER_DAYS - 1) : 0;
     const progress = delivered ? 1 : (legIndex + indiaShare + courierShare) / 3;
 
     return { steps, current, leg: current.leg, progress: Math.min(progress, 1), delivered };

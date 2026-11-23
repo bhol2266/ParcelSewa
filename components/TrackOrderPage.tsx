@@ -910,7 +910,7 @@ function CourierPanel({ handedOver, receipt, trackingNumber }: { handedOver: Dat
                 <div className="min-w-0">
                     <p className="text-sm font-bold">Your parcel is with Aramex courier</p>
                     <p className="mt-0.5 text-xs leading-relaxed text-[var(--store-text)]">
-                        We handed it to Aramex Nepal{handedOver ? ` on ${formatDay(handedOver)}` : ""}. They usually deliver in 2-3 days and may call you before they come.
+                        We handed it to Aramex Nepal{handedOver ? ` on ${formatDay(handedOver)}` : ""}. They usually deliver in 3-5 days and may call you before they come.
                     </p>
                 </div>
             </div>
